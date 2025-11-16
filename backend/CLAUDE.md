@@ -2,24 +2,66 @@
 
 **Technology:** Node.js 24.11.1 + TypeScript 5.9.3 + Express 5.1.0 + Prisma 6.19.0
 
-Backend-specific guidance for the PicAI Express.js API.
+Backend-specific guidance for the PicAI Express.js API with November 2025 technology stack.
 
 **See main `CLAUDE.md` in project root for overall architecture and conventions.**
 
 ---
 
-## Technology Stack
+## Technology Stack (November 2025)
 
-- **Language:** TypeScript 5.9.3
-- **Runtime:** Node.js 24.11.1
-- **Framework:** Express 5.1.0
-- **Database:** PostgreSQL 15 with Prisma 6.19.0 ORM
-- **Authentication:** JWT (jsonwebtoken 9.0.2)
-- **File Upload:** Multer 2.0.2
-- **Image Processing:** Sharp 0.34.5
-- **Validation:** Zod 4.1.12
+- **Language:** TypeScript 5.9.3 with ES modules
+- **Runtime:** Node.js 24.11.1 LTS (Krypton)
+- **Framework:** Express 5.1.0 (finally stable after 10 years!)
+- **Database:** PostgreSQL 18.1 with Prisma 6.19.0 ORM
+- **Authentication:** JWT using **jose 5.3.0** (Node.js 24 compatible, replaces jsonwebtoken)
+- **File Upload:** Multer 2.0.2 (CVE-2025-47935 and CVE-2025-47944 patches)
+- **Image Processing:** Sharp 0.34.5 (libvips 8.17.3)
+- **Validation:** Zod 4.1.12 (14x faster, 57% smaller)
 - **Logging:** Winston 3.18.3
-- **Process Manager:** PM2 (for production)
+- **Process Manager:** PM2 6.0.13 (Bun support added)
+
+---
+
+## Critical Updates for November 2025
+
+### 1. JWT with jose (NOT jsonwebtoken)
+**Issue:** jsonwebtoken doesn't support Node.js 24
+**Solution:** Using jose for all JWT operations
+
+```typescript
+// ❌ OLD - Won't work with Node.js 24
+import jwt from 'jsonwebtoken';
+
+// ✅ NEW - Works with Node.js 24
+import { SignJWT, jwtVerify } from 'jose';
+```
+
+### 2. Prisma 6 Rust-Free Architecture
+```prisma
+generator client {
+  provider = "prisma-client"  // ← Changed from "prisma-client-js"
+}
+```
+- 90% smaller bundles (14MB → 1.6MB)
+- 3.4x faster queries
+- No more binary targets configuration
+
+### 3. Express 5 Automatic Error Handling
+```typescript
+// No try-catch needed for async routes!
+app.get('/photos', async (req, res) => {
+  const photos = await prisma.photo.findMany();
+  res.json(photos);
+});
+```
+
+### 4. PostgreSQL 18 Async I/O
+```sql
+-- Enable for 3x performance
+ALTER SYSTEM SET io_method = 'io_uring';
+SELECT pg_reload_conf();
+```
 
 ---
 
@@ -28,10 +70,8 @@ Backend-specific guidance for the PicAI Express.js API.
 ```
 backend/
 ├── src/
-│   ├── index.ts                      # Entry point, Express app setup
-│   ├── config/
-│   │   └── env.ts                   # Environment variables with Zod validation
-│   ├── types/
+│   ├── index.ts                      # Entry point
+│   ├── types/                        # TypeScript types/interfaces
 │   │   ├── express.d.ts             # Express type extensions (req.user)
 │   │   └── api.types.ts             # API response types
 │   ├── routes/
@@ -41,25 +81,27 @@ backend/
 │   │   ├── photos.routes.ts         # POST /photos/upload, GET /photos
 │   │   └── albums.routes.ts         # Album generation and management
 │   ├── controllers/
-│   │   ├── auth.controller.ts
+│   │   ├── auth.controller.ts       # Uses jose for JWT
 │   │   ├── photos.controller.ts
 │   │   └── albums.controller.ts
 │   ├── services/
-│   │   ├── aiService.ts             # Azure Computer Vision integration
-│   │   ├── fileService.ts           # Photo storage, thumbnails
+│   │   ├── aiService.ts             # Azure Computer Vision 2023-10-01 GA
+│   │   ├── fileService.ts           # Photo storage, thumbnails with Sharp
 │   │   ├── albumService.ts          # Album generation logic
-│   │   └── authService.ts           # JWT generation, password hashing
+│   │   └── authService.ts           # JWT with jose, bcrypt hashing
 │   ├── middleware/
-│   │   ├── auth.middleware.ts       # JWT verification
+│   │   ├── auth.middleware.ts       # JWT verification using jose
 │   │   ├── validate.middleware.ts   # Zod validation
-│   │   ├── upload.middleware.ts     # Multer config
+│   │   ├── upload.middleware.ts     # Multer 2.0.2 config
 │   │   └── error.middleware.ts      # Global error handler
 │   ├── utils/
 │   │   ├── logger.ts                # Winston logger setup
 │   │   ├── asyncHandler.ts          # Async route wrapper
 │   │   └── constants.ts             # App constants
+│   ├── config/
+│   │   └── env.ts                   # Environment validation with Zod
 │   └── prisma/
-│       ├── schema.prisma            # Database schema
+│       ├── schema.prisma            # Database schema (Prisma 6)
 │       └── migrations/              # Database migrations
 ├── storage/                          # DO NOT COMMIT
 │   ├── originals/
@@ -70,7 +112,7 @@ backend/
 ├── .env                              # DO NOT COMMIT
 ├── .env.example
 ├── tsconfig.json
-├── package.json
+├── package.json                      # With jose, not jsonwebtoken
 └── CLAUDE.md                         # This file
 ```
 
@@ -109,8 +151,6 @@ declare global {
 }
 ```
 
-Now `req.user` is properly typed everywhere!
-
 ### 3. Environment Validation with Zod
 
 `src/config/env.ts`:
@@ -139,40 +179,142 @@ export type Env = z.infer<typeof envSchema>;
 export const env = envSchema.parse(process.env);
 ```
 
-Usage:
-```typescript
-import { env } from './config/env.js';
+---
 
-console.log(env.PORT); // Type-safe number
-console.log(env.AZURE_VISION_KEY); // Guaranteed to exist
+## JWT Authentication with jose (Node.js 24)
+
+### AuthService Implementation
+
+```typescript
+// src/services/authService.ts
+import { SignJWT, jwtVerify } from 'jose';
+import bcrypt from 'bcrypt';
+import { env } from '../config/env.js';
+
+class AuthService {
+  private secret: Uint8Array;
+
+  constructor() {
+    // Convert JWT secret to Uint8Array for jose
+    this.secret = new TextEncoder().encode(env.JWT_SECRET);
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, 10);
+  }
+
+  async comparePassword(password: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(password, hash);
+  }
+
+  async generateToken(userId: string, email: string): Promise<string> {
+    const jwt = await new SignJWT({ userId, email })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(env.JWT_EXPIRATION || '7d')
+      .setSubject(userId)
+      .sign(this.secret);
+    
+    return jwt;
+  }
+
+  async verifyToken(token: string): Promise<{ userId: string; email: string }> {
+    const { payload } = await jwtVerify(token, this.secret);
+    return {
+      userId: payload.userId as string,
+      email: payload.email as string
+    };
+  }
+}
+
+export const authService = new AuthService();
+```
+
+### JWT Middleware
+
+```typescript
+// src/middleware/auth.middleware.ts
+import { Request, Response, NextFunction } from 'express';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { authService } from '../services/authService.js';
+import prisma from '../prisma/client.js';
+
+export const authenticateJWT = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        code: 'NO_TOKEN'
+      });
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+      const decoded = await authService.verifyToken(token);
+      
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId }
+      });
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: 'User not found',
+          code: 'INVALID_TOKEN'
+        });
+      }
+
+      req.user = user;
+      next();
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('expired')) {
+          return res.status(401).json({
+            success: false,
+            error: 'Token expired',
+            code: 'TOKEN_EXPIRED'
+          });
+        }
+      }
+      
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token',
+        code: 'INVALID_TOKEN'
+      });
+    }
+  }
+);
 ```
 
 ---
 
-## Express 5 Specifics
+## Express 5 Specific Features
 
-### Async Error Handling
-
-Express 5 automatically catches promise rejections, but still use asyncHandler for clarity:
+### Automatic Promise Rejection Handling
 
 ```typescript
-// src/utils/asyncHandler.ts
-import { Request, Response, NextFunction } from 'express';
-
-export const asyncHandler = (fn: Function) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
-};
-
-// Usage in routes
-export const uploadPhotos = asyncHandler(async (req: Request, res: Response) => {
-  const photos = await fileService.savePhotos(req.files);
-  res.status(201).json({ success: true, data: photos });
+// Express 5 catches promise rejections automatically
+app.get('/photos', async (req, res) => {
+  const photos = await prisma.photo.findMany();
+  res.json({ success: true, data: photos });
 });
+
+// No need for try-catch or asyncHandler wrapper!
 ```
 
-### Error Handler - Must Have 4 Parameters
+### Breaking Changes from Express 4
+
+1. **req.param() removed** - Use req.params, req.body, or req.query
+2. **res.send(body, status) removed** - Chain: res.status(200).send(body)
+3. **app.del() removed** - Use app.delete()
+4. **res.json(obj, status) removed** - Chain: res.status(200).json(obj)
+
+### Error Handler Must Have 4 Parameters
 
 ```typescript
 // src/middleware/error.middleware.ts
@@ -197,9 +339,50 @@ app.use(errorHandler);
 
 ---
 
-## Validation with Zod 4
+## Prisma 6 Patterns (Rust-Free)
 
-Zod 4 has improved TypeScript inference. Prefer it over Joi:
+### Schema Configuration
+
+```prisma
+// schema.prisma
+generator client {
+  provider = "prisma-client"  // ← Not "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+```
+
+### Install PostgreSQL Adapter
+
+```bash
+npm install @prisma/adapter-pg
+```
+
+### Always Use Generated Types
+
+```typescript
+import { Photo, Album, User } from '@prisma/client';
+import prisma from '../prisma/client.js';
+
+// Types are auto-generated from schema.prisma
+const user: User = await prisma.user.findUnique({
+  where: { id: userId }
+});
+
+// With relations
+const photoWithTags = await prisma.photo.findUnique({
+  where: { id: photoId },
+  include: { aiTags: true }
+});
+// TypeScript knows photoWithTags.aiTags is AiTag[]
+```
+
+---
+
+## Validation with Zod 4 (14x Faster)
 
 ```typescript
 // src/middleware/validate.middleware.ts
@@ -242,76 +425,14 @@ router.post(
 
 ---
 
-## Prisma Patterns
-
-### Always Use Generated Types
-
-```typescript
-import { Photo, Album, User } from '@prisma/client';
-import prisma from '../prisma/client.js';
-
-// Types are auto-generated from schema.prisma
-const user: User = await prisma.user.findUnique({
-  where: { id: userId }
-});
-
-// With relations
-const photoWithTags = await prisma.photo.findUnique({
-  where: { id: photoId },
-  include: { aiTags: true }
-});
-// TypeScript knows photoWithTags.aiTags is AiTag[]
-```
-
-### Handling Nulls
-
-```typescript
-// Prisma can return null - always handle it
-const photo = await prisma.photo.findUnique({ where: { id } });
-
-if (!photo) {
-  return res.status(404).json({
-    success: false,
-    error: 'Photo not found'
-  });
-}
-
-// Now photo is safely typed as Photo (not Photo | null)
-console.log(photo.filename);
-```
-
-### Transactions for Multi-Step Operations
-
-```typescript
-// Create album and add photos atomically
-const album = await prisma.$transaction(async (tx) => {
-  const newAlbum = await tx.album.create({
-    data: { name, userId }
-  });
-
-  await tx.albumPhoto.createMany({
-    data: photoIds.map(photoId => ({
-      albumId: newAlbum.id,
-      photoId
-    }))
-  });
-
-  return newAlbum;
-});
-```
-
----
-
-## File Upload with Multer 2
-
-Multer 2 has better TypeScript support:
+## File Upload with Multer 2.0.2 (Security Patched)
 
 ```typescript
 // src/middleware/upload.middleware.ts
 import multer from 'multer';
+import { env } from '../config/env.js';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/heic'];
-const MAX_FILE_SIZE = 26214400; // 25MB
 
 const fileFilter = (
   req: Express.Request,
@@ -329,7 +450,7 @@ export const uploadMiddleware = multer({
   storage: multer.memoryStorage(),
   fileFilter,
   limits: {
-    fileSize: MAX_FILE_SIZE,
+    fileSize: env.MAX_FILE_SIZE,
     files: 50
   }
 });
@@ -344,86 +465,7 @@ router.post(
 
 ---
 
-## Authentication Pattern
-
-### Password Hashing with Bcrypt 6
-
-```typescript
-// src/services/authService.ts
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { env } from '../config/env.js';
-
-class AuthService {
-  async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 10);
-  }
-
-  async comparePassword(password: string, hash: string): Promise<boolean> {
-    return bcrypt.compare(password, hash);
-  }
-
-  generateToken(userId: string, email: string): string {
-    return jwt.sign(
-      { userId, email },
-      env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRATION }
-    );
-  }
-
-  verifyToken(token: string): { userId: string; email: string } {
-    return jwt.verify(token, env.JWT_SECRET) as { userId: string; email: string };
-  }
-}
-
-export const authService = new AuthService();
-```
-
-### JWT Middleware
-
-```typescript
-// src/middleware/auth.middleware.ts
-import { Request, Response, NextFunction } from 'express';
-import { asyncHandler } from '../utils/asyncHandler.js';
-import { authService } from '../services/authService.js';
-import prisma from '../prisma/client.js';
-
-export const authenticateJWT = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required',
-        code: 'NO_TOKEN'
-      });
-    }
-
-    const token = authHeader.substring(7);
-    const decoded = authService.verifyToken(token);
-    
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId }
-    });
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'User not found',
-        code: 'INVALID_TOKEN'
-      });
-    }
-
-    req.user = user; // Now typed thanks to express.d.ts!
-    next();
-  }
-);
-```
-
----
-
-## Azure Computer Vision Integration
+## Azure Computer Vision Integration (2023-10-01 GA)
 
 ```typescript
 // src/services/aiService.ts
@@ -444,12 +486,13 @@ class AIService {
 
       const imageBuffer = await fs.readFile(photo.filePath);
 
+      // Using 2023-10-01 GA API
       const response = await axios.post(
-        `${env.AZURE_VISION_ENDPOINT}/vision/v3.2/analyze`,
+        `${env.AZURE_VISION_ENDPOINT}/computervision/imageanalysis:analyze?api-version=2023-10-01`,
         imageBuffer,
         {
           params: {
-            visualFeatures: 'Categories,Tags,Description,Objects,Faces,Color'
+            features: 'tags,objects,caption,denseCaptions,read,people'
           },
           headers: {
             'Ocp-Apim-Subscription-Key': env.AZURE_VISION_KEY,
@@ -463,7 +506,7 @@ class AIService {
       logger.error('Azure Vision API error:', error);
       
       if (axios.isAxiosError(error) && error.response?.status === 429) {
-        logger.warn('Rate limit hit');
+        logger.warn('Rate limit hit - implementing retry');
         // TODO: Implement retry queue
       }
       
@@ -475,7 +518,7 @@ class AIService {
     const tags = [];
 
     if (analysis.tags) {
-      analysis.tags.forEach((tag: any) => {
+      for (const tag of analysis.tags) {
         if (tag.confidence > 0.5) {
           tags.push({
             photoId,
@@ -484,7 +527,7 @@ class AIService {
             category: 'tag'
           });
         }
-      });
+      }
     }
 
     if (tags.length > 0) {
@@ -498,91 +541,60 @@ export const aiService = new AIService();
 
 ---
 
-## Logging with Winston
+## Package.json for November 2025
 
-```typescript
-// src/utils/logger.ts
-import winston from 'winston';
-import path from 'path';
-import { env } from '../config/env.js';
-
-const logger = winston.createLogger({
-  level: env.NODE_ENV === 'production' ? 'info' : 'debug',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      )
-    }),
-    new winston.transports.File({
-      filename: path.join('logs', 'error.log'),
-      level: 'error',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5
-    }),
-    new winston.transports.File({
-      filename: path.join('logs', 'combined.log'),
-      maxsize: 5242880,
-      maxFiles: 5
-    })
-  ]
-});
-
-export default logger;
-```
-
----
-
-## Entry Point Structure
-
-```typescript
-// src/index.ts
-import express, { Express } from 'express';
-import cors from 'cors';
-import { env } from './config/env.js';
-import logger from './utils/logger.js';
-import { errorHandler } from './middleware/error.middleware.js';
-
-// Import routes
-import authRoutes from './routes/auth.routes.js';
-import photosRoutes from './routes/photos.routes.js';
-import albumsRoutes from './routes/albums.routes.js';
-
-const app: Express = express();
-
-// Middleware
-app.use(cors({ origin: env.FRONTEND_URL }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/photos', photosRoutes);
-app.use('/api/albums', albumsRoutes);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: env.NODE_ENV
-  });
-});
-
-// Error handling (must be last!)
-app.use(errorHandler);
-
-app.listen(env.PORT, () => {
-  logger.info(`Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
-});
-
-export default app;
+```json
+{
+  "name": "picai-backend",
+  "version": "1.0.0",
+  "description": "PicAI backend API - November 2025 Stack",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate",
+    "test": "jest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "@prisma/adapter-pg": "^6.19.0",
+    "archiver": "^7.0.1",
+    "axios": "^1.13.2",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jose": "^5.3.0",
+    "multer": "^2.0.2",
+    "prisma": "^6.19.0",
+    "sharp": "^0.34.5",
+    "winston": "^3.18.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/archiver": "^7.0.0",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/jest": "^30.0.0",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.10.1",
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.11",
+    "ts-jest": "^29.4.5",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=24.11.1"
+  }
+}
 ```
 
 ---
@@ -593,24 +605,42 @@ export default app;
 // tests/services/authService.test.ts
 import { authService } from '../../src/services/authService';
 
-describe('AuthService', () => {
-  describe('hashPassword', () => {
-    it('should hash password correctly', async () => {
-      const password = 'MySecurePass123!';
-      const hash = await authService.hashPassword(password);
+describe('AuthService with jose', () => {
+  describe('JWT operations', () => {
+    it('should generate and verify token', async () => {
+      const userId = 'test-user-id';
+      const email = 'test@example.com';
       
-      expect(hash).not.toBe(password);
-      expect(hash.length).toBeGreaterThan(50);
+      const token = await authService.generateToken(userId, email);
+      expect(token).toBeDefined();
+      expect(typeof token).toBe('string');
+      
+      const decoded = await authService.verifyToken(token);
+      expect(decoded.userId).toBe(userId);
+      expect(decoded.email).toBe(email);
+    });
+
+    it('should reject invalid token', async () => {
+      const invalidToken = 'invalid.token.here';
+      
+      await expect(authService.verifyToken(invalidToken))
+        .rejects
+        .toThrow();
     });
   });
 
-  describe('comparePassword', () => {
-    it('should return true for correct password', async () => {
+  describe('Password operations', () => {
+    it('should hash and compare password', async () => {
       const password = 'MySecurePass123!';
-      const hash = await authService.hashPassword(password);
       
-      const isMatch = await authService.comparePassword(password, hash);
-      expect(isMatch).toBe(true);
+      const hash = await authService.hashPassword(password);
+      expect(hash).not.toBe(password);
+      
+      const isValid = await authService.comparePassword(password, hash);
+      expect(isValid).toBe(true);
+      
+      const isInvalid = await authService.comparePassword('wrong', hash);
+      expect(isInvalid).toBe(false);
     });
   });
 });
@@ -625,9 +655,10 @@ describe('AuthService', () => {
 ```bash
 npm run dev
 # Uses tsx watch - auto-restarts on file changes
+# Express 5 with automatic error handling
 ```
 
-### Database Workflow
+### Database Workflow with Prisma 6
 
 ```bash
 # Create migration after schema changes
@@ -643,35 +674,34 @@ npx prisma studio
 npx prisma generate
 ```
 
-### Type Checking
+### Testing JWT with jose
 
 ```bash
-npm run type-check
-# Checks types without compiling
-```
+# Quick test
+node -e "import('jose').then(({SignJWT}) => console.log('jose works!'))"
 
-### Building for Production
-
-```bash
-npm run build
-# Creates dist/ folder with compiled JavaScript
+# Run test file
+node tests/test-jose.js
 ```
 
 ---
 
 ## Important Reminders
 
-1. **Always use `.js` in imports** - TypeScript requirement with ES modules
-2. **Validate environment variables** - Use Zod in src/config/env.ts
-3. **Use Prisma-generated types** - Never create manual database types
-4. **Handle nulls** - Prisma returns `Type | null`, always check
-5. **Express 5 error handlers** - Must have 4 parameters
-6. **Use asyncHandler** - Wrap all async route handlers
-7. **Never log secrets** - JWT tokens, passwords, API keys
-8. **Zod for validation** - Better TypeScript support than Joi
-9. **Rate limit Azure API** - 20 calls/minute, 5,000/month
-10. **Stream large files** - Don't load entire files in memory
+1. **Always use jose not jsonwebtoken** - Required for Node.js 24
+2. **Use `.js` in imports** - TypeScript requirement with ES modules
+3. **Prisma 6 generator** - Use "prisma-client" not "prisma-client-js"
+4. **Express 5 async** - No try-catch needed in async routes
+5. **PostgreSQL 18 I/O** - Enable io_uring for 3x performance
+6. **Validate environment variables** - Use Zod in src/config/env.ts
+7. **Handle nulls** - Prisma returns `Type | null`, always check
+8. **Multer security** - Version 2.0.2 has critical patches
+9. **Azure Vision GA** - Use 2023-10-01, not preview versions
+10. **Rate limit Azure API** - 20 calls/minute, 5,000/month
 
 ---
 
-**Ready for development!** Follow the implementation phases in docs/architecture.md.
+**Last Updated:** November 16, 2025
+**Node.js:** 24.11.1 LTS
+**Key Change:** Using jose for JWT (jsonwebtoken incompatible)
+**Ready for development!**

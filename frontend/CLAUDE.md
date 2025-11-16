@@ -1,25 +1,128 @@
 # Frontend CLAUDE.md - PicAI React Application
 
-**Technology:** React 19.2.0 + TypeScript 5.9.3 + Vite 7.2.2 + TailwindCSS 4.1.17
+**Technology:** React 19.2.0 + TypeScript 5.9.3 + Vite 7.0 + TailwindCSS 4.0
 
-Frontend-specific guidance for the PicAI React application.
+Frontend-specific guidance for the PicAI React application with November 2025 technology stack.
 
 **See main `CLAUDE.md` in project root for overall architecture and conventions.**
 
 ---
 
-## Technology Stack
+## Technology Stack (November 2025)
 
-- **Framework:** React 19.2.0 with TypeScript 5.9.3
-- **Build Tool:** Vite 7.2.2
-- **Routing:** React Router 7.9.6
-- **Styling:** TailwindCSS 4.1.17
-- **State Management:** React Context + useReducer + React Query
-- **Server State:** React Query 5.90.9
-- **API Client:** Axios 1.13.2
-- **Validation:** Zod 4.1.12
-- **Icons:** Lucide React (recommended to install)
+- **Framework:** React 19.2.0 with TypeScript 5.9.3 (or React 18.3.1 if compatibility issues)
+- **Build Tool:** Vite 7.0 (Node.js 20.19+ or 22.12+ required)
+- **Routing:** React Router 7.9.5 (single package, framework mode)
+- **Styling:** TailwindCSS 4.0 (CSS-first config, 3.5-5x faster)
+- **State Management:** React Context + useReducer + TanStack Query
+- **Server State:** TanStack Query 5.90.9 (React 19 compatible)
+- **API Client:** Axios 1.13.2 (HTTP/2 experimental support)
+- **Validation:** Zod 4.1.12 (14x faster, 57% smaller)
+- **Icons:** Lucide React (recommended)
 - **UI Components:** Build custom or use shadcn/ui
+
+---
+
+## Critical Updates for November 2025
+
+### 1. React 19 Compatibility Check
+Before using React 19, run compatibility check:
+```bash
+~/PicAI/docs/check-react19-compatibility.sh
+```
+
+If incompatible packages found:
+```bash
+# Option 1: Stay on React 18
+npm install react@18.3.1 react-dom@18.3.1
+
+# Option 2: Replace incompatible packages
+```
+
+### 2. React 19 Breaking Changes
+
+#### No forwardRef needed
+```typescript
+// Old (React 18)
+const Input = forwardRef((props, ref) => {
+  return <input ref={ref} {...props} />;
+});
+
+// New (React 19)
+function Input({ ref, ...props }) {
+  return <input ref={ref} {...props} />;
+}
+```
+
+#### Actions for async transitions
+```typescript
+import { useTransition } from 'react';
+
+function UploadButton() {
+  const [isPending, startTransition] = useTransition();
+  
+  const handleUpload = () => {
+    startTransition(async () => {
+      await uploadPhotos();
+    });
+  };
+
+  return <button disabled={isPending}>Upload</button>;
+}
+```
+
+#### use() API for promises
+```typescript
+import { use, Suspense } from 'react';
+
+function PhotoList({ photosPromise }) {
+  const photos = use(photosPromise); // Suspends until resolved
+  return <div>{photos.map(p => <PhotoCard key={p.id} photo={p} />)}</div>;
+}
+```
+
+### 3. TailwindCSS 4 Configuration
+
+No more tailwind.config.js! Configure in CSS:
+
+```css
+/* src/index.css */
+@import "tailwindcss";
+
+@theme {
+  --color-primary: oklch(59.1% 0.238 251.37);
+  --color-secondary: oklch(69.7% 0.184 85.18);
+  --radius-lg: 0.5rem;
+  --font-sans: system-ui, -apple-system, sans-serif;
+}
+
+/* Container queries built-in */
+@container (min-width: 768px) {
+  .card {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+/* New 3D transforms */
+.photo-3d {
+  @apply rotate-x-12 perspective-1000;
+}
+```
+
+### 4. Vite 7 Requirements
+```json
+// package.json
+{
+  "engines": {
+    "node": ">=20.19.0 || >=22.12.0"
+  }
+}
+```
+
+Browser targets upgraded:
+- Chrome 107+ (was 87)
+- Firefox 104+ (was 78)
+- Safari 16+ (was 14)
 
 ---
 
@@ -29,7 +132,7 @@ Frontend-specific guidance for the PicAI React application.
 frontend/
 ├── src/
 │   ├── main.tsx                 # Entry point
-│   ├── App.tsx                  # Root component
+│   ├── App.tsx                  # Root component with React 19 features
 │   ├── components/
 │   │   ├── ui/                  # Reusable UI components
 │   │   ├── auth/                # Login, Signup components
@@ -59,7 +162,7 @@ frontend/
 │   ├── utils/
 │   │   ├── cn.ts                # Class name utility
 │   │   └── format.ts            # Date/number formatting
-│   └── index.css                # Global styles + Tailwind imports
+│   └── index.css                # Global styles + TailwindCSS 4
 ├── public/
 ├── .env                          # DO NOT COMMIT
 ├── .env.example
@@ -68,111 +171,15 @@ frontend/
 ├── tsconfig.app.json
 ├── tsconfig.node.json
 ├── vite.config.ts
-├── tailwind.config.js
-├── postcss.config.js
 ├── index.html
 └── CLAUDE.md                     # This file
 ```
 
 ---
 
-## Code Conventions
+## API Integration with Backend (jose JWT)
 
-### Component Naming
-- **PascalCase** for components: `PhotoGrid.tsx`
-- **camelCase** for hooks: `usePhotos.ts`
-- **kebab-case** for utilities: `format-date.ts`
-
-### Import Order
-1. React imports
-2. Third-party libraries
-3. Components
-4. Hooks
-5. Services/Utils
-6. Types
-7. Styles
-
-```typescript
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-
-import { PhotoGrid } from '@/components/photos/PhotoGrid';
-import { usePhotos } from '@/hooks/usePhotos';
-import { cn } from '@/utils/cn';
-
-import type { Photo } from '@/types/api.types';
-```
-
-### TypeScript Conventions
-- **Type vs Interface:** Use `type` for props, `interface` for API responses
-- **Prefer `unknown` over `any`**
-- Always type component props
-
-```typescript
-// ✅ Good
-type PhotoCardProps = {
-  photo: Photo;
-  onDelete: (id: string) => void;
-}
-
-export function PhotoCard({ photo, onDelete }: PhotoCardProps) {
-  return (
-    <div className="photo-card">
-      {/* ... */}
-    </div>
-  );
-}
-
-// ❌ Avoid
-export function PhotoCard(props: any) {
-  // ...
-}
-```
-
----
-
-## Environment Variables
-
-### CRITICAL: Use VITE_ Prefix
-
-Vite only exposes env vars prefixed with `VITE_`:
-
-```bash
-# ✅ Correct - will be available in import.meta.env
-VITE_API_URL=http://localhost:3001/api
-
-# ❌ Wrong - will NOT be available
-API_URL=http://localhost:3001/api
-```
-
-### Access in Code
-
-```typescript
-// ✅ Correct
-const apiUrl = import.meta.env.VITE_API_URL;
-
-// ❌ Wrong - process.env doesn't work in Vite
-const apiUrl = process.env.VITE_API_URL;
-```
-
-### Environment Files
-
-```bash
-# .env - local development
-VITE_API_URL=http://localhost:3001/api
-
-# .env.example - commit to git
-VITE_API_URL=http://localhost:3001/api
-```
-
-For production, set environment variables in **Azure Static Web Apps Configuration**.
-
----
-
-## API Integration
-
-### Axios Instance with Interceptors
+### Axios Instance with JWT
 
 ```typescript
 // src/services/api.ts
@@ -185,7 +192,7 @@ const api = axios.create({
   },
 });
 
-// Add JWT token to all requests
+// Add JWT token to all requests (backend uses jose for verification)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -199,6 +206,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      // Token expired or invalid (jose will reject it)
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
@@ -209,19 +217,107 @@ api.interceptors.response.use(
 export default api;
 ```
 
-### React Query Integration
+### Authentication Service
+
+```typescript
+// src/services/auth.service.ts
+import api from './api';
+import type { User } from '@/types/api.types';
+
+interface LoginResponse {
+  success: boolean;
+  data: {
+    user: User;
+    token: string; // JWT generated by jose on backend
+  };
+}
+
+export const authService = {
+  async login(email: string, password: string): Promise<LoginResponse> {
+    const { data } = await api.post<LoginResponse>('/auth/login', {
+      email,
+      password,
+    });
+    
+    // Store JWT token (generated by jose)
+    if (data.success && data.data.token) {
+      localStorage.setItem('token', data.data.token);
+    }
+    
+    return data;
+  },
+
+  async register(email: string, password: string, name: string): Promise<LoginResponse> {
+    const { data } = await api.post<LoginResponse>('/auth/register', {
+      email,
+      password,
+      name,
+    });
+    
+    if (data.success && data.data.token) {
+      localStorage.setItem('token', data.data.token);
+    }
+    
+    return data;
+  },
+
+  logout(): void {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  },
+
+  async getMe(): Promise<User> {
+    const { data } = await api.get<{ success: boolean; data: User }>('/auth/me');
+    return data.data;
+  },
+};
+```
+
+---
+
+## TanStack Query 5.90.9 Integration
+
+### Query Client Setup
+
+```typescript
+// src/main.tsx
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import App from './App';
+import './index.css';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <App />
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  </StrictMode>
+);
+```
+
+### Using with React 19 Suspense
 
 ```typescript
 // src/hooks/usePhotos.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSuspenseQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import type { Photo } from '@/types/api.types';
 
 export function usePhotos() {
-  const queryClient = useQueryClient();
-
-  // Fetch photos
-  const { data, isLoading, error } = useQuery({
+  // useSuspenseQuery for React 19 - data is never undefined!
+  const { data } = useSuspenseQuery({
     queryKey: ['photos'],
     queryFn: async () => {
       const { data } = await api.get<{ success: boolean; data: Photo[] }>('/photos');
@@ -229,288 +325,251 @@ export function usePhotos() {
     },
   });
 
-  // Upload photos
-  const uploadMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      const { data } = await api.post('/photos/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      return data;
-    },
-    onSuccess: () => {
-      // Refetch photos after upload
-      queryClient.invalidateQueries({ queryKey: ['photos'] });
-    },
-  });
-
-  return { 
-    photos: data ?? [], 
-    isLoading, 
-    error,
-    uploadPhoto: uploadMutation.mutate,
-    isUploading: uploadMutation.isPending
-  };
-}
-```
-
-### Type-Safe API Calls
-
-```typescript
-// src/types/api.types.ts
-export interface Photo {
-  id: string;
-  filename: string;
-  url: string;
-  thumbnailUrl: string;
-  uploadedAt: string;
+  return { photos: data }; // data is Photo[], not Photo[] | undefined
 }
 
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-}
-
-export interface ApiError {
-  success: false;
-  error: string;
-  code: string;
-}
-
-// Usage
-const { data } = await api.get<ApiResponse<Photo[]>>('/photos');
-const photos = data.data; // Typed as Photo[]
-```
-
----
-
-## Authentication Pattern
-
-### Auth Context
-
-```typescript
-// src/context/AuthContext.tsx
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { User } from '@/types/api.types';
-import api from '@/services/api';
-
-type AuthContextType = {
-  user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-};
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Check if user is already logged in
-    const token = localStorage.getItem('token');
-    if (token) {
-      api.get('/auth/me')
-        .then(({ data }) => setUser(data.data))
-        .catch(() => localStorage.removeItem('token'))
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const login = async (email: string, password: string) => {
-    const { data } = await api.post('/auth/login', { email, password });
-    setUser(data.data.user);
-    localStorage.setItem('token', data.data.token);
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('token');
-  };
-
+// Component using Suspense
+function PhotoGrid() {
+  const { photos } = usePhotos(); // Will suspend until loaded
+  
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        login, 
-        logout, 
-        isAuthenticated: !!user,
-        isLoading 
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <div className="grid grid-cols-4 gap-4">
+      {photos.map(photo => (
+        <PhotoCard key={photo.id} photo={photo} />
+      ))}
+    </div>
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
+// Parent with Suspense boundary
+function PhotosPage() {
+  return (
+    <Suspense fallback={<PhotoSkeleton />}>
+      <PhotoGrid />
+    </Suspense>
+  );
 }
-```
-
-### Protected Routes
-
-```typescript
-// src/components/auth/ProtectedRoute.tsx
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-
-type ProtectedRouteProps = {
-  children: React.ReactNode;
-};
-
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <>{children}</>;
-}
-
-// Usage in App.tsx
-<Route 
-  path="/dashboard" 
-  element={
-    <ProtectedRoute>
-      <Dashboard />
-    </ProtectedRoute>
-  } 
-/>
 ```
 
 ---
 
-## Styling with TailwindCSS 4
+## React Router 7.9.5 Configuration
 
-### Using Utility Classes
+### Single Package Setup
 
 ```typescript
-// ✅ Good - use Tailwind utilities
-<div className="flex items-center gap-4 p-4 bg-white rounded-lg shadow">
-  <img src={photo.thumbnailUrl} className="w-24 h-24 object-cover rounded" />
-  <div className="flex-1">
-    <h3 className="text-lg font-semibold">{photo.filename}</h3>
-  </div>
-</div>
+// src/main.tsx
+import { createBrowserRouter, RouterProvider } from 'react-router'; // Single package!
 
-// ❌ Avoid - inline styles
-<div style={{ display: 'flex', padding: '16px' }}>
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Layout />,
+    children: [
+      { index: true, element: <Dashboard /> },
+      { path: 'login', element: <Login /> },
+      { path: 'photos', element: <Photos /> },
+      { path: 'albums/:id', element: <AlbumView /> },
+    ],
+  },
+]);
+
+function App() {
+  return <RouterProvider router={router} />;
+}
 ```
 
-### Conditional Classes with cn()
+### Data Loading with TypeScript
 
 ```typescript
-// src/utils/cn.ts
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+// src/routes/photos.tsx
+import { loader as photosLoader } from './photos.loader';
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+export async function loader() {
+  const photos = await api.get('/photos');
+  return photos.data;
 }
 
-// Usage
-import { cn } from '@/utils/cn';
-
-<button 
-  className={cn(
-    "px-4 py-2 rounded font-medium",
-    isActive && "bg-blue-500 text-white",
-    isDisabled && "opacity-50 cursor-not-allowed",
-    className // Allow prop override
-  )}
->
-  {children}
-</button>
+// Type-safe access
+function Photos() {
+  const photos = useLoaderData() as Awaited<ReturnType<typeof photosLoader>>;
+  return <PhotoGrid photos={photos} />;
+}
 ```
 
-### Responsive Design
+---
+
+## Forms with Zod 4 Validation
 
 ```typescript
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-  {/* Mobile: 1 column, Tablet: 2, Desktop: 3, Large: 4 */}
-</div>
+// src/pages/Login.tsx
+import { useState } from 'react';
+import { z } from 'zod';
+import { authService } from '@/services/auth.service';
+
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+type LoginForm = z.infer<typeof loginSchema>;
+
+function LoginPage() {
+  const [formData, setFormData] = useState<LoginForm>({ 
+    email: '', 
+    password: '' 
+  });
+  const [errors, setErrors] = useState<z.ZodFormattedError<LoginForm> | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const result = loginSchema.safeParse(formData);
+    
+    if (!result.success) {
+      setErrors(result.error.format());
+      return;
+    }
+    
+    try {
+      // Backend will generate JWT with jose
+      await authService.login(result.data.email, result.data.password);
+      // Redirect handled by auth service
+    } catch (error) {
+      console.error('Login failed:', error);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          className={cn(
+            "mt-1 block w-full rounded-md border-gray-300",
+            errors?.email && "border-red-500"
+          )}
+        />
+        {errors?.email && (
+          <p className="mt-1 text-sm text-red-600">{errors.email._errors[0]}</p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="password" className="block text-sm font-medium">
+          Password
+        </label>
+        <input
+          id="password"
+          type="password"
+          value={formData.password}
+          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          className={cn(
+            "mt-1 block w-full rounded-md border-gray-300",
+            errors?.password && "border-red-500"
+          )}
+        />
+        {errors?.password && (
+          <p className="mt-1 text-sm text-red-600">{errors.password._errors[0]}</p>
+        )}
+      </div>
+
+      <button
+        type="submit"
+        className="w-full rounded-md bg-primary px-4 py-2 text-white hover:bg-primary/90"
+      >
+        Login
+      </button>
+    </form>
+  );
+}
+```
+
+---
+
+## Package.json for November 2025
+
+```json
+{
+  "name": "picai-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "@tanstack/react-query": "^5.90.9",
+    "react-router": "^7.9.5",
+    "axios": "^1.13.2",
+    "zod": "^4.1.12",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.5",
+    "lucide-react": "^0.460.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "@tanstack/react-query-devtools": "^5.90.9",
+    "@tailwindcss/vite": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.0.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24"
+  },
+  "engines": {
+    "node": ">=20.19.0 || >=22.12.0"
+  }
+}
 ```
 
 ---
 
 ## Performance Optimization
 
-### 1. Lazy Load Routes
+### 1. React 19 Automatic Batching
+```typescript
+// React 19 batches these automatically
+function handleClick() {
+  setCount(c => c + 1);
+  setFlag(f => !f);
+  // Only one re-render!
+}
+```
 
+### 2. Lazy Load with React.lazy
 ```typescript
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
 
-const Dashboard = lazy(() => import('@/pages/Dashboard'));
-const Albums = lazy(() => import('@/pages/Albums'));
+const AlbumView = lazy(() => import('./pages/AlbumView'));
 
 function App() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<Loading />}>
       <Routes>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/albums" element={<Albums />} />
+        <Route path="/albums/:id" element={<AlbumView />} />
       </Routes>
     </Suspense>
   );
 }
 ```
 
-### 2. Lazy Load Images
-
-```typescript
-<img 
-  src={photo.url} 
-  loading="lazy"
-  alt={photo.filename}
-  className="w-full h-auto"
-/>
-```
-
-### 3. Memoize Expensive Computations
-
-```typescript
-import { useMemo } from 'react';
-
-function PhotoList({ photos }: { photos: Photo[] }) {
-  const sortedPhotos = useMemo(() => {
-    return [...photos].sort((a, b) => 
-      new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-    );
-  }, [photos]);
-
-  return (
-    <div>
-      {sortedPhotos.map(photo => (
-        <PhotoCard key={photo.id} photo={photo} />
-      ))}
-    </div>
-  );
-}
-```
-
-### 4. Virtual Scrolling for Large Lists
-
-For 100+ photos, use virtual scrolling:
-
-```bash
-npm install @tanstack/react-virtual
-```
-
+### 3. Virtual Scrolling for Large Lists
 ```typescript
 import { useVirtualizer } from '@tanstack/react-virtual';
 
@@ -521,6 +580,7 @@ function PhotoGrid({ photos }: { photos: Photo[] }) {
     count: photos.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 200,
+    overscan: 5,
   });
 
   return (
@@ -549,152 +609,21 @@ function PhotoGrid({ photos }: { photos: Photo[] }) {
 
 ---
 
-## Form Handling
-
-### With Zod Validation
-
-```typescript
-import { z } from 'zod';
-import { useState } from 'react';
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-});
-
-type LoginForm = z.infer<typeof loginSchema>;
-
-function LoginPage() {
-  const [formData, setFormData] = useState<LoginForm>({ email: '', password: '' });
-  const [errors, setErrors] = useState<Partial<Record<keyof LoginForm, string>>>({});
-  const { login } = useAuth();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      const validated = loginSchema.parse(formData);
-      await login(validated.email, validated.password);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const fieldErrors: Partial<Record<keyof LoginForm, string>> = {};
-        error.errors.forEach((err) => {
-          if (err.path[0]) {
-            fieldErrors[err.path[0] as keyof LoginForm] = err.message;
-          }
-        });
-        setErrors(fieldErrors);
-      }
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          className={cn("input", errors.email && "border-red-500")}
-        />
-        {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
-      </div>
-
-      <div>
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={formData.password}
-          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-          className={cn("input", errors.password && "border-red-500")}
-        />
-        {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
-      </div>
-
-      <button type="submit" className="btn btn-primary">
-        Login
-      </button>
-    </form>
-  );
-}
-```
-
----
-
-## File Upload Component
-
-```typescript
-import { useState } from 'react';
-import { usePhotos } from '@/hooks/usePhotos';
-
-function PhotoUploader() {
-  const [isDragging, setIsDragging] = useState(false);
-  const { uploadPhoto, isUploading } = usePhotos();
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    const formData = new FormData();
-    files.forEach(file => formData.append('photos', file));
-
-    uploadPhoto(formData);
-  };
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const formData = new FormData();
-    files.forEach(file => formData.append('photos', file));
-
-    uploadPhoto(formData);
-  };
-
-  return (
-    <div
-      className={cn(
-        "border-2 border-dashed rounded-lg p-8 text-center",
-        isDragging && "border-blue-500 bg-blue-50",
-        isUploading && "opacity-50 pointer-events-none"
-      )}
-      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={handleDrop}
-    >
-      <input
-        type="file"
-        multiple
-        accept="image/jpeg,image/png,image/heic"
-        onChange={handleFileInput}
-        className="hidden"
-        id="file-upload"
-      />
-      <label htmlFor="file-upload" className="cursor-pointer">
-        {isUploading ? (
-          <p>Uploading...</p>
-        ) : (
-          <>
-            <p className="text-lg font-semibold">Drop photos here</p>
-            <p className="text-sm text-gray-500">or click to browse</p>
-          </>
-        )}
-      </label>
-    </div>
-  );
-}
-```
-
----
-
 ## Testing Patterns
 
 ```typescript
 // tests/components/PhotoCard.test.tsx
 import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PhotoCard } from '@/components/photos/PhotoCard';
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+);
 
 test('renders photo card with title', () => {
   const photo = {
@@ -705,7 +634,7 @@ test('renders photo card with title', () => {
     uploadedAt: new Date().toISOString(),
   };
   
-  render(<PhotoCard photo={photo} onDelete={() => {}} />);
+  render(<PhotoCard photo={photo} onDelete={() => {}} />, { wrapper });
   
   expect(screen.getByText('test.jpg')).toBeInTheDocument();
   expect(screen.getByRole('img')).toHaveAttribute('src', '/thumb.jpg');
@@ -716,17 +645,20 @@ test('renders photo card with title', () => {
 
 ## Important Reminders
 
-1. **Use `import.meta.env` not `process.env`** - Vite requirement
-2. **Prefix env vars with VITE_** - or they won't be exposed
-3. **Use React Query** for server state, Context for client state
-4. **Type all API responses** with Zod schemas for runtime validation
-5. **Lazy load routes and images** for better performance
-6. **Use TailwindCSS utilities** - avoid inline styles
-7. **Handle loading and error states** - always show user feedback
-8. **Never commit .env files**
-9. **Use cn()** for conditional class names
-10. **Memoize expensive computations** with useMemo
+1. **Check React 19 compatibility** before upgrading - run the checker script
+2. **Use `import.meta.env` not `process.env`** - Vite requirement
+3. **Prefix env vars with VITE_** - or they won't be exposed
+4. **Backend uses jose for JWT** - tokens are compatible
+5. **TanStack Query 5.90** - Use useSuspenseQuery with React 19
+6. **React Router 7** - Single package, no more react-router-dom
+7. **TailwindCSS 4** - Configure in CSS, not JS
+8. **Vite 7** - Requires Node.js 20.19+ or 22.12+
+9. **Type all API responses** with Zod schemas
+10. **Lazy load routes and images** for better performance
 
 ---
 
-**Ready to build the UI!** Follow the implementation phases and refer to backend API documentation.
+**Last Updated:** November 16, 2025
+**React:** 19.2.0 (or 18.3.1 for compatibility)
+**Backend JWT:** Using jose (Node.js 24 compatible)
+**Ready to build the UI!**

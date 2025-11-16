@@ -1,9 +1,9 @@
 # CLAUDE.md - PicAI Main Project Guide
 
-**Last Updated:** November 15, 2025
-**Status:** Ready for Development
+**Last Updated:** November 16, 2025
+**Status:** Ready for Development with Node.js 24 & React 19
 
-This file provides guidance to Claude Code when working in the PicAI repository.
+This file provides guidance to Claude Code when working in the PicAI repository with the November 2025 technology stack.
 
 ---
 
@@ -26,27 +26,27 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 ```
 
 **Frontend:**
-- React 19.2 with TypeScript 5.9
+- React 19.2.0 with TypeScript 5.9.3 (or React 18.3.1 if compatibility issues)
 - Hosted on Azure Static Web Apps (Free tier)
-- TailwindCSS 4.1 for styling
-- Vite 7.2 for build tooling
-- Axios for API calls
-- React Query 5.90 for server state
+- TailwindCSS 4.0 for styling (3.5-5x faster builds)
+- Vite 7.0 for build tooling (with Rolldown integration)
+- Axios 1.13.2 for API calls
+- TanStack Query 5.90.9 for server state (React 19 compatible)
 - JWT authentication stored in localStorage
 
 **Backend:**
-- Node.js 24.11.1 + Express 5.1 on Raspberry Pi 5
-- TypeScript 5.9.3
-- PostgreSQL 15 database
-- Prisma 6.19 ORM for database access
-- Multer 2.0 for file uploads
-- Sharp 0.34 for image processing (thumbnails)
-- JWT authentication (jsonwebtoken 9.0)
-- Zod 4.1 for validation
+- Node.js 24.11.1 LTS (Krypton) + Express 5.1.0 on Raspberry Pi 5
+- TypeScript 5.9.3 with ES modules
+- PostgreSQL 18.1 database (3x faster I/O with async subsystem)
+- Prisma 6.19.0 ORM (Rust-free, 90% smaller bundles)
+- Multer 2.0.2 for file uploads (critical security patches applied)
+- Sharp 0.34.5 for image processing (thumbnails)
+- **jose 5.3.0 for JWT authentication** (Node.js 24 compatible, replaces jsonwebtoken)
+- Zod 4.1.12 for validation (14x faster parsing)
 
 **Infrastructure:**
-- Cloudflare Tunnel exposes Pi backend securely
-- Azure Computer Vision API (F0 Free tier) for image analysis
+- Cloudflare Tunnel 2025.8.1 (UDP proxy rearchitecture)
+- Azure Computer Vision API 2023-10-01 GA (F0 Free tier)
 - Local file storage on Pi (originals + thumbnails)
 
 **Communication:**
@@ -58,7 +58,7 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 
 ## Core Data Models
 
-### Database Schema (PostgreSQL with Prisma)
+### Database Schema (PostgreSQL 18 with Prisma 6)
 
 **Primary Tables:**
 1. **users** - User accounts (id, email, password_hash, name, profile_picture_url)
@@ -77,6 +77,18 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 - Albums can contain multiple photos, photos can be in multiple albums
 - Share links are tied to specific albums
 
+**Prisma 6 Configuration:**
+```prisma
+generator client {
+  provider = "prisma-client"  // Changed from "prisma-client-js" in v6
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+```
+
 ---
 
 ## File Structure
@@ -94,7 +106,7 @@ PicAI/
 │   │   ├── routes/            # API route handlers
 │   │   ├── controllers/       # Business logic
 │   │   ├── services/          # AI service, file service, album service
-│   │   ├── middleware/        # Auth, validation, error handling
+│   │   ├── middleware/        # Auth (using jose), validation, error handling
 │   │   ├── utils/             # Helpers, logger
 │   │   └── prisma/            # Database schema & migrations
 │   ├── storage/               # DO NOT COMMIT - local photos
@@ -124,12 +136,12 @@ PicAI/
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── vite.config.ts
-│   ├── tailwind.config.js
+│   ├── tailwind.config.js    # Note: TailwindCSS 4 uses CSS config instead
 │   └── CLAUDE.md              # Frontend-specific guidance
 ├── docs/                       # Documentation
 │   ├── architecture.md
 │   ├── azure-setup.md
-│   └── (other setup guides)
+│   └── migration-guide-nov-2025.md
 ├── .github/
 │   └── workflows/             # CI/CD pipelines (auto-created by Azure)
 ├── CLAUDE.md                   # This file
@@ -143,7 +155,7 @@ PicAI/
 ## Development Conventions
 
 ### Code Style
-- **Language:** TypeScript 5.9 everywhere
+- **Language:** TypeScript 5.9.3 everywhere
 - **Indentation:** 2 spaces
 - **Quotes:** Single quotes for TS, double for JSX attributes
 - **Semicolons:** Always use
@@ -183,15 +195,16 @@ PicAI/
     "code": "ERROR_CODE"
   }
   ```
-- **Authentication:** JWT in Authorization header: `Bearer <token>`
+- **Authentication:** JWT in Authorization header: `Bearer <token>` (using jose)
 
 ### Database Best Practices
-- **Always use Prisma ORM** - Never write raw SQL unless absolutely necessary
+- **Always use Prisma 6 ORM** - Never write raw SQL unless absolutely necessary
 - **Migrations:** Create migration for every schema change
 - **Transactions:** Use for multi-step operations (e.g., creating album + adding photos)
 - **Indexes:** Ensure indexes on foreign keys and frequently queried fields
 - **UUIDs:** Use for all primary keys
 - **Timestamps:** Always include `created_at` and `updated_at` where relevant
+- **PostgreSQL 18:** Enable async I/O with `io_method = 'io_uring'` for 3x performance
 
 ---
 
@@ -204,21 +217,21 @@ PicAI/
 4. **Use parameterized queries** - Prisma handles this automatically
 5. **HTTPS only** - No unencrypted communication
 6. **Rate limiting** - Implement on all public endpoints (100 req/min per IP)
-7. **Password hashing** - Always use bcrypt with salt rounds = 10
-8. **JWT expiration** - 7 days default, 30 days with "remember me"
+7. **Password hashing** - Always use bcrypt 6.0.0 with salt rounds = 10
+8. **JWT with jose** - 7 days default, 30 days with "remember me" (Node.js 24 compatible)
 
 ### File Upload Security
 - **Allowed types:** JPEG, PNG, HEIC only
 - **Max size:** 25MB per file
 - **Filename sanitization:** Remove special chars, generate unique names (UUID)
 - **Storage location:** Outside web root, serve via controlled endpoint
-- **Virus scanning:** Consider ClamAV integration if storage allows (post-MVP)
+- **Multer 2.0.2:** Critical security patches CVE-2025-47935 and CVE-2025-47944 applied
 
 ---
 
 ## AI Integration Guidelines
 
-### Azure Computer Vision Usage
+### Azure Computer Vision Usage (2023-10-01 GA API)
 
 **When to Call:**
 - Immediately after photo upload (async)
@@ -238,9 +251,9 @@ PicAI/
 - Include category ("object", "scene", "activity", etc.)
 - Use confidence threshold: Only store tags with confidence > 0.5
 
-**Caching Strategy:**
-- Store AI results in database - don't re-analyze same photo
-- Only re-analyze if user explicitly requests it
+**API Version:**
+- Use 2023-10-01 GA version (preview versions retiring March 31, 2025)
+- SDK: `@azure-rest/ai-vision-image-analysis` 1.0.0-beta.3
 
 **Rate Limit Handling:**
 - Azure free tier: 5,000/month, 20/minute
@@ -248,31 +261,19 @@ PicAI/
 - Show user feedback: "Processing... this may take a minute"
 - Retry with exponential backoff on rate limit errors
 
-**Error Handling:**
-- If Azure API fails, store photo without tags
-- Allow manual retry later
-- Log errors for debugging
-
-### Album Generation Logic
-
-**Time-Based Albums:**
-- Query photos by date ranges
-- Group by day, month, or year
-- Auto-generate titles: "November 15, 2025", "November 2025", "2025"
-
-**Content-Based Albums:**
-- Search AI tags for matching criteria
-- Use fuzzy matching (e.g., "dog" matches "puppy", "canine")
-- Support multiple tags: "beach AND sunset"
-- Require minimum 3 photos to create album
-
-**Smart Suggestions:**
-- Detect patterns (e.g., 20+ photos in one day → "Event Album?")
-- Suggest based on high-frequency tags ("Lots of food photos → Recipe Collection?")
-
 ---
 
 ## Performance Optimization
+
+### November 2025 Stack Improvements
+- **Node.js 24:** 30% faster HTTP requests with Undici 7
+- **Express 5:** Automatic async error handling, HTTP/2 support
+- **Prisma 6:** 90% smaller bundles, 3.4x faster queries
+- **PostgreSQL 18:** 3x faster I/O with async subsystem
+- **TailwindCSS 4:** 3.5-5x faster builds, 8x faster incremental
+- **Zod 4:** 14x faster string parsing, 57% smaller bundles
+- **React 19:** Automatic batching, improved Suspense
+- **Vite 7:** Rolldown integration for faster builds
 
 ### Raspberry Pi Constraints
 - **Limited RAM:** Keep processes lightweight, avoid loading large files in memory
@@ -280,21 +281,17 @@ PicAI/
 - **CPU:** Use streams for file operations, async/await for I/O
 
 ### Image Handling
-- **Thumbnails:** Always generate 200x200px for grid views
+- **Thumbnails:** Always generate 200x200px for grid views (Sharp 0.34.5)
 - **Lazy loading:** Frontend loads thumbnails first, full images on demand
 - **Streaming:** Stream photo files, don't load entire file in memory
 - **Compression:** Use Sharp with quality=80 for thumbnails
 
 ### Database Optimization
+- **PostgreSQL 18:** Enable async I/O: `ALTER SYSTEM SET io_method = 'io_uring'`
 - **Indexes:** Ensure indexes on `user_id`, `group_id`, `uploaded_at`, `tag`
 - **Pagination:** Always paginate large queries (50 items per page)
 - **Connection pooling:** Configure Prisma connection pool (default max=10 is fine)
 - **Query optimization:** Use `select` to only fetch needed fields
-
-### API Performance
-- **Caching:** Use in-memory cache for frequent queries (Redis post-MVP)
-- **Compression:** Enable gzip compression on API responses
-- **Batch operations:** Support bulk upload/tagging where possible
 
 ---
 
@@ -307,14 +304,14 @@ NODE_ENV=development
 PORT=3001
 FRONTEND_URL=https://your-azure-static-web-app.azurestaticapps.net
 
-# Database
+# Database (PostgreSQL 18)
 DATABASE_URL=postgresql://picai_user:password@localhost:5432/picai
 
-# JWT
+# JWT (using jose for Node.js 24 compatibility)
 JWT_SECRET=your-super-secret-key-min-32-chars
 JWT_EXPIRATION=7d
 
-# Azure Computer Vision
+# Azure Computer Vision (2023-10-01 GA)
 AZURE_VISION_KEY=your-azure-key
 AZURE_VISION_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
 
@@ -337,39 +334,92 @@ VITE_API_URL=https://your-cloudflare-tunnel.com/api
 
 ---
 
-## Technology Stack Summary
+## Technology Stack Summary (November 2025)
 
 ### Backend
-- Node.js 24.11.1
+- Node.js 24.11.1 LTS (Krypton)
 - TypeScript 5.9.3
-- Express 5.1.0
-- Prisma 6.19.0
-- PostgreSQL 15
+- Express 5.1.0 (finally stable!)
+- Prisma 6.19.0 (Rust-free, 90% smaller)
+- PostgreSQL 18.1 (3x faster I/O)
 - Bcrypt 6.0.0
-- Zod 4.1.12
+- **jose 5.3.0** (JWT library, Node.js 24 compatible)
+- Zod 4.1.12 (14x faster)
 - Sharp 0.34.5
 - Winston 3.18.3
+- Multer 2.0.2 (security patched)
+- PM2 6.0.13
 
 ### Frontend
-- React 19.2.0
+- React 19.2.0 (or 18.3.1 for compatibility)
 - TypeScript 5.9.3
-- Vite 7.2.2
-- TailwindCSS 4.1.17
-- React Router 7.9.6
-- React Query 5.90.9
+- Vite 7.0
+- TailwindCSS 4.0 (CSS-first config)
+- React Router 7.9.5
+- TanStack Query 5.90.9
 - Axios 1.13.2
 - Zod 4.1.12
 
 ### Infrastructure
 - Raspberry Pi 5
-- PostgreSQL 15
-- Cloudflare Tunnel (free)
-- Azure Computer Vision API (F0 free tier)
+- PostgreSQL 18.1
+- Cloudflare Tunnel 2025.8.1
+- Azure Computer Vision API 2023-10-01 GA
 - Azure Static Web Apps (free tier)
 
 ---
 
 ## Common Patterns
+
+### JWT Authentication with jose (Node.js 24)
+
+```typescript
+// src/services/authService.ts
+import { SignJWT, jwtVerify } from 'jose';
+import bcrypt from 'bcrypt';
+
+class AuthService {
+  private secret: Uint8Array;
+
+  constructor() {
+    this.secret = new TextEncoder().encode(env.JWT_SECRET);
+  }
+
+  async generateToken(userId: string, email: string): Promise<string> {
+    return new SignJWT({ userId, email })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('7d')
+      .sign(this.secret);
+  }
+
+  async verifyToken(token: string): Promise<{ userId: string; email: string }> {
+    const { payload } = await jwtVerify(token, this.secret);
+    return payload as { userId: string; email: string };
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, 10);
+  }
+
+  async comparePassword(password: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(password, hash);
+  }
+}
+
+export const authService = new AuthService();
+```
+
+### Express 5 Async Error Handling
+
+```typescript
+// Express 5 automatically catches promise rejections
+app.get('/photos', async (req, res) => {
+  const photos = await prisma.photo.findMany();
+  res.json({ success: true, data: photos });
+  // No try-catch needed!
+});
+```
 
 ### TypeScript Import Extensions
 **CRITICAL:** Always use `.js` extension in imports, even for `.ts` files:
@@ -415,69 +465,35 @@ export const env = envSchema.parse(process.env);
 
 - [ ] All tests passing
 - [ ] Environment variables configured
-- [ ] Database migrations run
+- [ ] Database migrations run (Prisma 6)
 - [ ] Frontend build successful
 - [ ] API endpoints tested
-- [ ] Azure API keys valid
-- [ ] Cloudflare Tunnel configured
+- [ ] Azure API keys valid (2023-10-01 GA)
+- [ ] Cloudflare Tunnel configured (2025.8.1)
 - [ ] HTTPS enforced
 - [ ] Rate limiting enabled
 - [ ] Error logging configured
+- [ ] jose JWT authentication working
+- [ ] PostgreSQL 18 async I/O enabled
 - [ ] Backup strategy in place
-
----
-
-## Monitoring & Maintenance
-
-### What to Monitor
-
-- **Disk usage:** Alert at 80% full
-- **Database size:** Monitor growth rate
-- **API response times:** Alert if > 2 seconds
-- **Error rates:** Alert if > 5% of requests fail
-- **Azure API usage:** Track monthly quota (5,000/month free tier)
-- **Cloudflare Tunnel status:** Auto-restart if down
-
-### Logs
-
-- **Backend:** Use Winston for structured logging
-- **Rotate logs:** Daily rotation, keep 7 days
-- **Log levels:** ERROR, WARN, INFO, DEBUG
-- **Never log:** Passwords, JWT tokens, API keys
-
-### Backups
-
-- **Database:** Daily automated backups, keep 7 days
-- **Photos:** Weekly backup to external drive
-- **Restoration:** Test backup restoration monthly
-
----
-
-## Resources & Documentation
-
-- **Full PRD:** See `PRD.md` in project root
-- **Architecture Details:** See `docs/architecture.md`
-- **Azure Setup Guide:** See `docs/azure-setup.md`
-- **Backend Patterns:** See `backend/CLAUDE.md`
-- **Frontend Patterns:** See `frontend/CLAUDE.md`
 
 ---
 
 ## Important Reminders
 
-1. **Privacy First:** Never store or log personal photo content
-2. **Cost Awareness:** Monitor Azure usage to stay in free tier
-3. **Security:** All user data encrypted, all API calls authenticated
-4. **Performance:** Optimize for Raspberry Pi constraints
-5. **User Experience:** Always show loading states, clear error messages
-6. **Testing:** Write tests before deploying new features
-7. **Documentation:** Update CLAUDE.md when patterns change
-8. **TypeScript:** Use strict mode, leverage Prisma-generated types
-9. **Validation:** Always use Zod for input validation
+1. **jose for JWT:** Always use jose, NOT jsonwebtoken (Node.js 24 requirement)
+2. **Prisma 6 Generator:** Use "prisma-client" not "prisma-client-js"
+3. **PostgreSQL 18:** Enable io_uring for 3x performance boost
+4. **Express 5:** No try-catch needed for async routes
+5. **React 19 Compatibility:** Check dependencies before upgrading
+6. **Privacy First:** Never store or log personal photo content
+7. **Cost Awareness:** Monitor Azure usage to stay in free tier
+8. **Security:** All user data encrypted, all API calls authenticated
+9. **TypeScript:** Use strict mode, leverage Prisma-generated types
 10. **Import Extensions:** Always use `.js` in TypeScript imports
 
 ---
 
-**Last Updated:** November 15, 2025
-**Project Status:** Ready for Phase 1 Development
-**Current Phase:** Authentication + Basic API Setup
+**Last Updated:** November 16, 2025
+**Project Status:** Ready for Development with November 2025 Stack
+**Critical Changes:** Using jose for JWT (Node.js 24), Prisma 6 Rust-free, PostgreSQL 18 async I/O
