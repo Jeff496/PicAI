@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# TypeScript
+dist/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Storage (photos)
+storage/
+*.jpg
+*.jpeg
+*.png
+*.heic
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# DS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+coverage/
+
+# Prisma
+prisma/migrations/*.sql
+
+# PM2
+.pm2/
