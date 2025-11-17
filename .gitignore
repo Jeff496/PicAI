@@ -40,3 +40,6 @@ prisma/migrations/*.sql
 
 # PM2
 .pm2/
+
+# Claude
+.claude
