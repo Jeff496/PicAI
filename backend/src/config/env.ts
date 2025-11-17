@@ -11,9 +11,7 @@ dotenv.config();
 // Define the schema for environment variables
 const envSchema = z.object({
   // Server Configuration
-  NODE_ENV: z
-    .enum(['development', 'production', 'test'])
-    .default('development'),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
   FRONTEND_URL: z.string().url({
     message: 'FRONTEND_URL must be a valid URL',
@@ -60,7 +58,9 @@ try {
 } catch (error) {
   if (error instanceof z.ZodError) {
     console.error('❌ Environment variable validation failed:');
-    console.error(error.issues.map(err => `  - ${err.path.join('.')}: ${err.message}`).join('\n'));
+    console.error(
+      error.issues.map((err) => `  - ${err.path.join('.')}: ${err.message}`).join('\n')
+    );
     process.exit(1);
   }
   throw error;
