@@ -54,6 +54,7 @@ export interface TokenPair {
 export interface DecodedToken {
   userId: string;
   email: string;
+  type: 'access' | 'refresh';
   iat: number;
   exp: number;
   sub: string;
@@ -76,6 +77,9 @@ class AuthService {
   private readonly ACCESS_TOKEN_EXPIRATION = '15m'; // 15 minutes
   private readonly REFRESH_TOKEN_EXPIRATION = '7d'; // 7 days
 
+  // Password hashing configuration (2025 security standards)
+  private readonly BCRYPT_ROUNDS = 12; // Minimum recommended as of 2025
+
   constructor() {
     // Convert JWT secret string to Uint8Array for jose
     // jose requires Uint8Array for HMAC operations
@@ -88,10 +92,13 @@ class AuthService {
    * @param password - Plain text password to hash
    * @returns Promise resolving to bcrypt hash
    *
-   * Security: Uses 10 salt rounds as recommended for production
+   * Security: Uses 12 salt rounds (2025 minimum standard)
+   * - OWASP recommends minimum 12 rounds as of 2025
+   * - Target hashing time: 250-500ms
+   * - PHP/Laravel bumped defaults to 12 in 2024
    */
   async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 10);
+    return bcrypt.hash(password, this.BCRYPT_ROUNDS);
   }
 
   /**
@@ -205,6 +212,7 @@ class AuthService {
       return {
         userId: payload.userId,
         email: payload.email,
+        type: (payload as AuthTokenPayload).type || 'access', // Default to 'access' for backwards compatibility
         iat: payload.iat!,
         exp: payload.exp!,
         sub: payload.sub!,

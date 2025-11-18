@@ -9,6 +9,14 @@ import prisma from '../prisma/client.js';
 import type { LoginRequest, RegisterRequest, RefreshTokenRequest } from '../schemas/auth.schema.js';
 
 /**
+ * Pre-computed dummy bcrypt hash for timing attack prevention
+ * This is a valid bcrypt hash of a random string, used when user doesn't exist
+ * to ensure consistent timing regardless of whether the user exists
+ */
+const DUMMY_PASSWORD_HASH =
+  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzpLHJ.bJe';
+
+/**
  * Register a new user
  *
  * POST /auth/register
@@ -102,10 +110,9 @@ export const login = asyncHandler(async (req: Request, res: Response): Promise<v
   });
 
   // SECURITY: Always run bcrypt comparison to prevent timing attacks
-  // Use dummy hash if user doesn't exist to maintain consistent timing
-  // This prevents attackers from enumerating valid email addresses
-  const passwordHash =
-    user?.passwordHash ?? '$2b$10$invalidhashfornonexistentuserxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+  // Use valid dummy hash if user doesn't exist to maintain consistent timing
+  // This prevents attackers from enumerating valid email addresses via timing analysis
+  const passwordHash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
   const isPasswordValid = await authService.comparePassword(password, passwordHash);
 
   // Check if user exists AND password is correct

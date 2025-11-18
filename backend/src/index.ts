@@ -15,6 +15,9 @@ import express from 'express';
 // Allows frontend (running on different domain) to call our API
 import cors from 'cors';
 
+// Crypto for generating request IDs
+import { randomUUID } from 'crypto';
+
 // Environment variables (validated with Zod)
 import { env } from './config/env.js';
 
@@ -26,6 +29,9 @@ import { errorHandler, notFoundHandler } from './middleware/error.middleware.js'
 
 // Logger - Winston logging
 import logger from './utils/logger.js';
+
+// Prisma client for graceful shutdown
+import prisma from './prisma/client.js';
 
 /**
  * ========================================
@@ -66,7 +72,7 @@ const app = express();
  *
  * **The Solution:**
  * CORS middleware tells the browser:
- * "It's okay, I allow https://picai-frontend.azurestaticapps.net to call me"
+ * "It's okay, I allow these specific origins to call me"
  *
  * **How it works:**
  * Browser sends "preflight" OPTIONS request first
@@ -74,20 +80,77 @@ const app = express();
  * If allowed, browser sends actual request
  *
  * **Configuration:**
- * - origin: FRONTEND_URL from .env (e.g., http://localhost:5173 in dev)
+ * - origin: Function that validates allowed origins
  * - credentials: true (allows cookies/auth headers)
  * - optionsSuccessStatus: 200 (some browsers need this)
  */
+
+// Define allowed origins based on environment
+const allowedOrigins = [
+  env.FRONTEND_URL, // Production frontend
+  'http://localhost:5173', // Vite dev server
+  'http://localhost:4173', // Vite preview
+  'http://localhost:3000', // Alternative dev port
+];
+
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, curl)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        logger.warn('CORS request blocked from unauthorized origin', { origin });
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     credentials: true, // Allow cookies and Authorization header
     optionsSuccessStatus: 200, // For legacy browsers
   })
 );
 
 /**
- * 3.2 JSON Body Parser
+ * 3.2 Request ID Middleware
+ *
+ * **What does this do?**
+ * Generates a unique ID for each request to enable request tracing
+ *
+ * **Why is this important?**
+ * - Correlate log entries across the request lifecycle
+ * - Debug issues in production with concurrent users
+ * - Track requests through distributed systems
+ *
+ * **How it works:**
+ * - Generates UUID for each request
+ * - Attaches to req.id for use in controllers/services
+ * - Returns in X-Request-ID response header
+ * - Can be sent by client in X-Request-ID header (for client-initiated tracing)
+ */
+app.use((req, res, next) => {
+  // Use client-provided request ID if available, otherwise generate new one
+  const requestId = (req.headers['x-request-id'] as string) || randomUUID();
+  req.id = requestId;
+  res.setHeader('X-Request-ID', requestId);
+
+  // Log incoming request with request ID
+  logger.info('Incoming request', {
+    requestId,
+    method: req.method,
+    url: req.url,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+  });
+
+  next();
+});
+
+/**
+ * 3.3 JSON Body Parser
  *
  * **What does this do?**
  * Parses incoming JSON request bodies and makes them available in req.body
@@ -108,7 +171,7 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 
 /**
- * 3.3 URL-Encoded Parser
+ * 3.4 URL-Encoded Parser
  *
  * **What does this do?**
  * Parses form data (application/x-www-form-urlencoded)
@@ -132,7 +195,7 @@ app.use(express.urlencoded({ extended: true }));
  * ========================================
  *
  * **What is a health check?**
- * A simple endpoint that returns "I'm alive and working"
+ * An endpoint that verifies the server and its dependencies are functioning
  *
  * **Why do we need it?**
  * - Monitoring tools (PM2, Kubernetes) ping this to check if server is up
@@ -140,21 +203,65 @@ app.use(express.urlencoded({ extended: true }));
  * - CI/CD pipelines verify deployment succeeded
  * - Quick manual test: curl http://localhost:3001/health
  *
- * **What should it check?**
- * Basic version: Just return 200 OK
- * Advanced version: Check database, external APIs, disk space
+ * **What does it check?**
+ * - Database connectivity (critical)
+ * - Server uptime
+ * - Environment configuration
+ *
+ * **Response codes:**
+ * - 200: All checks passed (healthy)
+ * - 503: One or more checks failed (degraded/unhealthy)
  *
  * **Placement:**
  * Before authentication - should work even if auth is broken
  */
-app.get('/health', (_req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'PicAI Backend is running',
+app.get('/health', async (_req, res) => {
+  const health: {
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    timestamp: string;
+    uptime: number;
+    environment: string;
+    checks: {
+      database: 'ok' | 'error';
+    };
+    details?: {
+      database?: string;
+    };
+  } = {
+    status: 'healthy',
     timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
     environment: env.NODE_ENV,
-    // Future: Add database health check
-    // database: await checkDatabaseConnection(),
+    checks: {
+      database: 'ok',
+    },
+  };
+
+  // Check database connectivity
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    health.checks.database = 'ok';
+  } catch (error) {
+    health.status = 'degraded';
+    health.checks.database = 'error';
+    health.details = {
+      database: error instanceof Error ? error.message : 'Unknown error',
+    };
+    logger.error('Health check: Database connection failed', { error });
+  }
+
+  // Determine overall status
+  const hasErrors = Object.values(health.checks).some((check) => check === 'error');
+  if (hasErrors) {
+    health.status = 'degraded';
+  }
+
+  // Return appropriate status code
+  const statusCode = health.status === 'healthy' ? 200 : 503;
+
+  res.status(statusCode).json({
+    success: health.status === 'healthy',
+    ...health,
   });
 });
 
@@ -261,7 +368,7 @@ app.use(errorHandler);
 if (import.meta.url === `file://${process.argv[1]}`) {
   const PORT = env.PORT;
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     logger.info('==============================================');
     logger.info('🚀 PicAI Backend Server Started');
     logger.info('==============================================');
@@ -278,6 +385,66 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     logger.info('  POST   /api/auth/logout');
     logger.info('  GET    /api/auth/me');
     logger.info('==============================================');
+  });
+
+  /**
+   * ========================================
+   * GRACEFUL SHUTDOWN HANDLERS
+   * ========================================
+   *
+   * Handle SIGTERM and SIGINT signals to gracefully shutdown the server.
+   * This ensures:
+   * - In-flight requests complete before shutdown
+   * - Database connections close cleanly
+   * - No data corruption or connection leaks
+   *
+   * Process managers like PM2, Docker, and Kubernetes send SIGTERM
+   * when stopping containers/processes.
+   */
+
+  const gracefulShutdown = async (signal: string) => {
+    logger.info(`${signal} signal received: closing HTTP server`);
+
+    // Stop accepting new connections
+    server.close(async () => {
+      logger.info('HTTP server closed');
+
+      try {
+        // Close database connections
+        await prisma.$disconnect();
+        logger.info('Database connections closed');
+
+        logger.info('Graceful shutdown complete');
+        process.exit(0);
+      } catch (error) {
+        logger.error('Error during shutdown', { error });
+        process.exit(1);
+      }
+    });
+
+    // Force shutdown after 30 seconds if graceful shutdown fails
+    setTimeout(() => {
+      logger.error('Forced shutdown after timeout');
+      process.exit(1);
+    }, 30000);
+  };
+
+  // Handle SIGTERM (from Docker, Kubernetes, PM2)
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+  // Handle SIGINT (Ctrl+C in terminal)
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
+    gracefulShutdown('uncaughtException');
+  });
+
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Rejection', { reason, promise });
+    gracefulShutdown('unhandledRejection');
   });
 }
 
