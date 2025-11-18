@@ -183,16 +183,71 @@ export const env = envSchema.parse(process.env);
 
 ## JWT Authentication with jose (Node.js 24)
 
-### AuthService Implementation
+### Custom Error Types for Better Error Handling
+
+```typescript
+// Custom error types exported from authService
+export class TokenExpiredError extends Error {
+  constructor(message = 'Token has expired') {
+    super(message);
+    this.name = 'TokenExpiredError';
+  }
+}
+
+export class TokenInvalidError extends Error {
+  constructor(message = 'Token is invalid') {
+    super(message);
+    this.name = 'TokenInvalidError';
+  }
+}
+
+export class TokenMalformedError extends Error {
+  constructor(message = 'Token is malformed') {
+    super(message);
+    this.name = 'TokenMalformedError';
+  }
+}
+```
+
+### Type-Safe JWT Interfaces
+
+```typescript
+// JWT payload with type safety
+export interface AuthTokenPayload extends JWTPayload {
+  userId: string;
+  email: string;
+  type?: 'access' | 'refresh';
+}
+
+// Decoded token result
+export interface DecodedToken {
+  userId: string;
+  email: string;
+  iat: number;
+  exp: number;
+  sub: string;
+}
+
+// Token pair for access + refresh tokens
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number; // seconds until access token expires
+}
+```
+
+### AuthService Implementation with Token Refresh
 
 ```typescript
 // src/services/authService.ts
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import bcrypt from 'bcrypt';
 import { env } from '../config/env.js';
 
 class AuthService {
   private secret: Uint8Array;
+  private readonly ACCESS_TOKEN_EXPIRATION = '15m';  // 15 minutes
+  private readonly REFRESH_TOKEN_EXPIRATION = '7d';  // 7 days
 
   constructor() {
     // Convert JWT secret to Uint8Array for jose
@@ -207,22 +262,124 @@ class AuthService {
     return bcrypt.compare(password, hash);
   }
 
-  async generateToken(userId: string, email: string): Promise<string> {
-    const jwt = await new SignJWT({ userId, email })
+  // NEW: Generate access + refresh token pair (recommended)
+  async generateTokenPair(userId: string, email: string): Promise<TokenPair> {
+    // Access token (short-lived)
+    const accessToken = await new SignJWT({
+      userId,
+      email,
+      type: 'access',
+    } as AuthTokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(env.JWT_EXPIRATION || '7d')
+      .setExpirationTime(this.ACCESS_TOKEN_EXPIRATION)
       .setSubject(userId)
       .sign(this.secret);
-    
+
+    // Refresh token (long-lived)
+    const refreshToken = await new SignJWT({
+      userId,
+      email,
+      type: 'refresh',
+    } as AuthTokenPayload)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(this.REFRESH_TOKEN_EXPIRATION)
+      .setSubject(userId)
+      .sign(this.secret);
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: 900, // 15 minutes in seconds
+    };
+  }
+
+  // Legacy: Single token generation (deprecated, use generateTokenPair)
+  async generateToken(userId: string, email: string): Promise<string> {
+    const jwt = await new SignJWT({ userId, email, type: 'access' } as AuthTokenPayload)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(env.JWT_EXPIRATION)
+      .setSubject(userId)
+      .sign(this.secret);
+
     return jwt;
   }
 
-  async verifyToken(token: string): Promise<{ userId: string; email: string }> {
-    const { payload } = await jwtVerify(token, this.secret);
+  // Type-safe token verification with custom errors
+  async verifyToken(token: string): Promise<DecodedToken> {
+    try {
+      const { payload } = await jwtVerify(token, this.secret);
+
+      // Type guard validation
+      if (!this.isValidAuthPayload(payload)) {
+        throw new TokenMalformedError('Token payload missing required fields');
+      }
+
+      return {
+        userId: payload.userId,
+        email: payload.email,
+        iat: payload.iat!,
+        exp: payload.exp!,
+        sub: payload.sub!,
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('exp') || error.message.includes('expired')) {
+          throw new TokenExpiredError('Token has expired');
+        }
+        if (error.message.includes('signature') || error.message.includes('verification')) {
+          throw new TokenInvalidError('Token signature verification failed');
+        }
+        if (error.message.includes('malformed') || error.message.includes('JWS')) {
+          throw new TokenMalformedError('Token structure is invalid');
+        }
+        // Re-throw custom errors
+        if (error instanceof TokenExpiredError ||
+            error instanceof TokenInvalidError ||
+            error instanceof TokenMalformedError) {
+          throw error;
+        }
+      }
+      throw new TokenInvalidError('Token verification failed');
+    }
+  }
+
+  // NEW: Refresh access token using refresh token
+  async refreshTokens(refreshToken: string): Promise<TokenPair> {
+    const decoded = await this.verifyToken(refreshToken);
+
+    // Verify token type is 'refresh'
+    const { payload } = await jwtVerify(refreshToken, this.secret);
+    if ((payload as AuthTokenPayload).type !== 'refresh') {
+      throw new TokenInvalidError('Token is not a refresh token');
+    }
+
+    // Generate new token pair
+    return this.generateTokenPair(decoded.userId, decoded.email);
+  }
+
+  // Type guard for payload validation
+  private isValidAuthPayload(payload: JWTPayload): payload is AuthTokenPayload {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      typeof payload.userId === 'string' &&
+      typeof payload.email === 'string' &&
+      typeof payload.iat === 'number' &&
+      typeof payload.exp === 'number' &&
+      typeof payload.sub === 'string'
+    );
+  }
+
+  // Get token expiration info for client
+  getTokenExpirations() {
     return {
-      userId: payload.userId as string,
-      email: payload.email as string
+      accessTokenExpiration: this.ACCESS_TOKEN_EXPIRATION,
+      refreshTokenExpiration: this.REFRESH_TOKEN_EXPIRATION,
+      accessTokenSeconds: 900,      // 15 minutes
+      refreshTokenSeconds: 604800,  // 7 days
     };
   }
 }
@@ -230,63 +387,218 @@ class AuthService {
 export const authService = new AuthService();
 ```
 
-### JWT Middleware
+**Key Features:**
+- ✅ **Access Token**: 15 minutes (short-lived, used for API requests)
+- ✅ **Refresh Token**: 7 days (long-lived, used to get new access tokens)
+- ✅ **Custom Error Types**: TokenExpiredError, TokenInvalidError, TokenMalformedError
+- ✅ **Type Safety**: Full TypeScript types for payloads and responses
+- ✅ **Token Refresh**: Users stay logged in for 7 days without re-entering password
+- ✅ **Type Guards**: Runtime validation of token payloads
+
+### JWT Middleware with Custom Error Handling
 
 ```typescript
 // src/middleware/auth.middleware.ts
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { authService } from '../services/authService.js';
+import {
+  authService,
+  TokenExpiredError,
+  TokenInvalidError,
+  TokenMalformedError,
+} from '../services/authService.js';
 import prisma from '../prisma/client.js';
 
 export const authenticateJWT = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: 'Authentication required',
-        code: 'NO_TOKEN'
+        code: 'NO_TOKEN',
       });
+      return;
     }
 
     const token = authHeader.substring(7);
 
     try {
+      // Verify token - throws custom error types
       const decoded = await authService.verifyToken(token);
-      
+
+      // Look up user in database
       const user = await prisma.user.findUnique({
-        where: { id: decoded.userId }
+        where: { id: decoded.userId },
       });
 
       if (!user) {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           error: 'User not found',
-          code: 'INVALID_TOKEN'
+          code: 'USER_NOT_FOUND',
         });
+        return;
       }
 
+      // Attach user to request
       req.user = user;
       next();
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.message.includes('expired')) {
-          return res.status(401).json({
-            success: false,
-            error: 'Token expired',
-            code: 'TOKEN_EXPIRED'
-          });
-        }
+      // Handle custom error types for better UX
+      if (error instanceof TokenExpiredError) {
+        res.status(401).json({
+          success: false,
+          error: 'Token expired',
+          code: 'TOKEN_EXPIRED',
+        });
+        return;
       }
-      
-      return res.status(401).json({
+
+      if (error instanceof TokenInvalidError) {
+        res.status(401).json({
+          success: false,
+          error: 'Invalid token',
+          code: 'INVALID_TOKEN',
+        });
+        return;
+      }
+
+      if (error instanceof TokenMalformedError) {
+        res.status(401).json({
+          success: false,
+          error: 'Malformed token',
+          code: 'TOKEN_MALFORMED',
+        });
+        return;
+      }
+
+      // Fallback for unexpected errors
+      res.status(401).json({
         success: false,
-        error: 'Invalid token',
-        code: 'INVALID_TOKEN'
+        error: 'Authentication failed',
+        code: 'AUTH_ERROR',
       });
     }
+  }
+);
+```
+
+**Error Codes:**
+- `NO_TOKEN`: Missing or invalid Authorization header
+- `TOKEN_EXPIRED`: Token has expired (trigger refresh on client)
+- `TOKEN_INVALID`: Token signature invalid
+- `TOKEN_MALFORMED`: Token structure invalid
+- `USER_NOT_FOUND`: User deleted/doesn't exist
+- `AUTH_ERROR`: Generic auth failure
+
+### Token Refresh Pattern for Better UX
+
+**Authentication Flow:**
+1. User logs in → Receives access token (15min) + refresh token (7d)
+2. Client stores both tokens (localStorage/sessionStorage)
+3. API requests use access token in `Authorization: Bearer <token>` header
+4. When access token expires → Use refresh token to get new token pair
+5. When refresh token expires → Force re-login
+
+**Login Route Example:**
+```typescript
+// POST /auth/login
+async function login(req: Request, res: Response) {
+  const { email, password } = req.body;
+
+  // Validate credentials
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || !(await authService.comparePassword(password, user.passwordHash))) {
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid credentials',
+    });
+  }
+
+  // Generate token pair (NEW - recommended)
+  const tokens = await authService.generateTokenPair(user.id, user.email);
+
+  res.json({
+    success: true,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresIn: tokens.expiresIn, // 900 seconds (15 minutes)
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    },
+  });
+}
+```
+
+**Token Refresh Route Example:**
+```typescript
+// POST /auth/refresh
+async function refreshToken(req: Request, res: Response) {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(400).json({
+      success: false,
+      error: 'Refresh token required',
+    });
+  }
+
+  try {
+    // Generate new token pair
+    const tokens = await authService.refreshTokens(refreshToken);
+
+    res.json({
+      success: true,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+    });
+  } catch (error) {
+    if (error instanceof TokenExpiredError) {
+      return res.status(401).json({
+        success: false,
+        error: 'Refresh token expired, please login again',
+        code: 'REFRESH_TOKEN_EXPIRED',
+      });
+    }
+
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid refresh token',
+      code: 'INVALID_REFRESH_TOKEN',
+    });
+  }
+}
+```
+
+**Client-Side Token Management (Reference for Frontend):**
+```typescript
+// Store tokens after login
+localStorage.setItem('accessToken', tokens.accessToken);
+localStorage.setItem('refreshToken', tokens.refreshToken);
+
+// API interceptor - automatically refresh on 401
+axios.interceptors.response.use(
+  response => response,
+  async error => {
+    if (error.response?.status === 401 && error.response?.data?.code === 'TOKEN_EXPIRED') {
+      // Try to refresh
+      const refreshToken = localStorage.getItem('refreshToken');
+      const response = await axios.post('/auth/refresh', { refreshToken });
+
+      // Update stored tokens
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+
+      // Retry original request with new token
+      error.config.headers.Authorization = `Bearer ${response.data.accessToken}`;
+      return axios.request(error.config);
+    }
+    return Promise.reject(error);
   }
 );
 ```
