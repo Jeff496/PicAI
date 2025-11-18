@@ -7,6 +7,16 @@ import { env } from '../config/env.js';
 import logger from '../utils/logger.js';
 
 /**
+ * Extended Error type that may have additional properties
+ * from custom error classes or libraries
+ */
+interface ExtendedError extends Error {
+  statusCode?: number;
+  code?: string;
+  details?: unknown;
+}
+
+/**
  * Global Error Handler Middleware
  *
  * **CRITICAL:** Must have exactly 4 parameters (err, req, res, next)
@@ -35,7 +45,7 @@ import logger from '../utils/logger.js';
  * @param next - Express next function (required but unused)
  */
 export const errorHandler = (
-  err: Error,
+  err: ExtendedError,
   req: Request,
   res: Response,
   _next: NextFunction // Required for Express to recognize this as error handler
@@ -81,7 +91,7 @@ export const errorHandler = (
    * Some errors might have a statusCode property attached
    * (e.g., from custom error classes or libraries)
    */
-  const statusCode = (err as any).statusCode || 500;
+  const statusCode = err.statusCode || 500;
 
   /**
    * Step 3: Build Error Response
@@ -93,7 +103,7 @@ export const errorHandler = (
   const errorResponse = {
     success: false,
     error: err.message || 'Internal server error',
-    code: (err as any).code || 'INTERNAL_ERROR',
+    code: err.code || 'INTERNAL_ERROR',
 
     // Only include stack trace in development
     // Why? Stack traces reveal:
@@ -102,7 +112,7 @@ export const errorHandler = (
     // - Library versions (helps attackers find vulnerabilities)
     ...(env.NODE_ENV === 'development' && {
       stack: err.stack,
-      details: (err as any).details, // Validation error details from Zod
+      details: err.details, // Validation error details from Zod
     }),
   };
 
