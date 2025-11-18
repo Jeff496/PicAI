@@ -3,14 +3,17 @@
 // Verifies JWT tokens and attaches user to request object
 
 import type { Request, Response, NextFunction } from 'express';
+import { jwtVerify } from 'jose';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import {
   authService,
   TokenExpiredError,
   TokenInvalidError,
   TokenMalformedError,
+  type AuthTokenPayload,
 } from '../services/authService.js';
 import prisma from '../prisma/client.js';
+import { env } from '../config/env.js';
 
 /**
  * Authentication middleware for JWT verification
@@ -63,6 +66,21 @@ export const authenticateJWT = asyncHandler(
       // This validates signature, expiration, and token structure
       // Throws custom error types for better error handling
       const decoded = await authService.verifyToken(token);
+
+      // SECURITY: Verify token type is 'access' not 'refresh'
+      // Prevents refresh tokens (7d lifetime) from being used as access tokens
+      const secret = new TextEncoder().encode(env.JWT_SECRET);
+      const { payload } = await jwtVerify(token, secret);
+      const tokenType = (payload as AuthTokenPayload).type;
+
+      if (tokenType !== 'access') {
+        res.status(401).json({
+          success: false,
+          error: 'Invalid token type. Use access token for API requests.',
+          code: 'INVALID_TOKEN_TYPE',
+        });
+        return;
+      }
 
       // Look up user in database using userId from token
       const user = await prisma.user.findUnique({

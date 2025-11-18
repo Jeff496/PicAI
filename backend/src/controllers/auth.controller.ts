@@ -101,8 +101,14 @@ export const login = asyncHandler(async (req: Request, res: Response): Promise<v
     where: { email },
   });
 
-  // Check if user exists and password is correct
-  if (!user || !(await authService.comparePassword(password, user.passwordHash))) {
+  // SECURITY: Always run bcrypt comparison to prevent timing attacks
+  // Use dummy hash if user doesn't exist to maintain consistent timing
+  // This prevents attackers from enumerating valid email addresses
+  const passwordHash = user?.passwordHash ?? '$2b$10$invalidhashfornonexistentuserxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+  const isPasswordValid = await authService.comparePassword(password, passwordHash);
+
+  // Check if user exists AND password is correct
+  if (!user || !isPasswordValid) {
     res.status(401).json({
       success: false,
       error: 'Invalid email or password',
