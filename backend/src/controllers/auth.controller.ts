@@ -3,7 +3,6 @@
 // Uses authService for JWT operations and Prisma for database access
 
 import type { Request, Response } from 'express';
-import { asyncHandler } from '../utils/asyncHandler.js';
 import { authService, TokenExpiredError, TokenInvalidError } from '../services/authService.js';
 import prisma from '../prisma/client.js';
 import type { LoginRequest, RegisterRequest, RefreshTokenRequest } from '../schemas/auth.schema.js';
@@ -34,7 +33,7 @@ const DUMMY_PASSWORD_HASH = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyY
  * - 400 USER_EXISTS: Email already registered
  * - 500 Internal server error
  */
-export const register = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const register = async (req: Request, res: Response): Promise<void> => {
   const { email, password, name, profilePictureUrl } = req.body as RegisterRequest;
 
   // Check if user already exists
@@ -79,7 +78,7 @@ export const register = asyncHandler(async (req: Request, res: Response): Promis
       profilePictureUrl: user.profilePictureUrl,
     },
   });
-});
+};
 
 /**
  * Login existing user
@@ -100,7 +99,7 @@ export const register = asyncHandler(async (req: Request, res: Response): Promis
  * - 401 INVALID_CREDENTIALS: Email not found or password incorrect
  * - 500 Internal server error
  */
-export const login = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body as LoginRequest;
 
   // Find user by email
@@ -139,7 +138,7 @@ export const login = asyncHandler(async (req: Request, res: Response): Promise<v
       profilePictureUrl: user.profilePictureUrl,
     },
   });
-});
+};
 
 /**
  * Refresh access token
@@ -161,7 +160,7 @@ export const login = asyncHandler(async (req: Request, res: Response): Promise<v
  * - 401 INVALID_REFRESH_TOKEN: Refresh token is invalid
  * - 500 Internal server error
  */
-export const refresh = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const refresh = async (req: Request, res: Response): Promise<void> => {
   const { refreshToken } = req.body as RefreshTokenRequest;
 
   if (!refreshToken) {
@@ -206,7 +205,7 @@ export const refresh = asyncHandler(async (req: Request, res: Response): Promise
     // Re-throw unexpected errors
     throw error;
   }
-});
+};
 
 /**
  * Logout user
@@ -224,7 +223,7 @@ export const refresh = asyncHandler(async (req: Request, res: Response): Promise
  * by clearing tokens from storage. This endpoint is provided for
  * consistency and can be extended for token blacklisting if needed.
  */
-export const logout = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+export const logout = async (_req: Request, res: Response): Promise<void> => {
   // TODO: Implement token blacklisting if required
   // For now, client-side token removal is sufficient
 
@@ -232,7 +231,7 @@ export const logout = asyncHandler(async (_req: Request, res: Response): Promise
     success: true,
     message: 'Logged out successfully. Please clear tokens on client.',
   });
-});
+};
 
 /**
  * Get current user profile
@@ -252,7 +251,7 @@ export const logout = asyncHandler(async (_req: Request, res: Response): Promise
  * - 401 NO_TOKEN: Missing or invalid Authorization header
  * - 401 USER_NOT_FOUND: User from token doesn't exist
  */
-export const getCurrentUser = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const getCurrentUser = async (req: Request, res: Response): Promise<void> => {
   // User is attached by authenticateJWT middleware
   if (!req.user) {
     res.status(401).json({
@@ -272,4 +271,4 @@ export const getCurrentUser = asyncHandler(async (req: Request, res: Response): 
       profilePictureUrl: req.user.profilePictureUrl,
     },
   });
-});
+};
