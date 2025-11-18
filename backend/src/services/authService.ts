@@ -279,8 +279,7 @@ class AuthService {
     const decoded = await this.verifyToken(refreshToken);
 
     // Verify token type (should be 'refresh')
-    const { payload } = await jwtVerify(refreshToken, this.secret);
-    if ((payload as AuthTokenPayload).type !== 'refresh') {
+    if (decoded.type !== 'refresh') {
       throw new TokenInvalidError('Token is not a refresh token');
     }
 

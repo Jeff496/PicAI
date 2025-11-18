@@ -4,6 +4,8 @@
 
 import { z } from 'zod';
 import * as dotenv from 'dotenv';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -37,12 +39,68 @@ const envSchema = z.object({
   }),
 
   // File Storage
-  UPLOAD_DIR: z.string().min(1, {
-    message: 'UPLOAD_DIR must be a valid directory path',
-  }),
-  THUMBNAIL_DIR: z.string().min(1, {
-    message: 'THUMBNAIL_DIR must be a valid directory path',
-  }),
+  UPLOAD_DIR: z
+    .string()
+    .min(1, {
+      message: 'UPLOAD_DIR must be a valid directory path',
+    })
+    .refine(
+      (dirPath) => {
+        try {
+          // Resolve to absolute path
+          const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.resolve(process.cwd(), dirPath);
+          const stat = fs.statSync(absolutePath);
+          return stat.isDirectory();
+        } catch {
+          return false;
+        }
+      },
+      { message: 'UPLOAD_DIR must be an existing directory' }
+    )
+    .refine(
+      (dirPath) => {
+        try {
+          // Check if directory is writable
+          const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.resolve(process.cwd(), dirPath);
+          fs.accessSync(absolutePath, fs.constants.W_OK);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'UPLOAD_DIR must be writable' }
+    ),
+  THUMBNAIL_DIR: z
+    .string()
+    .min(1, {
+      message: 'THUMBNAIL_DIR must be a valid directory path',
+    })
+    .refine(
+      (dirPath) => {
+        try {
+          // Resolve to absolute path
+          const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.resolve(process.cwd(), dirPath);
+          const stat = fs.statSync(absolutePath);
+          return stat.isDirectory();
+        } catch {
+          return false;
+        }
+      },
+      { message: 'THUMBNAIL_DIR must be an existing directory' }
+    )
+    .refine(
+      (dirPath) => {
+        try {
+          // Check if directory is writable
+          const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.resolve(process.cwd(), dirPath);
+          fs.accessSync(absolutePath, fs.constants.W_OK);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'THUMBNAIL_DIR must be writable' }
+    ),
   MAX_FILE_SIZE: z.coerce.number().int().positive().default(26214400), // 25MB in bytes
 });
 
