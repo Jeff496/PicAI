@@ -87,8 +87,8 @@ function sanitizeObject(obj: unknown, depth = 0): unknown {
 
     for (const [key, value] of Object.entries(obj)) {
       // Check if this is a sensitive field
-      const isSensitive = SENSITIVE_FIELDS.some(
-        (field) => key.toLowerCase().includes(field.toLowerCase())
+      const isSensitive = SENSITIVE_FIELDS.some((field) =>
+        key.toLowerCase().includes(field.toLowerCase())
       );
 
       if (isSensitive) {

@@ -13,8 +13,7 @@ import type { LoginRequest, RegisterRequest, RefreshTokenRequest } from '../sche
  * This is a valid bcrypt hash of a random string, used when user doesn't exist
  * to ensure consistent timing regardless of whether the user exists
  */
-const DUMMY_PASSWORD_HASH =
-  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzpLHJ.bJe';
+const DUMMY_PASSWORD_HASH = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzpLHJ.bJe';
 
 /**
  * Register a new user

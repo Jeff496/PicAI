@@ -18,6 +18,8 @@ const router = Router();
  * - Brute force attacks on login
  * - Account enumeration via registration
  * - Token refresh abuse
+ *
+ * Note: Uses default keyGenerator which properly handles IPv4 and IPv6
  */
 
 // Strict rate limiter for login (5 attempts per 15 minutes)
@@ -31,8 +33,7 @@ const loginLimiter = rateLimit({
   },
   standardHeaders: true, // Return rate limit info in RateLimit-* headers
   legacyHeaders: false, // Disable X-RateLimit-* headers
-  // Use IP address for rate limiting
-  keyGenerator: (req) => req.ip ?? 'unknown',
+  // Default keyGenerator handles IPv4/IPv6 automatically
 });
 
 // Moderate rate limiter for registration (3 per hour)
@@ -46,7 +47,7 @@ const registerLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip ?? 'unknown',
+  // Default keyGenerator handles IPv4/IPv6 automatically
 });
 
 // Refresh token rate limiter (10 per 15 minutes)
@@ -60,7 +61,7 @@ const refreshLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip ?? 'unknown',
+  // Default keyGenerator handles IPv4/IPv6 automatically
 });
 
 /**
@@ -162,7 +163,12 @@ router.post('/login', loginLimiter, validateRequest(loginSchema), authController
  * - 401 INVALID_REFRESH_TOKEN: Refresh token is invalid
  * - 429 RATE_LIMIT_EXCEEDED: Too many refresh attempts
  */
-router.post('/refresh', refreshLimiter, validateRequest(refreshTokenSchema), authController.refresh);
+router.post(
+  '/refresh',
+  refreshLimiter,
+  validateRequest(refreshTokenSchema),
+  authController.refresh
+);
 
 /**
  * POST /auth/logout
