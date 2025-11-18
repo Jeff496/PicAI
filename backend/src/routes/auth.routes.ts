@@ -3,12 +3,65 @@
 // Connects validation middleware and auth controller
 
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import * as authController from '../controllers/auth.controller.js';
 import { validateRequest } from '../middleware/validate.middleware.js';
 import { authenticateJWT } from '../middleware/auth.middleware.js';
 import { loginSchema, registerSchema, refreshTokenSchema } from '../schemas/auth.schema.js';
 
 const router = Router();
+
+/**
+ * Rate limiting configuration for authentication endpoints
+ *
+ * Stricter limits on sensitive endpoints to prevent:
+ * - Brute force attacks on login
+ * - Account enumeration via registration
+ * - Token refresh abuse
+ */
+
+// Strict rate limiter for login (5 attempts per 15 minutes)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per window
+  message: {
+    success: false,
+    error: 'Too many login attempts. Please try again in 15 minutes.',
+    code: 'RATE_LIMIT_EXCEEDED',
+  },
+  standardHeaders: true, // Return rate limit info in RateLimit-* headers
+  legacyHeaders: false, // Disable X-RateLimit-* headers
+  // Use IP address for rate limiting
+  keyGenerator: (req) => req.ip ?? 'unknown',
+});
+
+// Moderate rate limiter for registration (3 per hour)
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 requests per window
+  message: {
+    success: false,
+    error: 'Too many registration attempts. Please try again later.',
+    code: 'RATE_LIMIT_EXCEEDED',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip ?? 'unknown',
+});
+
+// Refresh token rate limiter (10 per 15 minutes)
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 requests per window
+  message: {
+    success: false,
+    error: 'Too many token refresh attempts. Please try again later.',
+    code: 'RATE_LIMIT_EXCEEDED',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip ?? 'unknown',
+});
 
 /**
  * Authentication Routes
@@ -48,8 +101,9 @@ const router = Router();
  * Errors:
  * - 400 VALIDATION_ERROR: Invalid request body
  * - 400 USER_EXISTS: Email already registered
+ * - 429 RATE_LIMIT_EXCEEDED: Too many registration attempts
  */
-router.post('/register', validateRequest(registerSchema), authController.register);
+router.post('/register', registerLimiter, validateRequest(registerSchema), authController.register);
 
 /**
  * POST /auth/login
@@ -79,8 +133,9 @@ router.post('/register', validateRequest(registerSchema), authController.registe
  * Errors:
  * - 400 VALIDATION_ERROR: Invalid request body
  * - 401 INVALID_CREDENTIALS: Email not found or password incorrect
+ * - 429 RATE_LIMIT_EXCEEDED: Too many login attempts
  */
-router.post('/login', validateRequest(loginSchema), authController.login);
+router.post('/login', loginLimiter, validateRequest(loginSchema), authController.login);
 
 /**
  * POST /auth/refresh
@@ -105,8 +160,9 @@ router.post('/login', validateRequest(loginSchema), authController.login);
  * - 400 MISSING_TOKEN: No refresh token provided
  * - 401 REFRESH_TOKEN_EXPIRED: Refresh token has expired
  * - 401 INVALID_REFRESH_TOKEN: Refresh token is invalid
+ * - 429 RATE_LIMIT_EXCEEDED: Too many refresh attempts
  */
-router.post('/refresh', validateRequest(refreshTokenSchema), authController.refresh);
+router.post('/refresh', refreshLimiter, validateRequest(refreshTokenSchema), authController.refresh);
 
 /**
  * POST /auth/logout

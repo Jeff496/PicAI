@@ -17,6 +17,98 @@ interface ExtendedError extends Error {
 }
 
 /**
+ * List of sensitive field names that should be redacted from logs
+ * Includes authentication tokens, passwords, and common PII fields
+ */
+const SENSITIVE_FIELDS = [
+  // Authentication & Security
+  'password',
+  'passwordHash',
+  'password_hash',
+  'newPassword',
+  'oldPassword',
+  'currentPassword',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'access_token',
+  'refresh_token',
+  'apiKey',
+  'api_key',
+  'secret',
+  'privateKey',
+  'private_key',
+  'jwt',
+  'bearer',
+  'authorization',
+
+  // Financial & Sensitive IDs
+  'creditCard',
+  'credit_card',
+  'cardNumber',
+  'cvv',
+  'ssn',
+  'social_security',
+  'bankAccount',
+  'bank_account',
+
+  // Common PII (depending on requirements, some may be needed for debugging)
+  // 'email', // Uncomment if emails should be redacted
+  // 'phone', // Uncomment if phone numbers should be redacted
+  // 'address', // Uncomment if addresses should be redacted
+];
+
+/**
+ * Recursively sanitize an object by replacing sensitive field values with [REDACTED]
+ *
+ * @param obj - Object to sanitize
+ * @param depth - Current recursion depth (prevents infinite loops)
+ * @returns Sanitized copy of the object
+ */
+function sanitizeObject(obj: unknown, depth = 0): unknown {
+  // Prevent infinite recursion
+  if (depth > 10) {
+    return '[MAX_DEPTH_REACHED]';
+  }
+
+  // Handle null/undefined
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeObject(item, depth + 1));
+  }
+
+  // Handle objects
+  if (typeof obj === 'object') {
+    const sanitized: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(obj)) {
+      // Check if this is a sensitive field
+      const isSensitive = SENSITIVE_FIELDS.some(
+        (field) => key.toLowerCase().includes(field.toLowerCase())
+      );
+
+      if (isSensitive) {
+        sanitized[key] = '[REDACTED]';
+      } else if (typeof value === 'object') {
+        // Recursively sanitize nested objects
+        sanitized[key] = sanitizeObject(value, depth + 1);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+
+    return sanitized;
+  }
+
+  // Return primitives as-is
+  return obj;
+}
+
+/**
  * Global Error Handler Middleware
  *
  * **CRITICAL:** Must have exactly 4 parameters (err, req, res, next)
@@ -60,23 +152,17 @@ export const errorHandler = (
    */
 
   // SECURITY: Sanitize sensitive data before logging
-  // Never log passwords, tokens, or other credentials
-  const sanitizedBody = { ...req.body };
-  const sensitiveFields = ['password', 'passwordHash', 'refreshToken', 'accessToken', 'token'];
-
-  for (const field of sensitiveFields) {
-    if (sanitizedBody[field]) {
-      sanitizedBody[field] = '[REDACTED]';
-    }
-  }
+  // Never log passwords, tokens, credentials, or PII
+  const sanitizedBody = sanitizeObject(req.body);
 
   logger.error('Unhandled error in request', {
     error: err.message,
     stack: err.stack,
     method: req.method,
     url: req.url,
+    requestId: req.id, // Request ID for tracing
     userId: req.user?.id, // If user is authenticated
-    body: sanitizedBody, // Sanitized to prevent password leaks
+    body: sanitizedBody, // Sanitized to prevent sensitive data leaks
   });
 
   /**
