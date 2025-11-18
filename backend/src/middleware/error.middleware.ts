@@ -48,13 +48,25 @@ export const errorHandler = (
    * - Includes request context (method, URL, user)
    * - Makes debugging production issues possible
    */
+
+  // SECURITY: Sanitize sensitive data before logging
+  // Never log passwords, tokens, or other credentials
+  const sanitizedBody = { ...req.body };
+  const sensitiveFields = ['password', 'passwordHash', 'refreshToken', 'accessToken', 'token'];
+
+  for (const field of sensitiveFields) {
+    if (sanitizedBody[field]) {
+      sanitizedBody[field] = '[REDACTED]';
+    }
+  }
+
   logger.error('Unhandled error in request', {
     error: err.message,
     stack: err.stack,
     method: req.method,
     url: req.url,
     userId: req.user?.id, // If user is authenticated
-    body: req.body,
+    body: sanitizedBody, // Sanitized to prevent password leaks
   });
 
   /**
