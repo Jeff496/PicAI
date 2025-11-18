@@ -1,2 +1,6 @@
 
 /src/generated/prisma
+
+# Logs - Winston daily rotating files (do not commit)
+logs/
+*.log
