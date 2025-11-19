@@ -56,8 +56,7 @@ app.use(
  * Prevents slow clients from exhuasting server connections (especially for pi)
  */
 
-app.use((req, res, next) => {
-  req.setTimeout(30 * 1000);
+app.use((req, _res, next) => {
   req.setTimeout(30 * 1000);
   next();
 });
