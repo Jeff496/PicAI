@@ -36,7 +36,7 @@ export class TokenMalformedError extends Error {
 export interface AuthTokenPayload extends JWTPayload {
   userId: string;
   email: string;
-  type?: 'access' | 'refresh';
+  type: 'access' | 'refresh';
 }
 
 /**
@@ -212,7 +212,7 @@ class AuthService {
       return {
         userId: payload.userId,
         email: payload.email,
-        type: (payload as AuthTokenPayload).type || 'access', // Default to 'access' for backwards compatibility
+        type: (payload as AuthTokenPayload).type,
         iat: payload.iat!,
         exp: payload.exp!,
         sub: payload.sub!,

@@ -19,8 +19,19 @@ const router = Router();
  * - Account enumeration via registration
  * - Token refresh abuse
  *
- * Note: Uses default keyGenerator which properly handles IPv4 and IPv6
- */
+ * IMPORTANT LIMITATIONS (In-Memory Store):
+ * - Counters reset on server restart
+ * - Multi-instance deployments: Each instance has separate counters (users can bypass limits)
+ * - Memory usage grows unbounded without external store
+ * - Raspberry Pi: Monitor memory usage, consider Redis store for production
+ *
+ * For production with multiple instances, use Redis:
+ * ```typescript
+ * import { RedisStore } from 'rate-limit-redis';
+ * import Redis from 'ioredis';
+ * const client = new Redis();
+ * const store = new RedisStore({ client });
+ **/
 
 // Strict rate limiter for login (5 attempts per 15 minutes)
 const loginLimiter = rateLimit({

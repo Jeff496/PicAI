@@ -167,7 +167,8 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url(),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
-  JWT_EXPIRATION: z.string().default('7d'),
+  ACCESS_TOKEN_EXPIRATION: z.string().default('15m'),
+  REFRESH_TOKEN_EXPIRATION: z.string().default('7d'),
   AZURE_VISION_KEY: z.string().min(32),
   AZURE_VISION_ENDPOINT: z.string().url(),
   UPLOAD_DIR: z.string(),
@@ -246,8 +247,6 @@ import { env } from '../config/env.js';
 
 class AuthService {
   private secret: Uint8Array;
-  private readonly ACCESS_TOKEN_EXPIRATION = '15m';  // 15 minutes
-  private readonly REFRESH_TOKEN_EXPIRATION = '7d';  // 7 days
 
   constructor() {
     // Convert JWT secret to Uint8Array for jose
@@ -255,7 +254,7 @@ class AuthService {
   }
 
   async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 10);
+    return bcrypt.hash(password, 12);
   }
 
   async comparePassword(password: string, hash: string): Promise<boolean> {
@@ -272,7 +271,7 @@ class AuthService {
     } as AuthTokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(this.ACCESS_TOKEN_EXPIRATION)
+      .setExpirationTime(env.ACCESS_TOKEN_EXPIRATION)
       .setSubject(userId)
       .sign(this.secret);
 
@@ -284,7 +283,7 @@ class AuthService {
     } as AuthTokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(this.REFRESH_TOKEN_EXPIRATION)
+      .setExpirationTime(env.REFRESH_TOKEN_EXPIRATION)
       .setSubject(userId)
       .sign(this.secret);
 
@@ -300,7 +299,7 @@ class AuthService {
     const jwt = await new SignJWT({ userId, email, type: 'access' } as AuthTokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(env.JWT_EXPIRATION)
+      .setExpirationTime(env.ACCESS_TOKEN_EXPIRATION)
       .setSubject(userId)
       .sign(this.secret);
 
@@ -376,8 +375,8 @@ class AuthService {
   // Get token expiration info for client
   getTokenExpirations() {
     return {
-      accessTokenExpiration: this.ACCESS_TOKEN_EXPIRATION,
-      refreshTokenExpiration: this.REFRESH_TOKEN_EXPIRATION,
+      accessTokenExpiration: env.ACCESS_TOKEN_EXPIRATION,
+      refreshTokenExpiration: env.REFRESH_TOKEN_EXPIRATION,
       accessTokenSeconds: 900,      // 15 minutes
       refreshTokenSeconds: 604800,  // 7 days
     };
