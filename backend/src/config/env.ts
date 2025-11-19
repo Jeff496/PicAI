@@ -48,7 +48,9 @@ const envSchema = z.object({
       (dirPath) => {
         try {
           // Resolve to absolute path
-          const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.resolve(process.cwd(), dirPath);
+          const absolutePath = path.isAbsolute(dirPath)
+            ? dirPath
+            : path.resolve(process.cwd(), dirPath);
           const stat = fs.statSync(absolutePath);
           return stat.isDirectory();
         } catch {
@@ -61,7 +63,9 @@ const envSchema = z.object({
       (dirPath) => {
         try {
           // Check if directory is writable
-          const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.resolve(process.cwd(), dirPath);
+          const absolutePath = path.isAbsolute(dirPath)
+            ? dirPath
+            : path.resolve(process.cwd(), dirPath);
           fs.accessSync(absolutePath, fs.constants.W_OK);
           return true;
         } catch {
@@ -79,7 +83,9 @@ const envSchema = z.object({
       (dirPath) => {
         try {
           // Resolve to absolute path
-          const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.resolve(process.cwd(), dirPath);
+          const absolutePath = path.isAbsolute(dirPath)
+            ? dirPath
+            : path.resolve(process.cwd(), dirPath);
           const stat = fs.statSync(absolutePath);
           return stat.isDirectory();
         } catch {
@@ -92,7 +98,9 @@ const envSchema = z.object({
       (dirPath) => {
         try {
           // Check if directory is writable
-          const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.resolve(process.cwd(), dirPath);
+          const absolutePath = path.isAbsolute(dirPath)
+            ? dirPath
+            : path.resolve(process.cwd(), dirPath);
           fs.accessSync(absolutePath, fs.constants.W_OK);
           return true;
         } catch {
