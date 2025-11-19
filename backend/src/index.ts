@@ -43,7 +43,7 @@ app.use(
         callback(null, true);
       } else {
         logger.warn('CORS blocked', { origin });
-        callback(null, false);
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
       }
     },
     credentials: true, // Allow cookies and Authorization header
