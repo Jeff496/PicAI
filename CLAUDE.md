@@ -217,8 +217,8 @@ PicAI/
 4. **Use parameterized queries** - Prisma handles this automatically
 5. **HTTPS only** - No unencrypted communication
 6. **Rate limiting** - Implement on all public endpoints (100 req/min per IP)
-7. **Password hashing** - Always use bcrypt 6.0.0 with salt rounds = 10
-8. **JWT with jose** - 7 days default, 30 days with "remember me" (Node.js 24 compatible)
+7. **Password hashing** - Always use bcrypt 6.0.0 with salt rounds = 12
+8. **JWT with jose** - Access tokens 15min, refresh tokens 7 days (Node.js 24 compatible)
 
 ### File Upload Security
 - **Allowed types:** JPEG, PNG, HEIC only
@@ -309,7 +309,8 @@ DATABASE_URL=postgresql://picai_user:password@localhost:5432/picai
 
 # JWT (using jose for Node.js 24 compatibility)
 JWT_SECRET=your-super-secret-key-min-32-chars
-JWT_EXPIRATION=7d
+ACCESS_TOKEN_EXPIRATION=15m
+REFRESH_TOKEN_EXPIRATION=7d
 
 # Azure Computer Vision (2023-10-01 GA)
 AZURE_VISION_KEY=your-azure-key
@@ -399,7 +400,7 @@ class AuthService {
   }
 
   async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 10);
+    return bcrypt.hash(password, 12);
   }
 
   async comparePassword(password: string, hash: string): Promise<boolean> {
@@ -434,13 +435,11 @@ import { fileService } from './services/fileService';
 
 ### Error Handling
 ```typescript
-// Always wrap async routes with try-catch or asyncHandler
-import { asyncHandler } from '../utils/asyncHandler.js';
-
-export const getPhotos = asyncHandler(async (req, res) => {
+// Express 5 handles async errors automatically
+export const getPhotos = async (req: Request, res: Response) => {
   const photos = await prisma.photo.findMany();
   res.json({ success: true, data: photos });
-});
+};
 ```
 
 ### Environment Validation
