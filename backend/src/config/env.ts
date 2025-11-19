@@ -28,7 +28,9 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, {
     message: 'JWT_SECRET must be at least 32 characters for security',
   }),
-  JWT_EXPIRATION: z.string().default('7d'),
+  JWT_EXPIRATION: z.string().default('7d'), // Legacy: for single token generation
+  ACCESS_TOKEN_EXPIRATION: z.string().default('15m'), // Short-lived access tokens
+  REFRESH_TOKEN_EXPIRATION: z.string().default('7d'), // Long-lived refresh tokens
 
   // Azure Computer Vision API
   AZURE_VISION_KEY: z.string().min(32, {

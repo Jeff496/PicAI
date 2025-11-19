@@ -6,6 +6,14 @@ Backend-specific guidance for the PicAI Express.js API with November 2025 techno
 
 **See main `CLAUDE.md` in project root for overall architecture and conventions.**
 
+**📁 Additional Context Files:**
+- `.claude/context/common-ai-mistakes.md` - Common pitfalls and how to avoid them
+- `.claude/context/file-structure.md` - Detailed file structure reference
+- `.claude/context/conventions-and-standards.md` - Coding standards and best practices
+- `.claude/context/component-examples.md` - Working code examples and patterns
+
+**Always check these context files when starting a new session for the most accurate, up-to-date information.**
+
 ---
 
 ## Technology Stack (November 2025)
@@ -14,7 +22,7 @@ Backend-specific guidance for the PicAI Express.js API with November 2025 techno
 - **Runtime:** Node.js 24.11.1 LTS (Krypton)
 - **Framework:** Express 5.1.0 (finally stable after 10 years!)
 - **Database:** PostgreSQL 18.1 with Prisma 6.19.0 ORM
-- **Authentication:** JWT using **jose 5.3.0** (Node.js 24 compatible, replaces jsonwebtoken)
+- **Authentication:** JWT using **jose 6.1.2** (Node.js 24 compatible, replaces jsonwebtoken)
 - **File Upload:** Multer 2.0.2 (CVE-2025-47935 and CVE-2025-47944 patches)
 - **Image Processing:** Sharp 0.34.5 (libvips 8.17.3)
 - **Validation:** Zod 4.1.12 (14x faster, 57% smaller)
@@ -41,11 +49,13 @@ import { SignJWT, jwtVerify } from 'jose';
 ```prisma
 generator client {
   provider = "prisma-client"  // ← Changed from "prisma-client-js"
+  output   = "../src/generated/prisma"  // Custom output directory
 }
 ```
 - 90% smaller bundles (14MB → 1.6MB)
 - 3.4x faster queries
 - No more binary targets configuration
+- Custom output allows better control over generated types location
 
 ### 3. Express 5 Automatic Error Handling
 ```typescript
@@ -167,14 +177,18 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url(),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
-  ACCESS_TOKEN_EXPIRATION: z.string().default('15m'),
-  REFRESH_TOKEN_EXPIRATION: z.string().default('7d'),
+  JWT_EXPIRATION: z.string().default('7d'),
   AZURE_VISION_KEY: z.string().min(32),
   AZURE_VISION_ENDPOINT: z.string().url(),
   UPLOAD_DIR: z.string(),
   THUMBNAIL_DIR: z.string(),
   MAX_FILE_SIZE: z.coerce.number().default(26214400),
 });
+
+// Note: Access and refresh token expirations are hardcoded in authService.ts:
+// - Access token: 15 minutes ('15m')
+// - Refresh token: 7 days ('7d')
+// JWT_EXPIRATION is used for legacy single-token generation
 
 export type Env = z.infer<typeof envSchema>;
 export const env = envSchema.parse(process.env);
@@ -261,6 +275,10 @@ class AuthService {
     return bcrypt.compare(password, hash);
   }
 
+  // Token expiration times (hardcoded in class)
+  private readonly ACCESS_TOKEN_EXPIRATION = '15m';
+  private readonly REFRESH_TOKEN_EXPIRATION = '7d';
+
   // NEW: Generate access + refresh token pair (recommended)
   async generateTokenPair(userId: string, email: string): Promise<TokenPair> {
     // Access token (short-lived)
@@ -271,7 +289,7 @@ class AuthService {
     } as AuthTokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(env.ACCESS_TOKEN_EXPIRATION)
+      .setExpirationTime(this.ACCESS_TOKEN_EXPIRATION)
       .setSubject(userId)
       .sign(this.secret);
 
@@ -283,7 +301,7 @@ class AuthService {
     } as AuthTokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(env.REFRESH_TOKEN_EXPIRATION)
+      .setExpirationTime(this.REFRESH_TOKEN_EXPIRATION)
       .setSubject(userId)
       .sign(this.secret);
 
@@ -299,7 +317,7 @@ class AuthService {
     const jwt = await new SignJWT({ userId, email, type: 'access' } as AuthTokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(env.ACCESS_TOKEN_EXPIRATION)
+      .setExpirationTime(env.JWT_EXPIRATION)
       .setSubject(userId)
       .sign(this.secret);
 
@@ -375,8 +393,8 @@ class AuthService {
   // Get token expiration info for client
   getTokenExpirations() {
     return {
-      accessTokenExpiration: env.ACCESS_TOKEN_EXPIRATION,
-      refreshTokenExpiration: env.REFRESH_TOKEN_EXPIRATION,
+      accessTokenExpiration: this.ACCESS_TOKEN_EXPIRATION,
+      refreshTokenExpiration: this.REFRESH_TOKEN_EXPIRATION,
       accessTokenSeconds: 900,      // 15 minutes
       refreshTokenSeconds: 604800,  // 7 days
     };

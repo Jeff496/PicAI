@@ -73,9 +73,9 @@ export interface DecodedToken {
 class AuthService {
   private secret: Uint8Array;
 
-  // Token expiration times
-  private readonly ACCESS_TOKEN_EXPIRATION = '15m'; // 15 minutes
-  private readonly REFRESH_TOKEN_EXPIRATION = '7d'; // 7 days
+  // Token expiration times (from environment variables)
+  private readonly ACCESS_TOKEN_EXPIRATION = env.ACCESS_TOKEN_EXPIRATION; // Default: 15m
+  private readonly REFRESH_TOKEN_EXPIRATION = env.REFRESH_TOKEN_EXPIRATION; // Default: 7d
 
   // Password hashing configuration (2025 security standards)
   private readonly BCRYPT_ROUNDS = 12; // Minimum recommended as of 2025
