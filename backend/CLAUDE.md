@@ -185,10 +185,10 @@ const envSchema = z.object({
   MAX_FILE_SIZE: z.coerce.number().default(26214400),
 });
 
-// Note: Access and refresh token expirations are hardcoded in authService.ts:
-// - Access token: 15 minutes ('15m')
-// - Refresh token: 7 days ('7d')
-// JWT_EXPIRATION is used for legacy single-token generation
+// Note: Token expirations are configurable via environment variables:
+// - ACCESS_TOKEN_EXPIRATION: Default 15 minutes ('15m')
+// - REFRESH_TOKEN_EXPIRATION: Default 7 days ('7d')
+// - JWT_EXPIRATION: Used for legacy single-token generation (default '7d')
 
 export type Env = z.infer<typeof envSchema>;
 export const env = envSchema.parse(process.env);
@@ -275,9 +275,9 @@ class AuthService {
     return bcrypt.compare(password, hash);
   }
 
-  // Token expiration times (hardcoded in class)
-  private readonly ACCESS_TOKEN_EXPIRATION = '15m';
-  private readonly REFRESH_TOKEN_EXPIRATION = '7d';
+  // Token expiration times (from environment variables)
+  private readonly ACCESS_TOKEN_EXPIRATION = env.ACCESS_TOKEN_EXPIRATION; // Default: 15m
+  private readonly REFRESH_TOKEN_EXPIRATION = env.REFRESH_TOKEN_EXPIRATION; // Default: 7d
 
   // NEW: Generate access + refresh token pair (recommended)
   async generateTokenPair(userId: string, email: string): Promise<TokenPair> {

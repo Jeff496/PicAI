@@ -182,7 +182,7 @@ class AuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 900, // 15 minutes in seconds
+      expiresIn: this.parseExpirationToSeconds(this.ACCESS_TOKEN_EXPIRATION),
     };
   }
 
@@ -306,14 +306,63 @@ class AuthService {
   }
 
   /**
+   * Parse expiration string to seconds
+   *
+   * @param expiration - Expiration string (e.g., '15m', '7d', '24h')
+   * @returns Number of seconds
+   *
+   * Supported units:
+   * - s: seconds
+   * - m: minutes
+   * - h: hours
+   * - d: days
+   *
+   * @example
+   * ```typescript
+   * parseExpirationToSeconds('15m') // 900
+   * parseExpirationToSeconds('7d')  // 604800
+   * parseExpirationToSeconds('24h') // 86400
+   * ```
+   */
+  private parseExpirationToSeconds(expiration: string | undefined): number {
+    // Handle undefined or invalid input
+    if (!expiration) {
+      return 900; // Fallback to 15 minutes
+    }
+
+    const match = expiration.match(/^(\d+)([smhd])$/);
+
+    if (!match || !match[1] || !match[2]) {
+      // Fallback to 15 minutes if format is invalid
+      return 900;
+    }
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    switch (unit) {
+      case 's':
+        return value;
+      case 'm':
+        return value * 60;
+      case 'h':
+        return value * 3600;
+      case 'd':
+        return value * 86400;
+      default:
+        return 900; // Fallback to 15 minutes
+    }
+  }
+
+  /**
    * Get token expiration times (for client-side storage decisions)
    */
   getTokenExpirations() {
     return {
       accessTokenExpiration: this.ACCESS_TOKEN_EXPIRATION,
       refreshTokenExpiration: this.REFRESH_TOKEN_EXPIRATION,
-      accessTokenSeconds: 900, // 15 minutes
-      refreshTokenSeconds: 604800, // 7 days
+      accessTokenSeconds: this.parseExpirationToSeconds(this.ACCESS_TOKEN_EXPIRATION),
+      refreshTokenSeconds: this.parseExpirationToSeconds(this.REFRESH_TOKEN_EXPIRATION),
     };
   }
 }
