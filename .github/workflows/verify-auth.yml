@@ -53,7 +53,7 @@ jobs:
           JWT_SECRET=test-jwt-secret-minimum-32-characters-long-for-security
           ACCESS_TOKEN_EXPIRATION=15m
           REFRESH_TOKEN_EXPIRATION=7d
-          AZURE_VISION_KEY=fake-key-for-testing
+          AZURE_VISION_KEY=fake-azure-vision-key-32-chars-min-for-testing-only
           AZURE_VISION_ENDPOINT=https://fake-endpoint.cognitiveservices.azure.com/
           UPLOAD_DIR=/tmp/picai-test/originals
           THUMBNAIL_DIR=/tmp/picai-test/thumbnails
