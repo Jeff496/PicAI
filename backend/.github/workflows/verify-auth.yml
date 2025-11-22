@@ -1,0 +1,126 @@
+name: Verify Authentication System
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  verify-auth:
+    name: Authentication System Verification
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: picai_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: picai_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.11.1'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Setup environment variables
+        working-directory: ./backend
+        run: |
+          cat > .env << EOF
+          NODE_ENV=test
+          PORT=3001
+          FRONTEND_URL=http://localhost:5173
+          DATABASE_URL=postgresql://picai_user:test_password@localhost:5432/picai_test
+          JWT_SECRET=test-jwt-secret-minimum-32-characters-long-for-security
+          ACCESS_TOKEN_EXPIRATION=15m
+          REFRESH_TOKEN_EXPIRATION=7d
+          AZURE_VISION_KEY=fake-key-for-testing
+          AZURE_VISION_ENDPOINT=https://fake-endpoint.cognitiveservices.azure.com/
+          UPLOAD_DIR=/tmp/picai-test/originals
+          THUMBNAIL_DIR=/tmp/picai-test/thumbnails
+          MAX_FILE_SIZE=26214400
+          EOF
+
+      - name: Create storage directories
+        run: |
+          mkdir -p /tmp/picai-test/originals
+          mkdir -p /tmp/picai-test/thumbnails
+
+      - name: Generate Prisma client
+        working-directory: ./backend
+        run: npx prisma generate
+
+      - name: Run database migrations
+        working-directory: ./backend
+        run: npx prisma migrate deploy
+
+      - name: TypeScript type check
+        working-directory: ./backend
+        run: npm run type-check
+
+      - name: Start server in background
+        working-directory: ./backend
+        run: |
+          npm run dev &
+          echo $! > server.pid
+          # Wait for server to be ready
+          sleep 10
+
+      - name: Wait for server to be healthy
+        working-directory: ./backend
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:3001/health | grep -q '"status":"healthy"'; then
+              echo "✅ Server is healthy"
+              exit 0
+            fi
+            echo "Waiting for server... ($i/30)"
+            sleep 2
+          done
+          echo "❌ Server failed to start"
+          exit 1
+
+      - name: Run authentication verification script
+        working-directory: ./backend
+        run: |
+          chmod +x scripts/verify-auth.sh
+          ./scripts/verify-auth.sh
+
+      - name: Run Vitest integration tests
+        working-directory: ./backend
+        run: npm test tests/auth.integration.test.ts
+
+      - name: Stop server
+        if: always()
+        working-directory: ./backend
+        run: |
+          if [ -f server.pid ]; then
+            kill $(cat server.pid) || true
+          fi
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs
+          path: backend/logs/
+          retention-days: 7
