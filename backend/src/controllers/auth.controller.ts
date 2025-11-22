@@ -3,7 +3,12 @@
 // Uses authService for JWT operations and Prisma for database access
 
 import type { Request, Response } from 'express';
-import { authService, TokenExpiredError, TokenInvalidError } from '../services/authService.js';
+import {
+  authService,
+  TokenExpiredError,
+  TokenInvalidError,
+  TokenMalformedError,
+} from '../services/authService.js';
 import prisma from '../prisma/client.js';
 import type { LoginRequest, RegisterRequest, RefreshTokenRequest } from '../schemas/auth.schema.js';
 
@@ -197,6 +202,15 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({
         success: false,
         error: 'Invalid refresh token',
+        code: 'INVALID_REFRESH_TOKEN',
+      });
+      return;
+    }
+
+    if (error instanceof TokenMalformedError) {
+      res.status(401).json({
+        success: false,
+        error: 'Malformed refresh token',
         code: 'INVALID_REFRESH_TOKEN',
       });
       return;
