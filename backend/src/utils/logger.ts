@@ -19,12 +19,25 @@ const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }), // Include stack traces for errors
   winston.format.splat(), // Support for %s, %d printf-style formatting
-  winston.format.printf(({ timestamp, level, message, stack }) => {
+  winston.format.printf((info) => {
+    const { timestamp, level, message, stack, ...metadata } = info;
+
+    // Build base log message
+    let log = `${timestamp} [${level.toUpperCase()}]: ${message}`;
+
+    // Add metadata if present (exclude Symbol keys like Symbol(level))
+    const metadataKeys = Object.keys(metadata).filter((key) => !key.startsWith('Symbol('));
+    if (metadataKeys.length > 0) {
+      const metadataStr = JSON.stringify(metadata, null, 2);
+      log += ` ${metadataStr}`;
+    }
+
     // If there's a stack trace (from Error objects), include it
     if (stack) {
-      return `${timestamp} [${level.toUpperCase()}]: ${message}\n${stack}`;
+      log += `\n${stack}`;
     }
-    return `${timestamp} [${level.toUpperCase()}]: ${message}`;
+
+    return log;
   })
 );
 
