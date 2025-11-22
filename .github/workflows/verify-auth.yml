@@ -73,6 +73,14 @@ jobs:
         working-directory: ./backend
         run: npx prisma migrate deploy
 
+      - name: Verify database connection
+        working-directory: ./backend
+        run: |
+          npx prisma db execute --stdin <<EOF
+          SELECT 1;
+          EOF
+          echo "✅ Database connection verified"
+
       - name: TypeScript type check
         working-directory: ./backend
         run: npm run type-check
@@ -80,23 +88,44 @@ jobs:
       - name: Start server in background
         working-directory: ./backend
         run: |
-          npm run dev &
+          echo "Starting server..."
+          mkdir -p logs
+          npm run dev > logs/server.log 2>&1 &
           echo $! > server.pid
-          # Wait for server to be ready
-          sleep 10
+          echo "Server PID: $(cat server.pid)"
+          sleep 5
+          echo "Checking if server process is running..."
+          if ps -p $(cat server.pid) > /dev/null; then
+            echo "✅ Server process is running"
+          else
+            echo "❌ Server process died. Logs:"
+            cat logs/server.log
+            exit 1
+          fi
 
       - name: Wait for server to be healthy
         working-directory: ./backend
         run: |
+          echo "Waiting for server to respond on http://localhost:3001/health"
           for i in {1..30}; do
-            if curl -s http://localhost:3001/health | grep -q '"status":"healthy"'; then
-              echo "✅ Server is healthy"
-              exit 0
+            if curl -s http://localhost:3001/health > /tmp/health-response.json 2>&1; then
+              cat /tmp/health-response.json
+              if cat /tmp/health-response.json | grep -q '"status":"healthy"'; then
+                echo "✅ Server is healthy"
+                exit 0
+              else
+                echo "⚠️  Server responded but not healthy. Response above."
+              fi
+            else
+              echo "Waiting for server... ($i/30) - No response yet"
             fi
-            echo "Waiting for server... ($i/30)"
             sleep 2
           done
-          echo "❌ Server failed to start"
+          echo "❌ Server failed to become healthy"
+          echo "=== Server Logs ==="
+          cat logs/server.log || echo "No logs found"
+          echo "=== Process Status ==="
+          ps aux | grep node || echo "No node processes"
           exit 1
 
       - name: Run authentication verification script
@@ -109,12 +138,27 @@ jobs:
         working-directory: ./backend
         run: npm test tests/auth.integration.test.ts
 
+      - name: Show server logs on failure
+        if: failure()
+        working-directory: ./backend
+        run: |
+          echo "=== Server Logs ==="
+          if [ -f logs/server.log ]; then
+            cat logs/server.log
+          else
+            echo "No server logs found"
+          fi
+
       - name: Stop server
         if: always()
         working-directory: ./backend
         run: |
           if [ -f server.pid ]; then
+            echo "Stopping server with PID $(cat server.pid)"
             kill $(cat server.pid) || true
+            sleep 2
+            # Force kill if still running
+            kill -9 $(cat server.pid) 2>/dev/null || true
           fi
 
       - name: Upload logs on failure
@@ -124,3 +168,4 @@ jobs:
           name: server-logs
           path: backend/logs/
           retention-days: 7
+          if-no-files-found: warn
