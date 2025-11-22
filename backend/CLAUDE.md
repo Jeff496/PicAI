@@ -887,7 +887,9 @@ export const aiService = new AIService();
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
-    "test": "jest",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -911,14 +913,13 @@ export const aiService = new AIService();
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
-    "@types/jest": "^30.0.0",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.10.1",
-    "jest": "^30.2.0",
+    "@vitest/ui": "^4.0.13",
     "nodemon": "^3.1.11",
-    "ts-jest": "^29.4.5",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.13"
   },
   "engines": {
     "node": ">=24.11.1"
