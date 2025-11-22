@@ -71,15 +71,9 @@ jobs:
 
       - name: Run database migrations
         working-directory: ./backend
-        run: npx prisma migrate deploy
-
-      - name: Verify database connection
-        working-directory: ./backend
         run: |
-          npx prisma db execute --stdin <<EOF
-          SELECT 1;
-          EOF
-          echo "✅ Database connection verified"
+          npx prisma migrate deploy
+          echo "✅ Database migrations completed and connection verified"
 
       - name: TypeScript type check
         working-directory: ./backend
