@@ -41,7 +41,8 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 - Prisma 6.19.0 ORM (Rust-free, 90% smaller bundles)
 - Multer 2.0.2 for file uploads (critical security patches applied)
 - Sharp 0.34.5 for image processing (thumbnails)
-- **jose 5.3.0 for JWT authentication** (Node.js 24 compatible, replaces jsonwebtoken)
+- **heic-convert** for HEIC→JPEG conversion (iPhone photo support)
+- **jose 6.1.2 for JWT authentication** (Node.js 24 compatible, replaces jsonwebtoken)
 - Zod 4.1.12 for validation (14x faster parsing)
 
 **Infrastructure:**
@@ -101,49 +102,50 @@ PicAI/
 │   │   ├── config/
 │   │   │   └── env.ts         # Environment validation with Zod
 │   │   ├── types/
-│   │   │   ├── express.d.ts   # Express type extensions
-│   │   │   └── api.types.ts   # API response types
-│   │   ├── routes/            # API route handlers
-│   │   ├── controllers/       # Business logic
-│   │   ├── services/          # AI service, file service, album service
-│   │   ├── middleware/        # Auth (using jose), validation, error handling
-│   │   ├── utils/             # Helpers, logger
-│   │   └── prisma/            # Database schema & migrations
-│   ├── storage/               # DO NOT COMMIT - local photos
+│   │   │   └── express.d.ts   # Express type extensions (req.user, req.id)
+│   │   ├── routes/
+│   │   │   └── auth.routes.ts # Auth endpoints (implemented)
+│   │   ├── controllers/
+│   │   │   └── auth.controller.ts
+│   │   ├── services/
+│   │   │   └── authService.ts # JWT with jose (implemented)
+│   │   ├── middleware/
+│   │   │   ├── auth.middleware.ts
+│   │   │   ├── validate.middleware.ts
+│   │   │   └── error.middleware.ts
+│   │   ├── schemas/
+│   │   │   └── auth.schema.ts # Zod schemas
+│   │   ├── utils/
+│   │   │   └── logger.ts      # Winston logger
+│   │   ├── prisma/
+│   │   │   └── client.ts      # Prisma client instance
+│   │   └── generated/prisma/  # Auto-generated Prisma types
+│   ├── prisma/
+│   │   ├── schema.prisma      # Database schema
+│   │   └── migrations/
+│   ├── storage/               # DO NOT COMMIT
 │   │   ├── originals/
 │   │   └── thumbnails/
-│   ├── logs/                  # Application logs
+│   ├── logs/                  # DO NOT COMMIT
 │   ├── tests/
+│   ├── scripts/
+│   ├── .claude/context/       # AI context files
 │   ├── .env                   # DO NOT COMMIT
 │   ├── .env.example
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── CLAUDE.md              # Backend-specific guidance
-├── frontend/                   # React app
+├── frontend/                   # React app (minimal - to be implemented)
 │   ├── src/
 │   │   ├── main.tsx
-│   │   ├── App.tsx
-│   │   ├── components/        # Reusable UI components
-│   │   ├── pages/             # Page-level components
-│   │   ├── context/           # React Context for global state
-│   │   ├── hooks/             # Custom React hooks
-│   │   ├── services/          # API client
-│   │   ├── types/             # TypeScript types
-│   │   └── utils/             # Helper functions
+│   │   └── App.tsx
 │   ├── public/
 │   ├── .env                   # DO NOT COMMIT
-│   ├── .env.example
 │   ├── package.json
 │   ├── tsconfig.json
-│   ├── vite.config.ts
-│   ├── tailwind.config.js    # Note: TailwindCSS 4 uses CSS config instead
-│   └── CLAUDE.md              # Frontend-specific guidance
-├── docs/                       # Documentation
-│   ├── architecture.md
-│   ├── azure-setup.md
-│   └── migration-guide-nov-2025.md
+│   └── vite.config.ts
 ├── .github/
-│   └── workflows/             # CI/CD pipelines (auto-created by Azure)
+│   └── workflows/             # CI/CD pipelines
 ├── CLAUDE.md                   # This file
 ├── PRD.md                      # Product requirements
 ├── README.md
@@ -281,6 +283,7 @@ PicAI/
 - **CPU:** Use streams for file operations, async/await for I/O
 
 ### Image Handling
+- **HEIC Conversion:** Convert HEIC/HEIF to JPEG on upload using `heic-convert` (iPhone support)
 - **Thumbnails:** Always generate 200x200px for grid views (Sharp 0.34.5)
 - **Lazy loading:** Frontend loads thumbnails first, full images on demand
 - **Streaming:** Stream photo files, don't load entire file in memory
@@ -344,9 +347,10 @@ VITE_API_URL=https://your-cloudflare-tunnel.com/api
 - Prisma 6.19.0 (Rust-free, 90% smaller)
 - PostgreSQL 18.1 (3x faster I/O)
 - Bcrypt 6.0.0
-- **jose 5.3.0** (JWT library, Node.js 24 compatible)
+- **jose 6.1.2** (JWT library, Node.js 24 compatible)
 - Zod 4.1.12 (14x faster)
 - Sharp 0.34.5
+- **heic-convert** (HEIC→JPEG for iPhone photos)
 - Winston 3.18.3
 - Multer 2.0.2 (security patched)
 - PM2 6.0.13
@@ -493,6 +497,6 @@ export const env = envSchema.parse(process.env);
 
 ---
 
-**Last Updated:** November 16, 2025
+**Last Updated:** November 25, 2025
 **Project Status:** Ready for Development with November 2025 Stack
-**Critical Changes:** Using jose for JWT (Node.js 24), Prisma 6 Rust-free, PostgreSQL 18 async I/O
+**Critical Changes:** Using jose for JWT (Node.js 24), Prisma 6 Rust-free, PostgreSQL 18 async I/O, heic-convert for iPhone photos
