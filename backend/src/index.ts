@@ -8,9 +8,11 @@ import rateLimit from 'express-rate-limit';
 import { randomUUID } from 'crypto';
 import { env } from './config/env.js';
 import authRoutes from './routes/auth.routes.js';
+import photoRoutes from './routes/photos.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import logger from './utils/logger.js';
 import prisma from './prisma/client.js';
+import { fileService } from './services/fileService.js';
 
 const app = express();
 
@@ -172,8 +174,9 @@ app.get('/health', healthCheckLimiter, async (_req, res) => {
  * ========================================
  */
 app.use('/api/auth', authRoutes);
+app.use('/api/photos', photoRoutes);
 
-// future: /api/photos, /api/albums, /api/groups, /api/users
+// future: /api/albums, /api/groups, /api/users
 
 /**
  * ========================================
@@ -192,6 +195,9 @@ app.use(errorHandler);
 if (import.meta.url === `file://${process.argv[1]}`) {
   const PORT = env.PORT;
 
+  // Ensure storage directories exist before starting server
+  await fileService.ensureDirectories();
+
   const server = app.listen(PORT, () => {
     logger.info('==============================================');
     logger.info('🚀 PicAI Backend Server Started');
@@ -208,6 +214,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     logger.info('  POST   /api/auth/refresh');
     logger.info('  POST   /api/auth/logout');
     logger.info('  GET    /api/auth/me');
+    logger.info('  POST   /api/photos/upload');
+    logger.info('  GET    /api/photos');
+    logger.info('  GET    /api/photos/:id');
+    logger.info('  GET    /api/photos/:id/file');
+    logger.info('  GET    /api/photos/:id/thumbnail');
+    logger.info('  DELETE /api/photos/:id');
     logger.info('==============================================');
   });
 
