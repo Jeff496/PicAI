@@ -3,6 +3,7 @@
 // Catches all errors and returns consistent JSON responses
 
 import type { Request, Response, NextFunction } from 'express';
+import multer from 'multer';
 import { env } from '../config/env.js';
 import logger from '../utils/logger.js';
 
@@ -166,7 +167,32 @@ export const errorHandler = (
   });
 
   /**
-   * Step 2: Determine HTTP Status Code
+   * Step 2: Handle Multer errors (file upload issues)
+   *
+   * Multer throws specific error types for upload problems.
+   * These should return 400 (Bad Request) with descriptive messages.
+   */
+  if (err instanceof multer.MulterError) {
+    const multerMessages: Record<string, string> = {
+      LIMIT_FILE_SIZE: 'File too large. Maximum size is 25MB.',
+      LIMIT_FILE_COUNT: 'Too many files. Maximum is 50 files per upload.',
+      LIMIT_UNEXPECTED_FILE: 'Unexpected file field. Use "photos" field for uploads.',
+      LIMIT_PART_COUNT: 'Too many parts in multipart request.',
+      LIMIT_FIELD_KEY: 'Field name too long.',
+      LIMIT_FIELD_VALUE: 'Field value too long.',
+      LIMIT_FIELD_COUNT: 'Too many fields.',
+    };
+
+    res.status(400).json({
+      success: false,
+      error: multerMessages[err.code] || err.message,
+      code: err.code,
+    });
+    return;
+  }
+
+  /**
+   * Step 3: Determine HTTP Status Code
    *
    * Different errors should return different status codes:
    * - 400: Bad request (validation errors)
@@ -180,7 +206,7 @@ export const errorHandler = (
   const statusCode = err.statusCode || 500;
 
   /**
-   * Step 3: Build Error Response
+   * Step 4: Build Error Response
    *
    * Production vs Development differences:
    * - Production: Hide implementation details (security!)
@@ -203,7 +229,7 @@ export const errorHandler = (
   };
 
   /**
-   * Step 4: Send Response
+   * Step 5: Send Response
    *
    * Why void return type?
    * - TypeScript requires consistency
