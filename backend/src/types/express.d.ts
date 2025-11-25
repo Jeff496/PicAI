@@ -37,6 +37,21 @@ declare global {
        * ```
        */
       user?: UserModel;
+
+      /**
+       * Parsed and transformed query parameters
+       *
+       * Populated by validateQuery middleware after Zod validation.
+       * Contains transformed values (e.g., strings converted to numbers).
+       * Use this instead of req.query when validateQuery middleware is applied.
+       *
+       * @example
+       * ```typescript
+       * // In route with validateQuery(schema) middleware:
+       * const { limit, offset } = req.parsedQuery as GetPhotosQuery;
+       * ```
+       */
+      parsedQuery?: Record<string, unknown>;
     }
   }
 }
