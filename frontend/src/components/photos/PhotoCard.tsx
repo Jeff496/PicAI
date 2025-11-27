@@ -44,11 +44,7 @@ export function PhotoCard({ photo, onViewFull }: PhotoCardProps) {
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-primary" />
           </div>
         ) : thumbnailUrl ? (
-          <img
-            src={thumbnailUrl}
-            alt={photo.originalName}
-            className="h-full w-full object-cover"
-          />
+          <img src={thumbnailUrl} alt={photo.originalName} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center text-gray-400">
             <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -89,9 +85,7 @@ export function PhotoCard({ photo, onViewFull }: PhotoCardProps) {
         <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
           {photo.originalName}
         </p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          {formatDate(photo.uploadedAt)}
-        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(photo.uploadedAt)}</p>
 
         {/* AI tags */}
         {photo.tags && photo.tags.length > 0 && (
@@ -140,12 +134,9 @@ export function PhotoCard({ photo, onViewFull }: PhotoCardProps) {
             className="mx-4 w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Delete Photo
-            </h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Delete Photo</h3>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Are you sure you want to delete "{photo.originalName}"? This action cannot be
-              undone.
+              Are you sure you want to delete "{photo.originalName}"? This action cannot be undone.
             </p>
             <div className="mt-4 flex justify-end gap-3">
               <button

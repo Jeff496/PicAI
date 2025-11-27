@@ -116,8 +116,7 @@ api.interceptors.response.use(
             { refreshToken }
           );
 
-          const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
-            response.data;
+          const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
 
           // Update store with new tokens
           setTokens(newAccessToken, newRefreshToken);

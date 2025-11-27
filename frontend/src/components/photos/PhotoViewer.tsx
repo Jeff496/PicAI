@@ -146,13 +146,11 @@ export function PhotoViewer({ photo, onClose }: PhotoViewerProps) {
           <h2 className="text-lg font-medium text-white">{photo.originalName}</h2>
           <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-white/80">
             <div>
-              <span className="text-white/60">Uploaded:</span>{' '}
-              {formatDate(photo.uploadedAt)}
+              <span className="text-white/60">Uploaded:</span> {formatDate(photo.uploadedAt)}
             </div>
             {photo.width && photo.height && (
               <div>
-                <span className="text-white/60">Dimensions:</span>{' '}
-                {photo.width} x {photo.height}
+                <span className="text-white/60">Dimensions:</span> {photo.width} x {photo.height}
               </div>
             )}
           </div>

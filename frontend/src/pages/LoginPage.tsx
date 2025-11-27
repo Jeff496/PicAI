@@ -39,12 +39,8 @@ export function LoginPage() {
       <div className="w-full max-w-md space-y-8">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            PicAI
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Sign in to your account
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">PicAI</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">Sign in to your account</p>
         </div>
 
         {/* Form */}
@@ -112,10 +108,7 @@ export function LoginPage() {
           {/* Register link */}
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">
             Don't have an account?{' '}
-            <Link
-              to="/register"
-              className="font-medium text-primary hover:text-primary-dark"
-            >
+            <Link to="/register" className="font-medium text-primary hover:text-primary-dark">
               Sign up
             </Link>
           </p>

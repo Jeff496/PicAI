@@ -154,9 +154,10 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
         className={`
           relative cursor-pointer rounded-lg border-2 border-dashed p-8 text-center
           transition-colors duration-200
-          ${isDragging
-            ? 'border-primary bg-primary/5'
-            : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
+          ${
+            isDragging
+              ? 'border-primary bg-primary/5'
+              : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
           }
         `}
       >
@@ -171,12 +172,7 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
 
         <div className="space-y-2">
           <div className="mx-auto h-12 w-12 text-gray-400">
-            <svg
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              className="h-full w-full"
-            >
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="h-full w-full">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

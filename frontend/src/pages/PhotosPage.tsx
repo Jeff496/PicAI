@@ -33,9 +33,7 @@ export function PhotosPage() {
       <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur dark:border-gray-700 dark:bg-gray-900/80">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Photos
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Photos</h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Welcome back, {user?.name || 'User'}
             </p>
@@ -75,9 +73,7 @@ export function PhotosPage() {
         {showUpload && (
           <div className="mb-8 rounded-lg bg-white p-6 shadow dark:bg-gray-800">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-                Upload Photos
-              </h2>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Upload Photos</h2>
               <button
                 onClick={() => setShowUpload(false)}
                 className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
@@ -101,11 +97,7 @@ export function PhotosPage() {
           <div className="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
             <div className="flex">
               <div className="shrink-0">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                   <path
                     fillRule="evenodd"
                     d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
@@ -141,11 +133,7 @@ export function PhotosPage() {
         )}
 
         {/* Photo grid */}
-        <PhotoGrid
-          photos={photos}
-          isLoading={isLoading}
-          onViewPhoto={setSelectedPhoto}
-        />
+        <PhotoGrid photos={photos} isLoading={isLoading} onViewPhoto={setSelectedPhoto} />
       </main>
 
       {/* Photo viewer modal */}
