@@ -1,0 +1,120 @@
+// src/services/photos.ts
+// Photo service for API calls - upload, list, get, delete
+
+import api from './api';
+import type { PhotosResponse, PhotoResponse, UploadResponse } from '@/types/api';
+
+// Query parameters for listing photos
+export interface GetPhotosParams {
+  limit?: number;
+  offset?: number;
+  groupId?: string;
+}
+
+// Progress callback for upload
+export type UploadProgressCallback = (progress: number) => void;
+
+export const photosService = {
+  /**
+   * Upload multiple photos
+   * @param files Array of File objects to upload
+   * @param groupId Optional group ID to associate photos with
+   * @param onProgress Optional callback for upload progress (0-100)
+   */
+  async upload(
+    files: File[],
+    groupId?: string,
+    onProgress?: UploadProgressCallback
+  ): Promise<UploadResponse> {
+    const formData = new FormData();
+
+    files.forEach((file) => {
+      formData.append('photos', file);
+    });
+
+    if (groupId) {
+      formData.append('groupId', groupId);
+    }
+
+    const { data } = await api.post<UploadResponse>('/photos/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+          onProgress(progress);
+        }
+      },
+    });
+
+    return data;
+  },
+
+  /**
+   * Get list of photos with pagination
+   */
+  async getPhotos(params?: GetPhotosParams): Promise<PhotosResponse> {
+    const { data } = await api.get<PhotosResponse>('/photos', {
+      params: {
+        limit: params?.limit ?? 50,
+        offset: params?.offset ?? 0,
+        groupId: params?.groupId,
+      },
+    });
+
+    return data;
+  },
+
+  /**
+   * Get single photo by ID with AI tags
+   */
+  async getPhoto(id: string): Promise<PhotoResponse> {
+    const { data } = await api.get<PhotoResponse>(`/photos/${id}`);
+    return data;
+  },
+
+  /**
+   * Delete a photo
+   */
+  async deletePhoto(id: string): Promise<void> {
+    await api.delete(`/photos/${id}`);
+  },
+
+  /**
+   * Get URL for photo thumbnail
+   * Note: Requires auth token in header, so use with img src via blob URL
+   */
+  getThumbnailUrl(id: string): string {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    return `${baseUrl}/photos/${id}/thumbnail`;
+  },
+
+  /**
+   * Get URL for original photo file
+   */
+  getFileUrl(id: string): string {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    return `${baseUrl}/photos/${id}/file`;
+  },
+
+  /**
+   * Fetch thumbnail as blob URL (for use with auth header)
+   */
+  async fetchThumbnailBlob(id: string): Promise<string> {
+    const { data } = await api.get(`/photos/${id}/thumbnail`, {
+      responseType: 'blob',
+    });
+    return URL.createObjectURL(data);
+  },
+
+  /**
+   * Fetch original file as blob URL (for use with auth header)
+   */
+  async fetchFileBlob(id: string): Promise<string> {
+    const { data } = await api.get(`/photos/${id}/file`, {
+      responseType: 'blob',
+    });
+    return URL.createObjectURL(data);
+  },
+};
