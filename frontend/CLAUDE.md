@@ -1,6 +1,9 @@
 # Frontend CLAUDE.md - PicAI React Application
 
-**Technology:** React 19.2.0 + TypeScript 5.9.3 + Vite 7.0 + TailwindCSS 4.0
+**Last Updated:** November 29, 2025
+**Status:** Phase 2 Complete - Production Live on Azure SWA
+
+**Technology:** React 19.2.0 + TypeScript 5.9.3 + Vite 7.2.2 + TailwindCSS 4.1.17 + Zustand 5.0.8
 
 Frontend-specific guidance for the PicAI React application with November 2025 technology stack.
 
@@ -10,16 +13,14 @@ Frontend-specific guidance for the PicAI React application with November 2025 te
 
 ## Technology Stack (November 2025)
 
-- **Framework:** React 19.2.0 with TypeScript 5.9.3 (or React 18.3.1 if compatibility issues)
-- **Build Tool:** Vite 7.0 (Node.js 20.19+ or 22.12+ required)
-- **Routing:** React Router 7.9.5 (single package, framework mode)
-- **Styling:** TailwindCSS 4.0 (CSS-first config, 3.5-5x faster)
-- **State Management:** React Context + useReducer + TanStack Query
+- **Framework:** React 19.2.0 with TypeScript 5.9.3
+- **Build Tool:** Vite 7.2.2 (Node.js 20.19+ or 22.12+ required)
+- **Routing:** React Router DOM 7.9.6
+- **Styling:** TailwindCSS 4.1.17 (CSS-first config, 3.5-5x faster)
+- **State Management:** Zustand 5.0.8 with localStorage persistence
 - **Server State:** TanStack Query 5.90.9 (React 19 compatible)
 - **API Client:** Axios 1.13.2 (HTTP/2 experimental support)
 - **Validation:** Zod 4.1.12 (14x faster, 57% smaller)
-- **Icons:** Lucide React (recommended)
-- **UI Components:** Build custom or use shadcn/ui
 
 ---
 
@@ -126,54 +127,48 @@ Browser targets upgraded:
 
 ---
 
-## Project Structure
+## Project Structure (Actual Implementation)
 
 ```
 frontend/
 ├── src/
-│   ├── main.tsx                 # Entry point
-│   ├── App.tsx                  # Root component with React 19 features
-│   ├── components/
-│   │   ├── ui/                  # Reusable UI components
-│   │   ├── auth/                # Login, Signup components
-│   │   ├── photos/              # PhotoGrid, PhotoUploader, etc.
-│   │   ├── albums/              # AlbumList, AlbumView, etc.
-│   │   ├── groups/              # GroupList, GroupForm, etc.
-│   │   └── layout/              # Header, Sidebar, Layout components
-│   ├── pages/
-│   │   ├── Dashboard.tsx
-│   │   ├── Login.tsx
-│   │   ├── Signup.tsx
-│   │   ├── Albums.tsx
-│   │   ├── Groups.tsx
-│   │   └── NotFound.tsx
-│   ├── context/
-│   │   └── AuthContext.tsx      # Global auth state
-│   ├── hooks/
-│   │   ├── useAuth.ts
-│   │   ├── usePhotos.ts
-│   │   ├── useAlbums.ts
-│   │   └── useGroups.ts
+│   ├── main.tsx                 # React + React Query entry point
+│   ├── App.tsx                  # Root component with routing
+│   ├── index.css                # TailwindCSS 4 configuration
+│   ├── stores/
+│   │   └── authStore.ts         # Zustand auth state with persistence
 │   ├── services/
-│   │   ├── api.ts               # Axios instance with interceptors
-│   │   └── auth.service.ts
+│   │   ├── api.ts               # Axios instance with JWT interceptors
+│   │   ├── auth.ts              # Auth API (login, register, refresh)
+│   │   └── photos.ts            # Photo API (upload, list, delete)
+│   ├── hooks/
+│   │   └── usePhotos.ts         # TanStack Query hooks for photos
 │   ├── types/
-│   │   └── api.types.ts         # API response types
-│   ├── utils/
-│   │   ├── cn.ts                # Class name utility
-│   │   └── format.ts            # Date/number formatting
-│   └── index.css                # Global styles + TailwindCSS 4
+│   │   └── api.ts               # TypeScript interfaces for API
+│   ├── pages/
+│   │   ├── LoginPage.tsx        # Login form
+│   │   ├── RegisterPage.tsx     # Registration form
+│   │   └── PhotosPage.tsx       # Main gallery page
+│   └── components/
+│       ├── layout/
+│       │   └── ProtectedRoute.tsx  # Auth route guard
+│       └── photos/
+│           ├── index.ts         # Barrel export
+│           ├── PhotoCard.tsx    # Individual photo card
+│           ├── PhotoGrid.tsx    # Responsive photo grid
+│           ├── UploadForm.tsx   # Drag-and-drop upload
+│           └── PhotoViewer.tsx  # Full-screen modal viewer
 ├── public/
 ├── .env                          # DO NOT COMMIT
 ├── .env.example
 ├── package.json
 ├── tsconfig.json
-├── tsconfig.app.json
-├── tsconfig.node.json
 ├── vite.config.ts
 ├── index.html
 └── CLAUDE.md                     # This file
 ```
+
+**Note:** Uses Zustand for auth state (not Context API as originally planned). See `/.claude/context/frontend/` for detailed documentation.
 
 ---
 
@@ -645,20 +640,29 @@ test('renders photo card with title', () => {
 
 ## Important Reminders
 
-1. **Check React 19 compatibility** before upgrading - run the checker script
+1. **Use Zustand for auth state** - Not Context API (already implemented)
 2. **Use `import.meta.env` not `process.env`** - Vite requirement
 3. **Prefix env vars with VITE_** - or they won't be exposed
 4. **Backend uses jose for JWT** - tokens are compatible
-5. **TanStack Query 5.90** - Use useSuspenseQuery with React 19
-6. **React Router 7** - Single package, no more react-router-dom
-7. **TailwindCSS 4** - Configure in CSS, not JS
+5. **TanStack Query 5.90** - Use for server state (photos, etc.)
+6. **React Router DOM 7** - Use react-router-dom (not react-router)
+7. **TailwindCSS 4** - Configure in CSS with `@theme`, not JS
 8. **Vite 7** - Requires Node.js 20.19+ or 22.12+
-9. **Type all API responses** with Zod schemas
-10. **Lazy load routes and images** for better performance
+9. **Use @ path alias** - Configure in vite.config.ts
+10. **Blob URLs for auth-protected images** - Use useThumbnail hook
 
 ---
 
-**Last Updated:** November 16, 2025
-**React:** 19.2.0 (or 18.3.1 for compatibility)
-**Backend JWT:** Using jose (Node.js 24 compatible)
-**Ready to build the UI!**
+## Additional Documentation
+
+For detailed examples and patterns, see:
+- `/.claude/context/frontend/file-structure.md` - Complete file layout
+- `/.claude/context/frontend/component-examples.md` - Full code examples
+- `/.claude/context/frontend/common-mistakes.md` - Pitfalls to avoid
+- `/.claude/context/shared/conventions.md` - Shared coding standards
+
+---
+
+**Last Updated:** November 29, 2025
+**Status:** Phase 2 Complete - Production Live
+**Domain:** piclyai.net

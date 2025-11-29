@@ -6,11 +6,11 @@ Backend-specific guidance for the PicAI Express.js API.
 
 **See main `CLAUDE.md` in project root for:** architecture, conventions, security requirements, environment variables, and deployment checklist.
 
-**📁 Additional Context Files (in `backend/.claude/context/`):**
-- `common-ai-mistakes.md` - Common pitfalls and how to avoid them
-- `file-structure.md` - Detailed file structure reference
-- `conventions-and-standards.md` - Coding standards and best practices
-- `component-examples.md` - Working code examples and patterns
+**📁 Additional Context Files (in `/.claude/context/`):**
+- `backend/common-mistakes.md` - Backend-specific pitfalls
+- `backend/file-structure.md` - Detailed backend file structure
+- `backend/component-examples.md` - Working backend code examples
+- `shared/conventions.md` - Shared coding standards
 
 ---
 
@@ -27,17 +27,22 @@ backend/
 │   ├── types/
 │   │   └── express.d.ts              # Express type extensions (req.user, req.id)
 │   ├── routes/
-│   │   └── auth.routes.ts            # POST /auth/login, /register, /refresh, /logout, GET /me
+│   │   ├── auth.routes.ts            # POST /auth/login, /register, /refresh, /logout, GET /me
+│   │   └── photos.routes.ts          # Photo upload, list, get, delete, thumbnails
 │   ├── controllers/
-│   │   └── auth.controller.ts        # Authentication logic
+│   │   ├── auth.controller.ts        # Authentication logic
+│   │   └── photos.controller.ts      # Photo CRUD operations
 │   ├── services/
-│   │   └── authService.ts            # JWT with jose, bcrypt hashing
+│   │   ├── authService.ts            # JWT with jose, bcrypt hashing
+│   │   └── fileService.ts            # Photo storage, thumbnails with Sharp, HEIC conversion
 │   ├── middleware/
 │   │   ├── auth.middleware.ts        # JWT verification
 │   │   ├── validate.middleware.ts    # Zod validation
-│   │   └── error.middleware.ts       # Global error handler
+│   │   ├── error.middleware.ts       # Global error handler
+│   │   └── upload.middleware.ts      # Multer configuration for photo uploads
 │   ├── schemas/
-│   │   └── auth.schema.ts            # Zod schemas for auth endpoints
+│   │   ├── auth.schema.ts            # Zod schemas for auth endpoints
+│   │   └── photo.schema.ts           # Zod schemas for photo endpoints
 │   ├── utils/
 │   │   └── logger.ts                 # Winston logger setup
 │   ├── prisma/
@@ -65,21 +70,16 @@ backend/
 ```
 src/
 ├── routes/
-│   ├── photos.routes.ts              # Photo upload, list, delete
 │   ├── albums.routes.ts              # Album CRUD, auto-generation
 │   ├── groups.routes.ts              # Group CRUD, membership
 │   └── users.routes.ts               # User profile management
 ├── controllers/
-│   ├── photos.controller.ts
 │   ├── albums.controller.ts
 │   ├── groups.controller.ts
 │   └── users.controller.ts
 ├── services/
-│   ├── fileService.ts                # Photo storage, thumbnails with Sharp
 │   ├── aiService.ts                  # Azure Computer Vision integration
 │   └── albumService.ts               # Album generation logic
-├── middleware/
-│   └── upload.middleware.ts          # Multer configuration
 └── types/
     └── api.types.ts                  # API response types
 ```
@@ -210,7 +210,18 @@ router.post('/register', validateRequest(registerSchema), authController.registe
 
 ---
 
-## File Upload (Planned)
+## Photo Endpoints (Implemented)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/photos/upload` | Yes | Upload photos (max 50, 25MB each) |
+| GET | `/api/photos` | Yes | List user's photos with pagination |
+| GET | `/api/photos/:id` | Yes | Get single photo details |
+| GET | `/api/photos/:id/file` | Yes | Get original image file |
+| GET | `/api/photos/:id/thumbnail` | Yes | Get thumbnail (200x200) |
+| DELETE | `/api/photos/:id` | Yes | Delete photo |
+
+### File Upload Configuration
 
 ```typescript
 // src/middleware/upload.middleware.ts
@@ -327,4 +338,5 @@ npm run format        # Prettier
 
 ---
 
-**Last Updated:** November 25, 2025
+**Last Updated:** November 29, 2025
+**Status:** Phase 2 Complete - Auth + Photos implemented, production live

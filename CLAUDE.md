@@ -1,9 +1,11 @@
 # CLAUDE.md - PicAI Main Project Guide
 
-**Last Updated:** November 16, 2025
-**Status:** Ready for Development with Node.js 24 & React 19
+**Last Updated:** November 29, 2025
+**Status:** Phase 2 Complete - Production Live on Azure SWA
 
 This file provides guidance to Claude Code when working in the PicAI repository with the November 2025 technology stack.
+
+**Production:** https://piclyai.net
 
 ---
 
@@ -26,13 +28,15 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 ```
 
 **Frontend:**
-- React 19.2.0 with TypeScript 5.9.3 (or React 18.3.1 if compatibility issues)
+- React 19.2.0 with TypeScript 5.9.3
 - Hosted on Azure Static Web Apps (Free tier)
-- TailwindCSS 4.0 for styling (3.5-5x faster builds)
-- Vite 7.0 for build tooling (with Rolldown integration)
-- Axios 1.13.2 for API calls
-- TanStack Query 5.90.9 for server state (React 19 compatible)
-- JWT authentication stored in localStorage
+- TailwindCSS 4.1.17 for styling (CSS-first configuration)
+- Vite 7.2.2 for build tooling
+- Zustand 5.0.8 for client state (with localStorage persistence)
+- TanStack Query 5.90.9 for server state
+- Axios 1.13.2 for API calls (with token refresh interceptors)
+- React Router DOM 7.9.6 for routing
+- Zod 4.1.12 for validation
 
 **Backend:**
 - Node.js 24.11.1 LTS (Krypton) + Express 5.1.0 on Raspberry Pi 5
@@ -129,21 +133,57 @@ PicAI/
 │   ├── logs/                  # DO NOT COMMIT
 │   ├── tests/
 │   ├── scripts/
-│   ├── .claude/context/       # AI context files
 │   ├── .env                   # DO NOT COMMIT
 │   ├── .env.example
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── CLAUDE.md              # Backend-specific guidance
-├── frontend/                   # React app (minimal - to be implemented)
+├── frontend/                   # React app (Phase 2 Complete)
 │   ├── src/
-│   │   ├── main.tsx
-│   │   └── App.tsx
+│   │   ├── main.tsx           # Entry point with React Query
+│   │   ├── App.tsx            # Router configuration
+│   │   ├── index.css          # TailwindCSS 4 config
+│   │   ├── stores/
+│   │   │   └── authStore.ts   # Zustand auth state
+│   │   ├── services/
+│   │   │   ├── api.ts         # Axios with JWT interceptors
+│   │   │   ├── auth.ts        # Auth API service
+│   │   │   └── photos.ts      # Photo API service
+│   │   ├── hooks/
+│   │   │   └── usePhotos.ts   # TanStack Query hooks
+│   │   ├── types/
+│   │   │   └── api.ts         # TypeScript interfaces
+│   │   ├── pages/
+│   │   │   ├── LoginPage.tsx
+│   │   │   ├── RegisterPage.tsx
+│   │   │   └── PhotosPage.tsx
+│   │   └── components/
+│   │       ├── layout/
+│   │       │   └── ProtectedRoute.tsx
+│   │       └── photos/
+│   │           ├── PhotoCard.tsx
+│   │           ├── PhotoGrid.tsx
+│   │           ├── UploadForm.tsx
+│   │           └── PhotoViewer.tsx
 │   ├── public/
 │   ├── .env                   # DO NOT COMMIT
 │   ├── package.json
 │   ├── tsconfig.json
-│   └── vite.config.ts
+│   ├── vite.config.ts
+│   └── CLAUDE.md              # Frontend-specific guidance
+├── .claude/
+│   └── context/               # AI context documentation
+│       ├── README.md          # Index of all context files
+│       ├── backend/           # Backend-specific docs
+│       │   ├── file-structure.md
+│       │   ├── component-examples.md
+│       │   └── common-mistakes.md
+│       ├── frontend/          # Frontend-specific docs
+│       │   ├── file-structure.md
+│       │   ├── component-examples.md
+│       │   └── common-mistakes.md
+│       └── shared/            # Shared docs
+│           └── conventions.md
 ├── .github/
 │   └── workflows/             # CI/CD pipelines
 ├── CLAUDE.md                   # This file
@@ -356,12 +396,13 @@ VITE_API_URL=https://your-cloudflare-tunnel.com/api
 - PM2 6.0.13
 
 ### Frontend
-- React 19.2.0 (or 18.3.1 for compatibility)
+- React 19.2.0
 - TypeScript 5.9.3
-- Vite 7.0
-- TailwindCSS 4.0 (CSS-first config)
-- React Router 7.9.5
+- Vite 7.2.2
+- TailwindCSS 4.1.17 (CSS-first config)
+- React Router DOM 7.9.6
 - TanStack Query 5.90.9
+- Zustand 5.0.8 (client state with persistence)
 - Axios 1.13.2
 - Zod 4.1.12
 
@@ -497,6 +538,7 @@ export const env = envSchema.parse(process.env);
 
 ---
 
-**Last Updated:** November 25, 2025
-**Project Status:** Ready for Development with November 2025 Stack
-**Critical Changes:** Using jose for JWT (Node.js 24), Prisma 6 Rust-free, PostgreSQL 18 async I/O, heic-convert for iPhone photos
+**Last Updated:** November 29, 2025
+**Project Status:** Phase 2 Complete - Production Live
+**Production URL:** https://piclyai.net
+**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos
