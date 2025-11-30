@@ -3,6 +3,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { photosService } from '@/services/photos';
+import { usePhoto } from '@/hooks/usePhotos';
+import { TagManagement } from './TagManagement';
 import type { Photo } from '@/types/api';
 
 interface PhotoViewerProps {
@@ -10,7 +12,11 @@ interface PhotoViewerProps {
   onClose: () => void;
 }
 
-export function PhotoViewer({ photo, onClose }: PhotoViewerProps) {
+export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) {
+  // Fetch live photo data that updates when cache is invalidated
+  const { data: photoResponse } = usePhoto(initialPhoto.id);
+  const photo = photoResponse?.photo ?? initialPhoto;
+
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,13 +111,13 @@ export function PhotoViewer({ photo, onClose }: PhotoViewerProps) {
         </svg>
       </button>
 
-      {/* Main content */}
+      {/* Main content - scrollable container */}
       <div
-        className="flex max-h-[90vh] max-w-[90vw] flex-col items-center"
+        className="flex max-h-[90vh] max-w-[90vw] flex-col items-center overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Image */}
-        <div className="relative flex items-center justify-center">
+        <div className="relative flex shrink-0 items-center justify-center">
           {isLoading && (
             <div className="flex h-64 w-64 items-center justify-center">
               <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" />
@@ -142,7 +148,7 @@ export function PhotoViewer({ photo, onClose }: PhotoViewerProps) {
         </div>
 
         {/* Photo details */}
-        <div className="mt-4 w-full max-w-2xl rounded-lg bg-white/10 p-4 backdrop-blur">
+        <div className="mt-4 mb-4 w-full max-w-2xl shrink-0 rounded-lg bg-white/10 p-4 backdrop-blur">
           <h2 className="text-lg font-medium text-white">{photo.originalName}</h2>
           <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-white/80">
             <div>
@@ -155,23 +161,10 @@ export function PhotoViewer({ photo, onClose }: PhotoViewerProps) {
             )}
           </div>
 
-          {/* AI Tags */}
-          {photo.tags && photo.tags.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-sm font-medium text-white/80">AI Tags</h3>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {photo.tags.map((tag, index) => (
-                  <span
-                    key={`${tag.tag}-${index}`}
-                    className="rounded-full bg-white/20 px-3 py-1 text-xs text-white"
-                    title={`${tag.category} - ${(tag.confidence * 100).toFixed(0)}%`}
-                  >
-                    {tag.tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* AI Tags with management */}
+          <div className="mt-4">
+            <TagManagement photoId={photo.id} tags={photo.tags || []} />
+          </div>
         </div>
       </div>
     </div>

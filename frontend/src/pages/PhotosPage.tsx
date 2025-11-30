@@ -5,16 +5,24 @@ import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/auth';
 import { usePhotos } from '@/hooks/usePhotos';
-import { UploadForm, PhotoGrid, PhotoViewer } from '@/components/photos';
+import { UploadForm, PhotoGrid, PhotoViewer, TagFilter } from '@/components/photos';
 import type { Photo } from '@/types/api';
 
 export function PhotosPage() {
   const user = useAuthStore((state) => state.user);
   const [showUpload, setShowUpload] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [tagFilter, setTagFilter] = useState('');
 
-  // Fetch photos
-  const { data: photosResponse, isLoading, error, refetch } = usePhotos();
+  // Fetch photos with optional tag filter
+  const {
+    data: photosResponse,
+    isLoading,
+    error,
+    refetch,
+  } = usePhotos({
+    tag: tagFilter || undefined,
+  });
 
   const handleLogout = async () => {
     await authService.logout();
@@ -123,11 +131,26 @@ export function PhotosPage() {
           </div>
         )}
 
+        {/* Tag filter */}
+        <div className="mb-6">
+          <TagFilter
+            value={tagFilter}
+            onChange={setTagFilter}
+            placeholder="Filter photos by tag..."
+          />
+          {tagFilter && (
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              Showing photos tagged with "{tagFilter}"
+            </p>
+          )}
+        </div>
+
         {/* Photo count */}
         {!isLoading && !error && photos.length > 0 && (
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {photos.length} {photos.length === 1 ? 'photo' : 'photos'}
+              {tagFilter && ` matching "${tagFilter}"`}
             </p>
           </div>
         )}
