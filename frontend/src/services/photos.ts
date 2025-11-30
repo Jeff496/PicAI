@@ -2,13 +2,21 @@
 // Photo service for API calls - upload, list, get, delete
 
 import api from './api';
-import type { PhotosResponse, PhotoResponse, UploadResponse } from '@/types/api';
+import type {
+  PhotosResponse,
+  PhotoResponse,
+  UploadResponse,
+  AnalyzeResponse,
+  AddTagResponse,
+  RemoveTagResponse,
+} from '@/types/api';
 
 // Query parameters for listing photos
 export interface GetPhotosParams {
   limit?: number;
   offset?: number;
   groupId?: string;
+  tag?: string;
 }
 
 // Progress callback for upload
@@ -52,7 +60,7 @@ export const photosService = {
   },
 
   /**
-   * Get list of photos with pagination
+   * Get list of photos with pagination and optional tag filter
    */
   async getPhotos(params?: GetPhotosParams): Promise<PhotosResponse> {
     const { data } = await api.get<PhotosResponse>('/photos', {
@@ -60,6 +68,7 @@ export const photosService = {
         limit: params?.limit ?? 50,
         offset: params?.offset ?? 0,
         groupId: params?.groupId,
+        tag: params?.tag,
       },
     });
 
@@ -116,5 +125,32 @@ export const photosService = {
       responseType: 'blob',
     });
     return URL.createObjectURL(data);
+  },
+
+  /**
+   * Trigger AI re-analysis of a photo
+   */
+  async analyzePhoto(id: string): Promise<AnalyzeResponse> {
+    const { data } = await api.post<AnalyzeResponse>(`/ai/analyze/${id}`);
+    return data;
+  },
+
+  /**
+   * Add a manual tag to a photo
+   */
+  async addTag(photoId: string, tag: string, category: string = 'manual'): Promise<AddTagResponse> {
+    const { data } = await api.post<AddTagResponse>(`/photos/${photoId}/tags`, {
+      tag,
+      category,
+    });
+    return data;
+  },
+
+  /**
+   * Remove a tag from a photo
+   */
+  async removeTag(photoId: string, tagId: string): Promise<RemoveTagResponse> {
+    const { data } = await api.delete<RemoveTagResponse>(`/photos/${photoId}/tags/${tagId}`);
+    return data;
   },
 };

@@ -86,6 +86,7 @@ export interface PhotoDetail extends Photo {
 
 // Simplified tag format from list endpoint
 export interface PhotoTag {
+  id: string;
   tag: string;
   confidence: number;
   category: string;
@@ -198,3 +199,23 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'FORBIDDEN'
   | 'INTERNAL_ERROR';
+
+// ============================================
+// AI Analysis Types
+// ============================================
+
+export interface AnalyzeResponse {
+  success: true;
+  message: string;
+  tags: PhotoTag[];
+}
+
+export interface AddTagResponse {
+  success: true;
+  tag: PhotoTag;
+}
+
+export interface RemoveTagResponse {
+  success: true;
+  message: string;
+}
