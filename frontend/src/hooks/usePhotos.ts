@@ -106,3 +106,52 @@ export function usePrefetchPhotos() {
     });
   };
 }
+
+/**
+ * Hook to analyze/re-analyze a photo with AI
+ */
+export function useAnalyzePhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (photoId: string) => photosService.analyzePhoto(photoId),
+    onSuccess: (_, photoId) => {
+      // Invalidate specific photo to refetch with new tags
+      queryClient.invalidateQueries({ queryKey: photoKeys.detail(photoId) });
+      // Also invalidate lists to show updated tags
+      queryClient.invalidateQueries({ queryKey: photoKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Hook to add a manual tag to a photo
+ */
+export function useAddTag() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ photoId, tag, category }: { photoId: string; tag: string; category?: string }) =>
+      photosService.addTag(photoId, tag, category),
+    onSuccess: (_, { photoId }) => {
+      queryClient.invalidateQueries({ queryKey: photoKeys.detail(photoId) });
+      queryClient.invalidateQueries({ queryKey: photoKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Hook to remove a tag from a photo
+ */
+export function useRemoveTag() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ photoId, tagId }: { photoId: string; tagId: string }) =>
+      photosService.removeTag(photoId, tagId),
+    onSuccess: (_, { photoId }) => {
+      queryClient.invalidateQueries({ queryKey: photoKeys.detail(photoId) });
+      queryClient.invalidateQueries({ queryKey: photoKeys.lists() });
+    },
+  });
+}
