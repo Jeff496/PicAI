@@ -177,10 +177,16 @@ export const getPhotos = async (req: Request, res: Response): Promise<void> => {
   }
 
   // Get parsed query params from validateQuery middleware (Express 5 req.query is read-only)
-  const { groupId, limit, offset } = req.parsedQuery as GetPhotosQuery;
+  const { groupId, tag, limit, offset } = req.parsedQuery as GetPhotosQuery;
 
-  // Build where clause
-  const where: { userId?: string; groupId?: string } = {};
+  // Build where clause with support for tag filtering
+  const where: {
+    userId?: string;
+    groupId?: string;
+    aiTags?: {
+      some: { tag: { contains: string; mode: 'insensitive' }; confidence: { gte: number } };
+    };
+  } = {};
 
   if (groupId) {
     // If filtering by group, verify membership
@@ -204,6 +210,19 @@ export const getPhotos = async (req: Request, res: Response): Promise<void> => {
   } else {
     // Only show user's own photos when not filtering by group
     where.userId = req.user.id;
+  }
+
+  // Filter by tag if provided (case-insensitive partial match)
+  if (tag) {
+    where.aiTags = {
+      some: {
+        tag: {
+          contains: tag,
+          mode: 'insensitive',
+        },
+        confidence: { gte: 0.5 },
+      },
+    };
   }
 
   const photos = await prisma.photo.findMany({
@@ -240,6 +259,7 @@ export const getPhotos = async (req: Request, res: Response): Promise<void> => {
       thumbnailUrl: `/api/photos/${photo.id}/thumbnail`,
       fileUrl: `/api/photos/${photo.id}/file`,
       tags: photo.aiTags.map((tag) => ({
+        id: tag.id,
         tag: tag.tag,
         confidence: tag.confidence,
         category: tag.category,
@@ -346,6 +366,7 @@ export const getPhotoById = async (req: Request, res: Response): Promise<void> =
       thumbnailUrl: `/api/photos/${photo.id}/thumbnail`,
       fileUrl: `/api/photos/${photo.id}/file`,
       tags: photo.aiTags.map((tag) => ({
+        id: tag.id,
         tag: tag.tag,
         confidence: tag.confidence,
         category: tag.category,

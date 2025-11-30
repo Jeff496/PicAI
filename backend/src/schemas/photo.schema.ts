@@ -16,6 +16,7 @@ export const uploadPhotoSchema = z.object({
  */
 export const getPhotosQuerySchema = z.object({
   groupId: z.string().uuid('Invalid group ID format').optional(),
+  tag: z.string().min(1).max(200).optional(),
   limit: z
     .string()
     .regex(/^\d+$/, 'Limit must be a positive integer')
