@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { env } from './config/env.js';
 import authRoutes from './routes/auth.routes.js';
 import photoRoutes from './routes/photos.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import logger from './utils/logger.js';
 import prisma from './prisma/client.js';
@@ -175,6 +176,7 @@ app.get('/health', healthCheckLimiter, async (_req, res) => {
  */
 app.use('/api/auth', authRoutes);
 app.use('/api/photos', photoRoutes);
+app.use('/api/ai', aiRoutes);
 
 // future: /api/albums, /api/groups, /api/users
 
@@ -220,6 +222,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     logger.info('  GET    /api/photos/:id/file');
     logger.info('  GET    /api/photos/:id/thumbnail');
     logger.info('  DELETE /api/photos/:id');
+    logger.info('  POST   /api/photos/:id/tags');
+    logger.info('  DELETE /api/photos/:id/tags/:tagId');
+    logger.info('  POST   /api/ai/analyze/:photoId');
+    logger.info('  POST   /api/ai/analyze-missing');
+    logger.info('  GET    /api/ai/status');
     logger.info('==============================================');
   });
 

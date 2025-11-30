@@ -5,10 +5,12 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import * as photosController from '../controllers/photos.controller.js';
+import * as aiController from '../controllers/ai.controller.js';
 import { authenticateJWT } from '../middleware/auth.middleware.js';
 import { uploadMiddleware } from '../middleware/upload.middleware.js';
-import { validateQuery, validateParams } from '../middleware/validate.middleware.js';
+import { validateQuery, validateParams, validateRequest } from '../middleware/validate.middleware.js';
 import { getPhotosQuerySchema, photoIdSchema } from '../schemas/photo.schema.js';
+import { addTagSchema, tagIdParamSchema } from '../schemas/ai.schema.js';
 
 const router = Router();
 
@@ -219,5 +221,69 @@ router.get(
  * - 404 NOT_FOUND: Photo not found
  */
 router.delete('/:id', authenticateJWT, validateParams(photoIdSchema), photosController.deletePhoto);
+
+/**
+ * POST /photos/:id/tags
+ *
+ * Add a manual tag to a photo
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ *
+ * Body:
+ * {
+ *   "tag": "vacation",
+ *   "category": "manual" (optional, defaults to "manual")
+ * }
+ *
+ * Response (201):
+ * {
+ *   "success": true,
+ *   "tag": {
+ *     "id": "uuid",
+ *     "tag": "vacation",
+ *     "confidence": 1.0,
+ *     "category": "manual"
+ *   }
+ * }
+ *
+ * Errors:
+ * - 401 NO_TOKEN/TOKEN_EXPIRED: Authentication required
+ * - 403 FORBIDDEN: No access to this photo
+ * - 404 NOT_FOUND: Photo not found
+ */
+router.post(
+  '/:id/tags',
+  authenticateJWT,
+  validateParams(photoIdSchema),
+  validateRequest(addTagSchema),
+  aiController.addTag
+);
+
+/**
+ * DELETE /photos/:id/tags/:tagId
+ *
+ * Remove a tag from a photo
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ *
+ * Response (200):
+ * {
+ *   "success": true,
+ *   "message": "Tag removed"
+ * }
+ *
+ * Errors:
+ * - 401 NO_TOKEN/TOKEN_EXPIRED: Authentication required
+ * - 403 FORBIDDEN: No access to this photo
+ * - 404 NOT_FOUND: Photo or tag not found
+ */
+router.delete(
+  '/:id/tags/:tagId',
+  authenticateJWT,
+  validateParams(tagIdParamSchema),
+  aiController.removeTag
+);
 
 export default router;

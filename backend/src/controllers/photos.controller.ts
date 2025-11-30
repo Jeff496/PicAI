@@ -5,6 +5,7 @@
 import type { Request, Response } from 'express';
 import prisma from '../prisma/client.js';
 import { fileService, type SavePhotoResult } from '../services/fileService.js';
+import { aiService } from '../services/aiService.js';
 import logger from '../utils/logger.js';
 import type { UploadPhotoRequest, GetPhotosQuery } from '../schemas/photo.schema.js';
 
@@ -102,6 +103,17 @@ export const uploadPhotos = async (req: Request, res: Response): Promise<void> =
       });
 
       uploadedPhotos.push(photo);
+    }
+
+    // Trigger AI analysis for each uploaded photo (fire-and-forget)
+    // This runs asynchronously - uploads return immediately
+    for (const photo of uploadedPhotos) {
+      aiService.analyzePhoto(photo.id).catch((err) => {
+        logger.error('AI analysis failed', {
+          photoId: photo.id,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+      });
     }
 
     res.status(201).json({
