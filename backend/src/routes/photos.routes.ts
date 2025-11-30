@@ -8,7 +8,11 @@ import * as photosController from '../controllers/photos.controller.js';
 import * as aiController from '../controllers/ai.controller.js';
 import { authenticateJWT } from '../middleware/auth.middleware.js';
 import { uploadMiddleware } from '../middleware/upload.middleware.js';
-import { validateQuery, validateParams, validateRequest } from '../middleware/validate.middleware.js';
+import {
+  validateQuery,
+  validateParams,
+  validateRequest,
+} from '../middleware/validate.middleware.js';
 import { getPhotosQuerySchema, photoIdSchema } from '../schemas/photo.schema.js';
 import { addTagSchema, tagIdParamSchema } from '../schemas/ai.schema.js';
 

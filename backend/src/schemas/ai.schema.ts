@@ -13,12 +13,7 @@ export const addTagSchema = z.object({
     .min(1, 'Tag cannot be empty')
     .max(200, 'Tag must be 200 characters or less')
     .trim(),
-  category: z
-    .string()
-    .min(1)
-    .max(50)
-    .optional()
-    .default('manual'),
+  category: z.string().min(1).max(50).optional().default('manual'),
 });
 
 export type AddTagRequest = z.infer<typeof addTagSchema>;

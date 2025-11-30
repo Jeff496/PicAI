@@ -117,7 +117,10 @@ function isRetryableError(error: unknown, config: RetryConfig): boolean {
       return true;
     }
     // Also retry on network errors (no response)
-    if (!error.response && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND')) {
+    if (
+      !error.response &&
+      (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND')
+    ) {
       return true;
     }
   }

@@ -122,7 +122,10 @@ export const analyzeMissingPhotos = async (req: Request, res: Response): Promise
 
   res.json({
     success: true,
-    message: result.queued > 0 ? `Queued ${result.queued} photo(s) for analysis` : 'All photos already have tags',
+    message:
+      result.queued > 0
+        ? `Queued ${result.queued} photo(s) for analysis`
+        : 'All photos already have tags',
     queued: result.queued,
     alreadyTagged: result.alreadyTagged,
     total: result.total,

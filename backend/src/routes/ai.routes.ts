@@ -64,12 +64,7 @@ const analysisLimiter = rateLimit({
  * - 404 NOT_FOUND: Photo not found
  * - 429 RATE_LIMIT_EXCEEDED: Too many requests
  */
-router.post(
-  '/analyze/:photoId',
-  analysisLimiter,
-  authenticateJWT,
-  aiController.analyzePhoto
-);
+router.post('/analyze/:photoId', analysisLimiter, authenticateJWT, aiController.analyzePhoto);
 
 /**
  * POST /ai/analyze-missing
