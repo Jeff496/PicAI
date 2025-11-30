@@ -5,3 +5,5 @@ export { PhotoCard } from './PhotoCard';
 export { PhotoGrid } from './PhotoGrid';
 export { PhotoViewer } from './PhotoViewer';
 export { UploadForm } from './UploadForm';
+export { TagFilter } from './TagFilter';
+export { TagManagement } from './TagManagement';
