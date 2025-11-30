@@ -28,13 +28,16 @@ backend/
 │   │   └── express.d.ts              # Express type extensions (req.user, req.id)
 │   ├── routes/
 │   │   ├── auth.routes.ts            # POST /auth/login, /register, /refresh, /logout, GET /me
-│   │   └── photos.routes.ts          # Photo upload, list, get, delete, thumbnails
+│   │   ├── photos.routes.ts          # Photo upload, list, get, delete, thumbnails, tags
+│   │   └── ai.routes.ts              # AI analysis endpoints
 │   ├── controllers/
 │   │   ├── auth.controller.ts        # Authentication logic
-│   │   └── photos.controller.ts      # Photo CRUD operations
+│   │   ├── photos.controller.ts      # Photo CRUD operations
+│   │   └── ai.controller.ts          # AI analysis controllers
 │   ├── services/
 │   │   ├── authService.ts            # JWT with jose, bcrypt hashing
-│   │   └── fileService.ts            # Photo storage, thumbnails with Sharp, HEIC conversion
+│   │   ├── fileService.ts            # Photo storage, thumbnails with Sharp, HEIC conversion
+│   │   └── aiService.ts              # Azure Computer Vision integration
 │   ├── middleware/
 │   │   ├── auth.middleware.ts        # JWT verification
 │   │   ├── validate.middleware.ts    # Zod validation
@@ -42,7 +45,8 @@ backend/
 │   │   └── upload.middleware.ts      # Multer configuration for photo uploads
 │   ├── schemas/
 │   │   ├── auth.schema.ts            # Zod schemas for auth endpoints
-│   │   └── photo.schema.ts           # Zod schemas for photo endpoints
+│   │   ├── photo.schema.ts           # Zod schemas for photo endpoints
+│   │   └── ai.schema.ts              # Zod schemas for AI endpoints
 │   ├── utils/
 │   │   └── logger.ts                 # Winston logger setup
 │   ├── prisma/
@@ -78,7 +82,6 @@ src/
 │   ├── groups.controller.ts
 │   └── users.controller.ts
 ├── services/
-│   ├── aiService.ts                  # Azure Computer Vision integration
 │   └── albumService.ts               # Album generation logic
 └── types/
     └── api.types.ts                  # API response types
@@ -291,15 +294,15 @@ async savePhoto(buffer: Buffer, originalName: string, userId: string) {
 
 ---
 
-## Azure Computer Vision (Planned)
+## Azure Computer Vision (Implemented)
 
 ```typescript
-// Using 2023-10-01 GA API
+// Using 2023-10-01 GA API - see src/services/aiService.ts
 const response = await axios.post(
   `${env.AZURE_VISION_ENDPOINT}/computervision/imageanalysis:analyze?api-version=2023-10-01`,
   imageBuffer,
   {
-    params: { features: 'tags,objects,caption,denseCaptions,read,people' },
+    params: { features: 'tags,objects,read,people' },
     headers: {
       'Ocp-Apim-Subscription-Key': env.AZURE_VISION_KEY,
       'Content-Type': 'application/octet-stream'
@@ -308,7 +311,11 @@ const response = await axios.post(
 );
 ```
 
-**Rate Limits:** 20 calls/minute, 5,000/month (free tier)
+**Features Used:** `tags`, `objects`, `read` (OCR), `people`
+
+> **Note:** `caption` and `denseCaptions` are NOT used due to region restrictions. These features only work in: East US, France Central, Korea Central, North Europe, Southeast Asia, West Europe, West US.
+
+**Rate Limits:** 20 calls/minute, 5,000/month (free tier) - handled by built-in rate limiter
 
 ---
 
@@ -338,5 +345,5 @@ npm run format        # Prettier
 
 ---
 
-**Last Updated:** November 29, 2025
-**Status:** Phase 2 Complete - Auth + Photos implemented, production live
+**Last Updated:** November 30, 2025
+**Status:** Phase 3 Complete - Auth + Photos + AI Tagging implemented, production live

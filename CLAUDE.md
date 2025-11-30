@@ -1,7 +1,7 @@
 # CLAUDE.md - PicAI Main Project Guide
 
-**Last Updated:** November 29, 2025
-**Status:** Phase 2 Complete - Production Live on Azure SWA
+**Last Updated:** November 30, 2025
+**Status:** Phase 3 Complete - AI Tagging Live on Azure SWA
 
 This file provides guidance to Claude Code when working in the PicAI repository with the November 2025 technology stack.
 
@@ -281,16 +281,16 @@ PicAI/
 
 **What to Extract:**
 - Objects (e.g., "dog", "car", "tree")
-- Scenes (e.g., "beach", "mountain", "indoor")
-- Activities (e.g., "swimming", "hiking")
-- Colors (dominant colors)
+- Tags/Scenes (e.g., "beach", "mountain", "indoor")
 - Text (OCR for signs, documents)
-- Faces (count and location, NOT identification)
+- People (count, NOT identification)
+
+> **Note:** Caption features (`caption`, `denseCaptions`) are NOT used due to region restrictions. These features are only available in: East US, France Central, Korea Central, North Europe, Southeast Asia, West Europe, West US.
 
 **How to Store:**
 - Save each tag as separate record in `ai_tags` table
 - Include confidence score (0.00 to 1.00)
-- Include category ("object", "scene", "activity", etc.)
+- Include category ("tag", "object", "text", "people", "manual")
 - Use confidence threshold: Only store tags with confidence > 0.5
 
 **API Version:**
@@ -538,7 +538,7 @@ export const env = envSchema.parse(process.env);
 
 ---
 
-**Last Updated:** November 29, 2025
-**Project Status:** Phase 2 Complete - Production Live
+**Last Updated:** November 30, 2025
+**Project Status:** Phase 3 Complete - AI Tagging Live
 **Production URL:** https://piclyai.net
-**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos
+**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction)
