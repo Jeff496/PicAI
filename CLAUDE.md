@@ -1,7 +1,7 @@
 # CLAUDE.md - PicAI Main Project Guide
 
-**Last Updated:** November 30, 2025
-**Status:** Phase 3 Complete - AI Tagging Live on Azure SWA
+**Last Updated:** December 1, 2025
+**Status:** Phase 4 Complete - Tag Filtering & Management UI Live
 
 This file provides guidance to Claude Code when working in the PicAI repository with the November 2025 technology stack.
 
@@ -108,17 +108,26 @@ PicAI/
 │   │   ├── types/
 │   │   │   └── express.d.ts   # Express type extensions (req.user, req.id)
 │   │   ├── routes/
-│   │   │   └── auth.routes.ts # Auth endpoints (implemented)
+│   │   │   ├── auth.routes.ts # Auth endpoints
+│   │   │   ├── photos.routes.ts # Photo CRUD + tag management
+│   │   │   └── ai.routes.ts   # AI analysis endpoints
 │   │   ├── controllers/
-│   │   │   └── auth.controller.ts
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── photos.controller.ts
+│   │   │   └── ai.controller.ts
 │   │   ├── services/
-│   │   │   └── authService.ts # JWT with jose (implemented)
+│   │   │   ├── authService.ts # JWT with jose
+│   │   │   ├── fileService.ts # Photo storage, thumbnails, HEIC conversion
+│   │   │   └── aiService.ts   # Azure Computer Vision integration
 │   │   ├── middleware/
 │   │   │   ├── auth.middleware.ts
 │   │   │   ├── validate.middleware.ts
+│   │   │   ├── upload.middleware.ts
 │   │   │   └── error.middleware.ts
 │   │   ├── schemas/
-│   │   │   └── auth.schema.ts # Zod schemas
+│   │   │   ├── auth.schema.ts # Zod schemas
+│   │   │   ├── photo.schema.ts
+│   │   │   └── ai.schema.ts
 │   │   ├── utils/
 │   │   │   └── logger.ts      # Winston logger
 │   │   ├── prisma/
@@ -138,7 +147,7 @@ PicAI/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── CLAUDE.md              # Backend-specific guidance
-├── frontend/                   # React app (Phase 2 Complete)
+├── frontend/                   # React app (Phase 4 Complete)
 │   ├── src/
 │   │   ├── main.tsx           # Entry point with React Query
 │   │   ├── App.tsx            # Router configuration
@@ -148,23 +157,26 @@ PicAI/
 │   │   ├── services/
 │   │   │   ├── api.ts         # Axios with JWT interceptors
 │   │   │   ├── auth.ts        # Auth API service
-│   │   │   └── photos.ts      # Photo API service
+│   │   │   └── photos.ts      # Photo API service + AI methods
 │   │   ├── hooks/
-│   │   │   └── usePhotos.ts   # TanStack Query hooks
+│   │   │   └── usePhotos.ts   # TanStack Query hooks + AI mutations
 │   │   ├── types/
-│   │   │   └── api.ts         # TypeScript interfaces
+│   │   │   └── api.ts         # TypeScript interfaces (with PhotoTag id)
 │   │   ├── pages/
 │   │   │   ├── LoginPage.tsx
 │   │   │   ├── RegisterPage.tsx
-│   │   │   └── PhotosPage.tsx
+│   │   │   └── PhotosPage.tsx # Includes TagFilter
 │   │   └── components/
 │   │       ├── layout/
 │   │       │   └── ProtectedRoute.tsx
 │   │       └── photos/
+│   │           ├── index.ts       # Barrel export
 │   │           ├── PhotoCard.tsx
 │   │           ├── PhotoGrid.tsx
 │   │           ├── UploadForm.tsx
-│   │           └── PhotoViewer.tsx
+│   │           ├── PhotoViewer.tsx # Includes TagManagement
+│   │           ├── TagFilter.tsx   # Tag filtering input
+│   │           └── TagManagement.tsx # Add/remove tags, re-analyze
 │   ├── public/
 │   ├── .env                   # DO NOT COMMIT
 │   ├── package.json
@@ -538,7 +550,7 @@ export const env = envSchema.parse(process.env);
 
 ---
 
-**Last Updated:** November 30, 2025
-**Project Status:** Phase 3 Complete - AI Tagging Live
+**Last Updated:** December 1, 2025
+**Project Status:** Phase 4 Complete - Tag Filtering & Management UI
 **Production URL:** https://piclyai.net
-**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction)
+**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), Tag filtering and management UI implemented

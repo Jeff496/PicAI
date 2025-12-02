@@ -1,7 +1,7 @@
 # Frontend CLAUDE.md - PicAI React Application
 
-**Last Updated:** November 29, 2025
-**Status:** Phase 2 Complete - Production Live on Azure SWA
+**Last Updated:** December 1, 2025
+**Status:** Phase 4 Complete - Tag Filtering & Management UI Live
 
 **Technology:** React 19.2.0 + TypeScript 5.9.3 + Vite 7.2.2 + TailwindCSS 4.1.17 + Zustand 5.0.8
 
@@ -140,15 +140,15 @@ frontend/
 │   ├── services/
 │   │   ├── api.ts               # Axios instance with JWT interceptors
 │   │   ├── auth.ts              # Auth API (login, register, refresh)
-│   │   └── photos.ts            # Photo API (upload, list, delete)
+│   │   └── photos.ts            # Photo API (upload, list, delete, AI methods)
 │   ├── hooks/
-│   │   └── usePhotos.ts         # TanStack Query hooks for photos
+│   │   └── usePhotos.ts         # TanStack Query hooks + AI mutation hooks
 │   ├── types/
-│   │   └── api.ts               # TypeScript interfaces for API
+│   │   └── api.ts               # TypeScript interfaces (PhotoTag with id)
 │   ├── pages/
 │   │   ├── LoginPage.tsx        # Login form
 │   │   ├── RegisterPage.tsx     # Registration form
-│   │   └── PhotosPage.tsx       # Main gallery page
+│   │   └── PhotosPage.tsx       # Main gallery page with TagFilter
 │   └── components/
 │       ├── layout/
 │       │   └── ProtectedRoute.tsx  # Auth route guard
@@ -157,7 +157,9 @@ frontend/
 │           ├── PhotoCard.tsx    # Individual photo card
 │           ├── PhotoGrid.tsx    # Responsive photo grid
 │           ├── UploadForm.tsx   # Drag-and-drop upload
-│           └── PhotoViewer.tsx  # Full-screen modal viewer
+│           ├── PhotoViewer.tsx  # Full-screen modal with TagManagement
+│           ├── TagFilter.tsx    # Tag search/filter input
+│           └── TagManagement.tsx # Add/remove tags, re-analyze button
 ├── public/
 ├── .env                          # DO NOT COMMIT
 ├── .env.example
@@ -663,6 +665,7 @@ For detailed examples and patterns, see:
 
 ---
 
-**Last Updated:** November 29, 2025
-**Status:** Phase 2 Complete - Production Live
+**Last Updated:** December 1, 2025
+**Status:** Phase 4 Complete - Tag Filtering & Management UI Live
 **Domain:** piclyai.net
+**New in Phase 4:** TagFilter component for filtering photos by tag, TagManagement component for add/remove tags and re-analyze
