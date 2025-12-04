@@ -4,3 +4,6 @@
 # Logs - Winston daily rotating files (do not commit)
 logs/
 *.log
+
+# pki infra
+/pki/
