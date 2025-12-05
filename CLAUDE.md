@@ -229,6 +229,7 @@ PicAI/
   - `storage/` directory
   - `dist/` build output
   - API keys or secrets
+  - PKI private keys (`backend/pki/**/*.key`)
 
 ### API Design
 - **REST conventions:** Use proper HTTP methods (GET, POST, PUT, DELETE)
@@ -314,6 +315,45 @@ PicAI/
 - Implement request queue if approaching limits
 - Show user feedback: "Processing... this may take a minute"
 - Retry with exponential backoff on rate limit errors
+
+### AWS Rekognition (Face Collections)
+
+**Purpose:** Face detection and recognition for photo organization
+**Authentication:** IAM Roles Anywhere with X.509 certificates (no static credentials)
+**Region:** us-east-1
+
+**When to Call:**
+- After Azure Computer Vision detects people in a photo (async, piggybacked on existing flow)
+- `DetectFaces`: Get face bounding boxes and store in `Face` table
+- `IndexFaces`: Only when user explicitly tags/confirms a face
+- `SearchFacesByImage`: When suggesting "Is this [Person Name]?"
+
+**How Face Collections Work:**
+- Each user gets a personal face collection (created lazily on first face index)
+- Albums can optionally have their own face collection (owner enables setting)
+- Face collections are created in AWS only when first face is indexed (lazy creation)
+
+**Database Models:**
+- `FaceCollection`: Links user to AWS collection ID
+- `AlbumFaceCollection`: Links album to AWS collection ID (for collaborative tagging)
+- `Person`: Known person with user-assigned name
+- `Face`: Individual face detected in a photo (with bounding box)
+
+**Rate Limits (Free Tier - First 12 Months):**
+- DetectFaces: 5,000/month
+- IndexFaces: 1,000/month
+- SearchFaces: Unlimited on indexed faces
+- Face Storage: 1,000 faces/month
+
+**Security:**
+- Uses PKI infrastructure in `backend/pki/`
+- CA certificate uploaded to AWS IAM Roles Anywhere trust anchor
+- Backend certificate used by AWS signing helper for authentication
+- No static AWS credentials stored
+
+**Documentation:**
+- Setup guide: `docs/AWS_REKOGNITION_SETUP.md`
+- PKI details: `backend/pki/README.md`
 
 ---
 
@@ -543,14 +583,16 @@ export const env = envSchema.parse(process.env);
 4. **Express 5:** No try-catch needed for async routes
 5. **React 19 Compatibility:** Check dependencies before upgrading
 6. **Privacy First:** Never store or log personal photo content
-7. **Cost Awareness:** Monitor Azure usage to stay in free tier
+7. **Cost Awareness:** Monitor Azure and AWS usage to stay in free tier
 8. **Security:** All user data encrypted, all API calls authenticated
 9. **TypeScript:** Use strict mode, leverage Prisma-generated types
 10. **Import Extensions:** Always use `.js` in TypeScript imports
+11. **PKI Security:** Never commit `*.key` files from `backend/pki/`
+12. **AWS Auth:** Use IAM Roles Anywhere (certificate-based), not static credentials
 
 ---
 
-**Last Updated:** December 1, 2025
-**Project Status:** Phase 4 Complete - Tag Filtering & Management UI
+**Last Updated:** December 4, 2025
+**Project Status:** Phase 4.5 In Progress - AWS Rekognition Integration
 **Production URL:** https://piclyai.net
-**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), Tag filtering and management UI implemented
+**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), Tag filtering and management UI implemented, AWS Rekognition with IAM Roles Anywhere (in progress)
