@@ -38,7 +38,8 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 ### Infrastructure
 - Raspberry Pi 5 (backend hosting)
 - Azure Static Web Apps (frontend hosting)
-- Azure Computer Vision API (image analysis)
+- Azure Computer Vision API (image tagging)
+- AWS Rekognition (face detection/recognition)
 - Cloudflare Tunnel (secure connectivity)
 - PostgreSQL 15 (database)
 
@@ -47,7 +48,9 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 ```
 React Frontend (Azure) → Cloudflare Tunnel → Express API (Pi) → PostgreSQL
                                                     ↓
-                                         Azure Computer Vision
+                                         Azure Computer Vision (tags)
+                                                    ↓
+                                         AWS Rekognition (faces)
 ```
 
 Photos are stored locally on the Raspberry Pi. The frontend is served from Azure's CDN for fast global access. Cloudflare Tunnel provides secure HTTPS connectivity without exposing the Pi directly to the internet.
@@ -310,12 +313,14 @@ All services use free tiers:
 |---------|------|--------------|
 | Azure Computer Vision | F0 | $0 |
 | Azure Static Web Apps | Free | $0 |
+| AWS Rekognition | Free (12 mo) | $0 |
 | Cloudflare Tunnel | Free | $0 |
 | Raspberry Pi | Self-hosted | ~$5 (electricity) |
 | **Total** | | **~$5/month** |
 
 **Service Limits:**
 - Azure Computer Vision: 5,000 calls/month, 20/minute
+- AWS Rekognition: 5,000 DetectFaces/month, 1,000 IndexFaces/month (first 12 months)
 - Azure Static Web Apps: 100GB bandwidth/month
 
 ## Troubleshooting
@@ -363,6 +368,7 @@ chmod -R 755 backend/storage/
 - [PRD.md](./PRD.md) - Product requirements
 - [docs/architecture.md](./docs/architecture.md) - Architecture details
 - [docs/azure-setup.md](./docs/azure-setup.md) - Azure configuration
+- [docs/AWS_REKOGNITION_SETUP.md](./docs/AWS_REKOGNITION_SETUP.md) - AWS Rekognition & IAM Roles Anywhere
 
 ## Contributing
 

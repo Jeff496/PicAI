@@ -55,6 +55,14 @@ backend/
 ├── prisma/
 │   ├── schema.prisma                 # Database schema
 │   └── migrations/                   # Database migrations
+├── pki/                              # PKI for AWS IAM Roles Anywhere (see pki/README.md)
+│   ├── ca/                           # Certificate Authority files
+│   │   ├── ca.key                    # CA private key (DO NOT COMMIT)
+│   │   ├── ca.crt                    # CA certificate (uploaded to AWS)
+│   │   └── openssl-ca.cnf            # OpenSSL configuration
+│   └── certs/                        # Issued certificates
+│       ├── picai-backend.key         # Backend private key (DO NOT COMMIT)
+│       └── picai-backend.crt         # Backend certificate
 ├── storage/                          # DO NOT COMMIT
 │   ├── originals/
 │   └── thumbnails/
@@ -76,13 +84,21 @@ src/
 ├── routes/
 │   ├── albums.routes.ts              # Album CRUD, auto-generation
 │   ├── groups.routes.ts              # Group CRUD, membership
-│   └── users.routes.ts               # User profile management
+│   ├── users.routes.ts               # User profile management
+│   ├── people.routes.ts              # Person management (face collections)
+│   └── faces.routes.ts               # Face detection/indexing endpoints
 ├── controllers/
 │   ├── albums.controller.ts
 │   ├── groups.controller.ts
-│   └── users.controller.ts
+│   ├── users.controller.ts
+│   ├── people.controller.ts
+│   └── faces.controller.ts
 ├── services/
-│   └── albumService.ts               # Album generation logic
+│   ├── albumService.ts               # Album generation logic
+│   └── rekognitionService.ts         # AWS Rekognition face collection management
+├── schemas/
+│   ├── people.schema.ts              # Zod schemas for people endpoints
+│   └── face.schema.ts                # Zod schemas for face endpoints
 └── types/
     └── api.types.ts                  # API response types
 ```
@@ -319,6 +335,47 @@ const response = await axios.post(
 
 ---
 
+## AWS Rekognition (Planned)
+
+Face detection and recognition for photo organization using IAM Roles Anywhere.
+
+### Authentication
+
+Uses X.509 certificates instead of static AWS credentials:
+
+```typescript
+// AWS SDK with IAM Roles Anywhere
+import { RekognitionClient } from '@aws-sdk/client-rekognition';
+import { fromProcess } from '@aws-sdk/credential-providers';
+
+const client = new RekognitionClient({
+  region: env.AWS_REGION,
+  credentials: fromProcess({ profile: env.AWS_PROFILE }),
+});
+```
+
+### PKI Infrastructure
+
+Certificates located in `backend/pki/`:
+- `ca/ca.crt` - CA certificate (uploaded to AWS trust anchor)
+- `certs/picai-backend.crt` - Backend certificate
+- `certs/picai-backend.key` - Backend private key (**DO NOT COMMIT**)
+
+See `pki/README.md` for certificate renewal procedures.
+
+### Planned Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/people` | List known people in user's collection |
+| POST | `/api/people` | Create new person |
+| GET | `/api/photos/:id/faces` | Get detected faces in photo |
+| POST | `/api/faces/:faceId/identify` | Assign face to person (indexes in AWS) |
+
+**Documentation:** `docs/AWS_REKOGNITION_SETUP.md`
+
+---
+
 ## Development Commands
 
 ```bash
@@ -342,8 +399,10 @@ npm run format        # Prettier
 4. **Prisma 6** - Use `"prisma-client"` generator
 5. **Zod validation** - All request bodies validated
 6. **Environment** - See `src/config/env.ts` for all required vars
+7. **PKI Security** - Never commit `pki/**/*.key` files
+8. **AWS Auth** - Use IAM Roles Anywhere, not static credentials
 
 ---
 
-**Last Updated:** December 1, 2025
-**Status:** Phase 4 Complete - Auth + Photos + AI Tagging + Tag Filtering implemented, production live
+**Last Updated:** December 4, 2025
+**Status:** Phase 4.5 In Progress - AWS Rekognition integration (PKI complete, AWS setup in progress)

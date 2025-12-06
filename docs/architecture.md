@@ -77,10 +77,11 @@
 │  └────────────────────────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │              Services Layer                                │  │
-│  │  • aiService.ts    → Azure Vision 2023-10-01 GA           │  │
-│  │  • fileService.ts  → Photo storage & thumbnails           │  │
-│  │  • albumService.ts → Album generation logic               │  │
-│  │  • authService.ts  → JWT (jose) & bcrypt                  │  │
+│  │  • aiService.ts         → Azure Vision 2023-10-01 GA      │  │
+│  │  • rekognitionService.ts → AWS Rekognition (faces)        │  │
+│  │  • fileService.ts       → Photo storage & thumbnails      │  │
+│  │  • albumService.ts      → Album generation logic          │  │
+│  │  • authService.ts       → JWT (jose) & bcrypt             │  │
 │  └────────────────────────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │         PostgreSQL 18.1 Database (3x faster I/O)           │  │
@@ -134,6 +135,23 @@
 │  Cost: $0/month                                                   │
 │  SDK: @azure-rest/ai-vision-image-analysis 1.0.0-beta.3         │
 └──────────────────────────────────────────────────────────────────┘
+                               │
+                               │ (When people detected in photo)
+                               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│            AWS REKOGNITION (Face Collections)                     │
+│  Region: us-east-1                                                │
+│  Auth: IAM Roles Anywhere (X.509 certificates from backend/pki/)│
+│  Features:                                                        │
+│    • Face detection (bounding boxes, landmarks)                  │
+│    • Face indexing (store in collection for matching)            │
+│    • Face search (find matching faces across photos)             │
+│                                                                    │
+│  Tier: Free (first 12 months)                                    │
+│  Limits: 5,000 DetectFaces/month, 1,000 IndexFaces/month        │
+│  Cost: $0/month (within free tier)                               │
+│  SDK: @aws-sdk/client-rekognition                                │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### Component Responsibilities (November 2025)
@@ -154,6 +172,7 @@
 | **File Upload** | Multer | 2.0.2 | Security patches applied |
 | **Image Processing** | Sharp | 0.34.5 | Latest libvips, RISC-V support |
 | **Azure Vision** | API | 2023-10-01 GA | Production API (preview retiring) |
+| **AWS Rekognition** | API | Latest | Face collections, IAM Roles Anywhere auth |
 | **Tunnel** | Cloudflare | 2025.8.1 | UDP proxy improvements |
 
 ---
@@ -516,8 +535,8 @@ CREATE EXTENSION "uuid-ossp";
 
 ---
 
-**Document Updated:** November 16, 2025
+**Document Updated:** December 4, 2025
 **Stack Version:** November 2025 (all stable releases)
-**Critical Change:** Using jose instead of jsonwebtoken for Node.js 24
+**Critical Changes:** jose for JWT (Node.js 24), AWS Rekognition with IAM Roles Anywhere (PKI-based auth)
 
 You're ready to build PicAI with the latest technology stack! 🚀
