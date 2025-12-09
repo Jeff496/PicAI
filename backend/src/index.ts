@@ -10,6 +10,8 @@ import { env } from './config/env.js';
 import authRoutes from './routes/auth.routes.js';
 import photoRoutes from './routes/photos.routes.js';
 import aiRoutes from './routes/ai.routes.js';
+import facesRoutes from './routes/faces.routes.js';
+import peopleRoutes from './routes/people.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import logger from './utils/logger.js';
 import prisma from './prisma/client.js';
@@ -177,6 +179,8 @@ app.get('/health', healthCheckLimiter, async (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/faces', facesRoutes);
+app.use('/api/people', peopleRoutes);
 
 // future: /api/albums, /api/groups, /api/users
 
@@ -224,6 +228,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     logger.info('  DELETE /api/photos/:id');
     logger.info('  POST   /api/photos/:id/tags');
     logger.info('  DELETE /api/photos/:id/tags/:tagId');
+    logger.info('  POST   /api/photos/:id/detect-faces');
+    logger.info('  GET    /api/photos/:id/faces');
+    logger.info('  POST   /api/faces/:id/tag');
+    logger.info('  DELETE /api/faces/:id/tag');
+    logger.info('  GET    /api/people');
+    logger.info('  GET    /api/people/:id');
+    logger.info('  PUT    /api/people/:id');
+    logger.info('  DELETE /api/people/:id');
+    logger.info('  GET    /api/people/:id/photos');
     logger.info('  POST   /api/ai/analyze/:photoId');
     logger.info('  POST   /api/ai/analyze-missing');
     logger.info('  GET    /api/ai/status');
