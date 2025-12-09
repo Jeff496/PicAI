@@ -12,6 +12,7 @@ import type { Response } from 'express';
 import { env } from '../config/env.js';
 import prisma from '../prisma/client.js';
 import logger from '../utils/logger.js';
+import { rekognitionService } from './rekognitionService.js';
 
 /**
  * Thumbnail dimensions and quality settings
@@ -179,17 +180,61 @@ class FileService {
 
   /**
    * Delete a photo and its thumbnail from disk
-   * Deletes DB record first to prevent race conditions, then cleans up files
+   * Cleans up AWS faces first, then deletes DB record and files
    *
    * @param photoId - Photo UUID
    */
   async deletePhoto(photoId: string): Promise<void> {
-    // Delete database record first (CASCADE will delete AI tags)
-    // This prevents race conditions - if two requests hit simultaneously,
-    // only one will succeed and the other will get "Record not found"
-    const photo = await prisma.photo.delete({
+    // First, get photo with indexed faces and user's collection info
+    const photo = await prisma.photo.findUnique({
       where: { id: photoId },
-      select: { filePath: true, thumbnailPath: true },
+      select: {
+        filePath: true,
+        thumbnailPath: true,
+        user: {
+          select: {
+            faceCollection: {
+              select: { awsCollectionId: true },
+            },
+          },
+        },
+        faces: {
+          where: { indexed: true },
+          select: { awsFaceId: true },
+        },
+      },
+    });
+
+    if (!photo) {
+      throw new Error('Photo not found');
+    }
+
+    // Remove indexed faces from AWS collection before DB deletion
+    if (photo.user.faceCollection && photo.faces.length > 0) {
+      const awsCollectionId = photo.user.faceCollection.awsCollectionId;
+      for (const face of photo.faces) {
+        if (face.awsFaceId) {
+          try {
+            await rekognitionService.removeFace(awsCollectionId, face.awsFaceId);
+            logger.info('Removed face from AWS collection', {
+              photoId,
+              awsFaceId: face.awsFaceId,
+            });
+          } catch (err) {
+            // Log but continue - don't fail deletion for AWS cleanup issues
+            logger.warn('Failed to remove face from AWS collection', {
+              photoId,
+              awsFaceId: face.awsFaceId,
+              error: err instanceof Error ? err.message : 'Unknown error',
+            });
+          }
+        }
+      }
+    }
+
+    // Delete database record (CASCADE will delete faces and AI tags)
+    await prisma.photo.delete({
+      where: { id: photoId },
     });
 
     logger.info('Deleted photo record', { photoId });
