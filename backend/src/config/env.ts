@@ -40,6 +40,10 @@ const envSchema = z.object({
     message: 'AZURE_VISION_ENDPOINT must be a valid Azure endpoint URL',
   }),
 
+  // AWS Rekognition (uses IAM Roles Anywhere for authentication)
+  AWS_REGION: z.string().min(1).default('us-east-1'),
+  AWS_PROFILE: z.string().min(1).default('picai-rekognition'),
+
   // File Storage
   UPLOAD_DIR: z
     .string()
