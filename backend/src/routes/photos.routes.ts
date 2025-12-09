@@ -6,6 +6,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import * as photosController from '../controllers/photos.controller.js';
 import * as aiController from '../controllers/ai.controller.js';
+import * as facesController from '../controllers/faces.controller.js';
 import { authenticateJWT } from '../middleware/auth.middleware.js';
 import { uploadMiddleware } from '../middleware/upload.middleware.js';
 import {
@@ -289,5 +290,59 @@ router.delete(
   validateParams(tagIdParamSchema),
   aiController.removeTag
 );
+
+/**
+ * POST /photos/:id/detect-faces
+ *
+ * Manually trigger face detection for a photo
+ * Detected faces are stored but NOT indexed to AWS until tagged
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ *
+ * Response (200):
+ * {
+ *   "success": true,
+ *   "message": "X face(s) detected",
+ *   "faces": [{
+ *     "id": "uuid",
+ *     "boundingBox": { "left": 0.1, "top": 0.2, "width": 0.3, "height": 0.4 },
+ *     "confidence": 95.5
+ *   }]
+ * }
+ *
+ * Errors:
+ * - 401 NO_TOKEN/TOKEN_EXPIRED: Authentication required
+ * - 403 FORBIDDEN: No access to this photo
+ * - 404 NOT_FOUND: Photo not found
+ */
+router.post(
+  '/:id/detect-faces',
+  authenticateJWT,
+  validateParams(photoIdSchema),
+  facesController.detectFaces
+);
+
+/**
+ * GET /photos/:id/faces
+ *
+ * Get detected faces in a photo
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ *
+ * Response (200):
+ * {
+ *   "success": true,
+ *   "faces": [{
+ *     "id": "uuid",
+ *     "boundingBox": { "left": 0.1, "top": 0.2, "width": 0.3, "height": 0.4 },
+ *     "confidence": 95.5,
+ *     "indexed": false,
+ *     "person": null | { "id": "uuid", "name": "Mom" }
+ *   }]
+ * }
+ */
+router.get('/:id/faces', authenticateJWT, validateParams(photoIdSchema), facesController.getFaces);
 
 export default router;
