@@ -14,18 +14,27 @@ import logger from '../utils/logger.js';
  * Headers: Authorization: Bearer <token>
  *
  * This is a manual trigger for face detection to conserve API calls.
- * Detected faces are stored in the database but NOT indexed to AWS until tagged.
+ * Detected faces are stored in the database. If the user has previously tagged faces,
+ * the system will search for matches and either auto-tag (>90% similarity) or
+ * return suggestions (80-90% similarity).
  *
  * Response (200):
  * {
  *   "success": true,
- *   "message": "X face(s) detected",
+ *   "message": "3 face(s) detected, 2 recognized",
  *   "faces": [{
  *     "id": "uuid",
  *     "boundingBox": { "left": 0.1, "top": 0.2, "width": 0.3, "height": 0.4 },
- *     "confidence": 95.5
+ *     "confidence": 95.5,
+ *     "indexed": true,
+ *     "person": { "id": "uuid", "name": "Mom" } | null,
+ *     "match": { "personId": "uuid", "personName": "Mom", "similarity": 85.5 } | null
  *   }]
  * }
+ *
+ * - indexed=true + person: Face was auto-tagged (>90% match)
+ * - match: Face has a suggestion (80-90% match), user should confirm
+ * - Neither: No match found, user can manually tag
  *
  * Errors:
  * - 401 NO_USER: Authentication required
@@ -95,15 +104,31 @@ export const detectFaces = async (req: Request, res: Response): Promise<void> =>
   // Detect faces using AWS Rekognition
   const detectedFaces = await rekognitionService.detectFacesForPhoto(photoId);
 
+  // Count auto-tagged and suggestions
+  const autoTagged = detectedFaces.filter((f) => f.indexed && f.person).length;
+  const suggestions = detectedFaces.filter((f) => f.match).length;
+  const recognized = autoTagged + suggestions;
+
   logger.info('Face detection completed', {
     photoId,
     userId: req.user.id,
     facesDetected: detectedFaces.length,
+    autoTagged,
+    suggestions,
   });
+
+  // Build message
+  let message = `${detectedFaces.length} face(s) detected`;
+  if (recognized > 0) {
+    message += `, ${recognized} recognized`;
+    if (autoTagged > 0) {
+      message += ` (${autoTagged} auto-tagged)`;
+    }
+  }
 
   res.json({
     success: true,
-    message: `${detectedFaces.length} face(s) detected`,
+    message,
     faces: detectedFaces,
   });
 };
@@ -114,6 +139,10 @@ export const detectFaces = async (req: Request, res: Response): Promise<void> =>
  * GET /photos/:id/faces
  * Headers: Authorization: Bearer <token>
  *
+ * Note: This returns stored faces. The `match` field will always be null here
+ * since match suggestions are only computed during detection. To get fresh
+ * match suggestions, use POST /photos/:id/detect-faces.
+ *
  * Response (200):
  * {
  *   "success": true,
@@ -122,7 +151,8 @@ export const detectFaces = async (req: Request, res: Response): Promise<void> =>
  *     "boundingBox": { "left": 0.1, "top": 0.2, "width": 0.3, "height": 0.4 },
  *     "confidence": 95.5,
  *     "indexed": false,
- *     "person": null | { "id": "uuid", "name": "Mom" }
+ *     "person": null | { "id": "uuid", "name": "Mom" },
+ *     "match": null
  *   }]
  * }
  */
@@ -214,6 +244,7 @@ export const getFaces = async (req: Request, res: Response): Promise<void> => {
             name: face.person.name,
           }
         : null,
+      match: null, // Match suggestions are only computed during detection
     })),
   });
 };
