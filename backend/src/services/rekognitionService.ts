@@ -144,7 +144,11 @@ class RekognitionService {
       },
     });
 
-    logger.info('Face collection created', { userId, awsCollectionId, collectionId: collection.id });
+    logger.info('Face collection created', {
+      userId,
+      awsCollectionId,
+      collectionId: collection.id,
+    });
 
     return collection.awsCollectionId;
   }
