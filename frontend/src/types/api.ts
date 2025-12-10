@@ -125,6 +125,7 @@ export interface UploadResponse {
     originalName: string;
     uploadedAt: string;
     thumbnailUrl: string;
+    faces?: Face[]; // Only present when detectFaces=true is passed to upload
   }>;
 }
 
@@ -218,4 +219,112 @@ export interface AddTagResponse {
 export interface RemoveTagResponse {
   success: true;
   message: string;
+}
+
+// ============================================
+// Face & People Types (AWS Rekognition)
+// ============================================
+
+// Bounding box coordinates as percentages (0-1)
+export interface BoundingBox {
+  left: number; // % from left edge (0-1)
+  top: number; // % from top edge (0-1)
+  width: number; // % of image width (0-1)
+  height: number; // % of image height (0-1)
+}
+
+// Match suggestion for a detected face
+export interface FaceMatchSuggestion {
+  personId: string;
+  personName: string | null;
+  similarity: number;
+}
+
+// Individual face detected in a photo (as returned by getFaces/detectFaces endpoints)
+export interface Face {
+  id: string;
+  boundingBox: BoundingBox;
+  confidence: number;
+  indexed: boolean;
+  person?: { id: string; name: string | null } | null;
+  match?: FaceMatchSuggestion | null; // Suggestion for 80-90% matches (null from getFaces, present from detectFaces)
+}
+
+// Person in user's face collection
+export interface Person {
+  id: string;
+  name: string | null;
+  collectionId: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { faces: number };
+}
+
+// API Responses - matching backend controller responses
+
+export interface FaceDetectionResponse {
+  success: true;
+  message: string;
+  faces: Face[];
+}
+
+export interface FacesResponse {
+  success: true;
+  faces: Face[];
+}
+
+export interface TagFaceResponse {
+  success: true;
+  face: {
+    id: string;
+    indexed: boolean;
+    awsFaceId: string | null;
+  };
+  person: {
+    id: string;
+    name: string | null;
+  };
+}
+
+// Person as returned from list endpoint (different from full Person model)
+export interface PersonListItem {
+  id: string;
+  name: string | null;
+  photoCount: number;
+  createdAt: string;
+}
+
+export interface PeopleResponse {
+  success: true;
+  people: PersonListItem[];
+  pagination: {
+    limit: number;
+    offset: number;
+    total: number;
+  };
+}
+
+export interface PersonResponse {
+  success: true;
+  person: {
+    id: string;
+    name: string | null;
+    photoCount: number;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+// Simplified photo for list views (person photos, etc.)
+export interface PhotoListItem {
+  id: string;
+  filename: string;
+  originalName: string;
+  thumbnailUrl: string;
+  uploadedAt: string;
+}
+
+export interface PersonPhotosResponse {
+  success: true;
+  photos: PhotoListItem[];
 }
