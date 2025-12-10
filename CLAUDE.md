@@ -316,31 +316,39 @@ PicAI/
 - Show user feedback: "Processing... this may take a minute"
 - Retry with exponential backoff on rate limit errors
 
-### AWS Rekognition (Face Collections)
+### AWS Rekognition (Face Collections) - Implemented
 
 **Purpose:** Face detection and recognition for photo organization
 **Authentication:** IAM Roles Anywhere with X.509 certificates (no static credentials)
 **Region:** us-east-1
+**Status:** ✅ Complete (December 9, 2025)
 
-**When to Call:**
-- After Azure Computer Vision detects people in a photo (async, piggybacked on existing flow)
-- `DetectFaces`: Get face bounding boxes and store in `Face` table
-- `IndexFaces`: Only when user explicitly tags/confirms a face
-- `SearchFacesByImage`: When suggesting "Is this [Person Name]?"
+**API Endpoints:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/photos/:id/detect-faces` | Manual trigger for face detection |
+| GET | `/api/photos/:id/faces` | Get detected faces with bounding boxes |
+| POST | `/api/faces/:id/tag` | Tag face → create/link Person, index to AWS |
+| DELETE | `/api/faces/:id/tag` | Remove face tag, cleanup AWS |
+| GET | `/api/people` | List people in user's collection |
+| GET | `/api/people/:id` | Get person details |
+| PUT | `/api/people/:id` | Update person name |
+| DELETE | `/api/people/:id` | Delete person (cleanup AWS) |
+| GET | `/api/people/:id/photos` | Get photos containing person |
 
 **How Face Collections Work:**
-- Each user gets a personal face collection (created lazily on first face index)
-- Albums can optionally have their own face collection (owner enables setting)
-- Face collections are created in AWS only when first face is indexed (lazy creation)
+- Each user gets ONE personal face collection (created lazily on first face index)
+- Manual face detection trigger (conserves API quota)
+- Faces indexed to AWS only when user explicitly tags them
+- AWS cleanup on photo/person deletion
 
 **Database Models:**
 - `FaceCollection`: Links user to AWS collection ID
-- `AlbumFaceCollection`: Links album to AWS collection ID (for collaborative tagging)
 - `Person`: Known person with user-assigned name
 - `Face`: Individual face detected in a photo (with bounding box)
 
 **Rate Limits (Free Tier - First 12 Months):**
-- DetectFaces: 5,000/month
+- DetectFaces: 5,000/month (rate limited: 50 req/15min per IP)
 - IndexFaces: 1,000/month
 - SearchFaces: Unlimited on indexed faces
 - Face Storage: 1,000 faces/month
@@ -592,7 +600,7 @@ export const env = envSchema.parse(process.env);
 
 ---
 
-**Last Updated:** December 4, 2025
-**Project Status:** Phase 4.5 In Progress - AWS Rekognition Integration
+**Last Updated:** December 9, 2025
+**Project Status:** Phase 4.5 Complete - AWS Rekognition Integration
 **Production URL:** https://piclyai.net
-**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), Tag filtering and management UI implemented, AWS Rekognition with IAM Roles Anywhere (in progress)
+**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), Tag filtering and management UI implemented, AWS Rekognition with IAM Roles Anywhere (complete - face detection, tagging, people management)

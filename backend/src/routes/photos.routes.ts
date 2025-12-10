@@ -6,6 +6,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import * as photosController from '../controllers/photos.controller.js';
 import * as aiController from '../controllers/ai.controller.js';
+import * as facesController from '../controllers/faces.controller.js';
 import { authenticateJWT } from '../middleware/auth.middleware.js';
 import { uploadMiddleware } from '../middleware/upload.middleware.js';
 import {
@@ -19,23 +20,27 @@ import { addTagSchema, tagIdParamSchema } from '../schemas/ai.schema.js';
 const router = Router();
 
 /**
- * Rate limiting for photo uploads
- * Prevents abuse while allowing reasonable batch uploads
- *
- * Limits: 20 upload requests per 15 minutes per IP
- * Note: Each request can contain up to 50 files
+ * Create a rate limiter with standard configuration
+ * @param max - Maximum requests per 15 minute window
+ * @param context - Description for error message (e.g., "upload", "face detection")
  */
-const uploadLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 upload requests per window
-  message: {
-    success: false,
-    error: 'Too many upload requests. Please try again later.',
-    code: 'RATE_LIMIT_EXCEEDED',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+const createLimiter = (max: number, context: string) =>
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max,
+    message: {
+      success: false,
+      error: `Too many ${context} requests. Please try again later.`,
+      code: 'RATE_LIMIT_EXCEEDED',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+// Rate limiters for different operations
+const uploadLimiter = createLimiter(20, 'upload'); // 20 uploads/15min (each can have 50 files)
+const faceDetectionLimiter = createLimiter(50, 'face detection'); // 50/15min (protects AWS free tier)
+const tagLimiter = createLimiter(100, 'tag'); // 100 tags/15min
 
 /**
  * Photo Routes
@@ -258,6 +263,7 @@ router.delete('/:id', authenticateJWT, validateParams(photoIdSchema), photosCont
  */
 router.post(
   '/:id/tags',
+  tagLimiter,
   authenticateJWT,
   validateParams(photoIdSchema),
   validateRequest(addTagSchema),
@@ -289,5 +295,60 @@ router.delete(
   validateParams(tagIdParamSchema),
   aiController.removeTag
 );
+
+/**
+ * POST /photos/:id/detect-faces
+ *
+ * Manually trigger face detection for a photo
+ * Detected faces are stored but NOT indexed to AWS until tagged
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ *
+ * Response (200):
+ * {
+ *   "success": true,
+ *   "message": "X face(s) detected",
+ *   "faces": [{
+ *     "id": "uuid",
+ *     "boundingBox": { "left": 0.1, "top": 0.2, "width": 0.3, "height": 0.4 },
+ *     "confidence": 95.5
+ *   }]
+ * }
+ *
+ * Errors:
+ * - 401 NO_TOKEN/TOKEN_EXPIRED: Authentication required
+ * - 403 FORBIDDEN: No access to this photo
+ * - 404 NOT_FOUND: Photo not found
+ */
+router.post(
+  '/:id/detect-faces',
+  faceDetectionLimiter,
+  authenticateJWT,
+  validateParams(photoIdSchema),
+  facesController.detectFaces
+);
+
+/**
+ * GET /photos/:id/faces
+ *
+ * Get detected faces in a photo
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ *
+ * Response (200):
+ * {
+ *   "success": true,
+ *   "faces": [{
+ *     "id": "uuid",
+ *     "boundingBox": { "left": 0.1, "top": 0.2, "width": 0.3, "height": 0.4 },
+ *     "confidence": 95.5,
+ *     "indexed": false,
+ *     "person": null | { "id": "uuid", "name": "Mom" }
+ *   }]
+ * }
+ */
+router.get('/:id/faces', authenticateJWT, validateParams(photoIdSchema), facesController.getFaces);
 
 export default router;

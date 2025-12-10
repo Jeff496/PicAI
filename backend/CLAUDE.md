@@ -28,16 +28,21 @@ backend/
 │   │   └── express.d.ts              # Express type extensions (req.user, req.id)
 │   ├── routes/
 │   │   ├── auth.routes.ts            # POST /auth/login, /register, /refresh, /logout, GET /me
-│   │   ├── photos.routes.ts          # Photo upload, list, get, delete, thumbnails, tags
-│   │   └── ai.routes.ts              # AI analysis endpoints
+│   │   ├── photos.routes.ts          # Photo upload, list, get, delete, thumbnails, tags, faces
+│   │   ├── ai.routes.ts              # AI analysis endpoints
+│   │   ├── faces.routes.ts           # Face tagging endpoints
+│   │   └── people.routes.ts          # Person management endpoints
 │   ├── controllers/
 │   │   ├── auth.controller.ts        # Authentication logic
 │   │   ├── photos.controller.ts      # Photo CRUD operations
-│   │   └── ai.controller.ts          # AI analysis controllers
+│   │   ├── ai.controller.ts          # AI analysis controllers
+│   │   ├── faces.controller.ts       # Face detection and tagging
+│   │   └── people.controller.ts      # Person CRUD operations
 │   ├── services/
 │   │   ├── authService.ts            # JWT with jose, bcrypt hashing
-│   │   ├── fileService.ts            # Photo storage, thumbnails with Sharp, HEIC conversion
-│   │   └── aiService.ts              # Azure Computer Vision integration
+│   │   ├── fileService.ts            # Photo storage, thumbnails, HEIC, AWS cleanup
+│   │   ├── aiService.ts              # Azure Computer Vision integration
+│   │   └── rekognitionService.ts     # AWS Rekognition face collections
 │   ├── middleware/
 │   │   ├── auth.middleware.ts        # JWT verification
 │   │   ├── validate.middleware.ts    # Zod validation
@@ -46,14 +51,16 @@ backend/
 │   ├── schemas/
 │   │   ├── auth.schema.ts            # Zod schemas for auth endpoints
 │   │   ├── photo.schema.ts           # Zod schemas for photo endpoints
-│   │   └── ai.schema.ts              # Zod schemas for AI endpoints
+│   │   ├── ai.schema.ts              # Zod schemas for AI endpoints
+│   │   ├── face.schema.ts            # Zod schemas for face endpoints
+│   │   └── people.schema.ts          # Zod schemas for people endpoints
 │   ├── utils/
 │   │   └── logger.ts                 # Winston logger setup
 │   ├── prisma/
 │   │   └── client.ts                 # Prisma client instance
 │   └── generated/prisma/             # Prisma generated types (auto-generated)
 ├── prisma/
-│   ├── schema.prisma                 # Database schema
+│   ├── schema.prisma                 # Database schema (includes Face, Person, FaceCollection)
 │   └── migrations/                   # Database migrations
 ├── pki/                              # PKI for AWS IAM Roles Anywhere (see pki/README.md)
 │   ├── ca/                           # Certificate Authority files
@@ -84,21 +91,13 @@ src/
 ├── routes/
 │   ├── albums.routes.ts              # Album CRUD, auto-generation
 │   ├── groups.routes.ts              # Group CRUD, membership
-│   ├── users.routes.ts               # User profile management
-│   ├── people.routes.ts              # Person management (face collections)
-│   └── faces.routes.ts               # Face detection/indexing endpoints
+│   └── users.routes.ts               # User profile management
 ├── controllers/
 │   ├── albums.controller.ts
 │   ├── groups.controller.ts
-│   ├── users.controller.ts
-│   ├── people.controller.ts
-│   └── faces.controller.ts
+│   └── users.controller.ts
 ├── services/
-│   ├── albumService.ts               # Album generation logic
-│   └── rekognitionService.ts         # AWS Rekognition face collection management
-├── schemas/
-│   ├── people.schema.ts              # Zod schemas for people endpoints
-│   └── face.schema.ts                # Zod schemas for face endpoints
+│   └── albumService.ts               # Album generation logic
 └── types/
     └── api.types.ts                  # API response types
 ```
@@ -335,7 +334,7 @@ const response = await axios.post(
 
 ---
 
-## AWS Rekognition (Planned)
+## AWS Rekognition (Implemented)
 
 Face detection and recognition for photo organization using IAM Roles Anywhere.
 
@@ -344,7 +343,7 @@ Face detection and recognition for photo organization using IAM Roles Anywhere.
 Uses X.509 certificates instead of static AWS credentials:
 
 ```typescript
-// AWS SDK with IAM Roles Anywhere
+// src/services/rekognitionService.ts
 import { RekognitionClient } from '@aws-sdk/client-rekognition';
 import { fromProcess } from '@aws-sdk/credential-providers';
 
@@ -363,14 +362,44 @@ Certificates located in `backend/pki/`:
 
 See `pki/README.md` for certificate renewal procedures.
 
-### Planned Endpoints
+### Face Detection Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/people` | List known people in user's collection |
-| POST | `/api/people` | Create new person |
-| GET | `/api/photos/:id/faces` | Get detected faces in photo |
-| POST | `/api/faces/:faceId/identify` | Assign face to person (indexes in AWS) |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/photos/:id/detect-faces` | Yes | Detect faces in photo (manual trigger) |
+| GET | `/api/photos/:id/faces` | Yes | Get detected faces in photo |
+| POST | `/api/faces/:id/tag` | Yes | Tag face → link to person, index to AWS |
+| DELETE | `/api/faces/:id/tag` | Yes | Remove face tag |
+
+### People Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/people` | Yes | List people in user's collection |
+| GET | `/api/people/:id` | Yes | Get person details |
+| PUT | `/api/people/:id` | Yes | Update person name |
+| DELETE | `/api/people/:id` | Yes | Delete person (cleanup AWS) |
+| GET | `/api/people/:id/photos` | Yes | Get photos containing person |
+
+### Key Design Decisions
+
+- **Manual face detection:** Users trigger detection via button (conserves 5,000/month API limit)
+- **Personal collections only:** Each user has one face collection (no album-level collections)
+- **Lazy collection creation:** AWS collection created only when first face is indexed
+- **AWS cleanup on deletion:** Photo/person deletion removes indexed faces from AWS
+
+### Configuration Constants (rekognitionService.ts)
+
+```typescript
+FACE_DETECTION_THRESHOLD = 90  // Min confidence for face detection
+FACE_MATCH_THRESHOLD = 80      // Min similarity for face matching
+MAX_FACES_TO_DETECT = 10       // Max faces per photo
+```
+
+### Rate Limits
+
+- Face detection: 50 requests/15min per IP
+- AWS Free Tier: 5,000 DetectFaces/month, 1,000 IndexFaces/month
 
 **Documentation:** `docs/AWS_REKOGNITION_SETUP.md`
 
@@ -404,5 +433,5 @@ npm run format        # Prettier
 
 ---
 
-**Last Updated:** December 4, 2025
-**Status:** Phase 4.5 In Progress - AWS Rekognition integration (PKI complete, AWS setup in progress)
+**Last Updated:** December 9, 2025
+**Status:** Phase 4.5 Complete - AWS Rekognition integration (face detection, tagging, people management)
