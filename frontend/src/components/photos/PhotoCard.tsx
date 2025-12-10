@@ -3,11 +3,14 @@
 
 import { useState } from 'react';
 import { useThumbnail, useDeletePhoto } from '@/hooks/usePhotos';
-import type { Photo } from '@/types/api';
+import type { Photo, PhotoListItem } from '@/types/api';
+
+// Accept either full Photo or simplified PhotoListItem
+type PhotoItem = Photo | PhotoListItem;
 
 interface PhotoCardProps {
-  photo: Photo;
-  onViewFull?: (photo: Photo) => void;
+  photo: PhotoItem;
+  onViewFull?: (photo: PhotoItem) => void;
 }
 
 export function PhotoCard({ photo, onViewFull }: PhotoCardProps) {
@@ -87,8 +90,8 @@ export function PhotoCard({ photo, onViewFull }: PhotoCardProps) {
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(photo.uploadedAt)}</p>
 
-        {/* AI tags */}
-        {photo.tags && photo.tags.length > 0 && (
+        {/* AI tags (only available on full Photo type) */}
+        {'tags' in photo && photo.tags && photo.tags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {photo.tags.slice(0, 3).map((tag, index) => (
               <span

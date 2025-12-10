@@ -2,12 +2,15 @@
 // Grid layout for displaying photos with loading/empty states
 
 import { PhotoCard } from './PhotoCard';
-import type { Photo } from '@/types/api';
+import type { Photo, PhotoListItem } from '@/types/api';
+
+// Accept either full Photo or simplified PhotoListItem
+type PhotoItem = Photo | PhotoListItem;
 
 interface PhotoGridProps {
-  photos: Photo[];
+  photos: PhotoItem[];
   isLoading?: boolean;
-  onViewPhoto?: (photo: Photo) => void;
+  onViewPhoto?: (photo: PhotoItem) => void;
 }
 
 export function PhotoGrid({ photos, isLoading, onViewPhoto }: PhotoGridProps) {

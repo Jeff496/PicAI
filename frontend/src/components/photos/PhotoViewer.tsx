@@ -1,14 +1,19 @@
 // src/components/photos/PhotoViewer.tsx
-// Full-screen photo viewer modal
+// Full-screen photo viewer modal with face detection
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { photosService } from '@/services/photos';
 import { usePhoto } from '@/hooks/usePhotos';
+import { useFaces } from '@/hooks/useFaces';
 import { TagManagement } from './TagManagement';
-import type { Photo } from '@/types/api';
+import { FaceOverlay, FaceTagPopup, DetectFacesButton } from '@/components/faces';
+import type { Photo, PhotoListItem, Face } from '@/types/api';
+
+// Accept either full Photo or simplified PhotoListItem (will fetch full data)
+type PhotoItem = Photo | PhotoListItem;
 
 interface PhotoViewerProps {
-  photo: Photo;
+  photo: PhotoItem;
   onClose: () => void;
 }
 
@@ -17,10 +22,45 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
   const { data: photoResponse } = usePhoto(initialPhoto.id);
   const photo = photoResponse?.photo ?? initialPhoto;
 
+  // Fetch faces for this photo
+  const { data: facesResponse, refetch: refetchFaces } = useFaces(photo.id);
+  const faces = facesResponse?.faces || [];
+
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFace, setSelectedFace] = useState<Face | null>(null);
+  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | undefined>();
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const blobUrlRef = useRef<string | null>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
+
+  // Update image dimensions when image loads or resizes
+  const updateImageDimensions = useCallback(() => {
+    if (imageRef.current) {
+      const rect = imageRef.current.getBoundingClientRect();
+      setImageDimensions({ width: rect.width, height: rect.height });
+    }
+  }, []);
+
+  // Handle face click - show tag popup
+  const handleFaceClick = useCallback((face: Face) => {
+    if (imageRef.current) {
+      const rect = imageRef.current.getBoundingClientRect();
+      // Position popup near the face
+      const faceX = rect.left + face.boundingBox.left * rect.width;
+      const faceY = rect.top + (face.boundingBox.top + face.boundingBox.height) * rect.height + 10;
+      setPopupPosition({ x: faceX, y: faceY });
+    }
+    setSelectedFace(face);
+  }, []);
+
+  // Close face popup
+  const handleClosePopup = useCallback(() => {
+    setSelectedFace(null);
+    setPopupPosition(undefined);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -80,6 +120,13 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
     };
   }, []);
 
+  // Track image dimensions for face overlay
+  useEffect(() => {
+    const handleResize = () => updateImageDimensions();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [updateImageDimensions]);
+
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleString(undefined, {
       year: 'numeric',
@@ -116,8 +163,8 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
         className="flex max-h-[90vh] max-w-[90vw] flex-col items-center overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Image */}
-        <div className="relative flex shrink-0 items-center justify-center">
+        {/* Image with face overlay */}
+        <div ref={imageContainerRef} className="relative flex shrink-0 items-center justify-center">
           {isLoading && (
             <div className="flex h-64 w-64 items-center justify-center">
               <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" />
@@ -139,11 +186,24 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
           )}
 
           {!isLoading && imageUrl && (
-            <img
-              src={imageUrl}
-              alt={photo.originalName}
-              className="max-h-[75vh] max-w-full object-contain"
-            />
+            <div className="relative">
+              <img
+                ref={imageRef}
+                src={imageUrl}
+                alt={photo.originalName}
+                className="max-h-[75vh] max-w-full object-contain"
+                onLoad={updateImageDimensions}
+              />
+              {/* Face bounding boxes overlay */}
+              {faces.length > 0 && imageDimensions.width > 0 && (
+                <FaceOverlay
+                  faces={faces}
+                  containerWidth={imageDimensions.width}
+                  containerHeight={imageDimensions.height}
+                  onFaceClick={handleFaceClick}
+                />
+              )}
+            </div>
           )}
         </div>
 
@@ -154,19 +214,48 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
             <div>
               <span className="text-white/60">Uploaded:</span> {formatDate(photo.uploadedAt)}
             </div>
-            {photo.width && photo.height && (
+            {'width' in photo && photo.width && photo.height && (
               <div>
                 <span className="text-white/60">Dimensions:</span> {photo.width} x {photo.height}
               </div>
             )}
           </div>
 
-          {/* AI Tags with management */}
-          <div className="mt-4">
-            <TagManagement photoId={photo.id} tags={photo.tags || []} />
+          {/* Face Detection */}
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-medium text-white/80">Face Detection</h3>
+            </div>
+            <DetectFacesButton
+              photoId={photo.id}
+              faceCount={faces.length}
+              onDetected={() => refetchFaces()}
+            />
+            {faces.length > 0 && (
+              <p className="mt-2 text-xs text-white/60">
+                Click on faces in the image above to tag them.
+              </p>
+            )}
           </div>
+
+          {/* AI Tags with management */}
+          {'tags' in photo && (
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <TagManagement photoId={photo.id} tags={photo.tags || []} />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Face Tag Popup */}
+      {selectedFace && (
+        <FaceTagPopup
+          face={selectedFace}
+          photoId={photo.id}
+          onClose={handleClosePopup}
+          position={popupPosition}
+        />
+      )}
     </div>
   );
 }
