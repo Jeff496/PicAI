@@ -20,6 +20,13 @@ import { fileService } from './services/fileService.js';
 const app = express();
 
 /**
+ * Trust first proxy (Cloudflare Tunnel)
+ * Required for express-rate-limit to correctly identify client IPs
+ * Without this, all requests appear to come from the proxy IP
+ */
+app.set('trust proxy', 1);
+
+/**
  * 3.1 CORS Middleware
  * Allows frontend to call API
  * Validates origin against allowed list
