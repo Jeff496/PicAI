@@ -27,11 +27,13 @@ export const photosService = {
    * Upload multiple photos
    * @param files Array of File objects to upload
    * @param groupId Optional group ID to associate photos with
+   * @param detectFaces Optional flag to run face detection after upload
    * @param onProgress Optional callback for upload progress (0-100)
    */
   async upload(
     files: File[],
     groupId?: string,
+    detectFaces?: boolean,
     onProgress?: UploadProgressCallback
   ): Promise<UploadResponse> {
     const formData = new FormData();
@@ -44,7 +46,14 @@ export const photosService = {
       formData.append('groupId', groupId);
     }
 
-    const { data } = await api.post<UploadResponse>('/photos/upload', formData, {
+    // Build URL with query params
+    const params = new URLSearchParams();
+    if (detectFaces) {
+      params.set('detectFaces', 'true');
+    }
+    const url = `/photos/upload${params.toString() ? `?${params.toString()}` : ''}`;
+
+    const { data } = await api.post<UploadResponse>(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
