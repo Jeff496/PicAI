@@ -15,6 +15,7 @@ import {
   type BoundingBox as AWSBoundingBox,
 } from '@aws-sdk/client-rekognition';
 import { fromProcess } from '@aws-sdk/credential-providers';
+import sharp from 'sharp';
 import { env } from '../config/env.js';
 import prisma from '../prisma/client.js';
 import logger from '../utils/logger.js';
@@ -60,7 +61,29 @@ export interface FaceMatch {
  */
 const FACE_DETECTION_THRESHOLD = 90; // Only store faces with >90% confidence
 const FACE_MATCH_THRESHOLD = 80; // Consider match if >80% similarity
+const AUTO_TAG_THRESHOLD = 90; // Auto-tag if >90% similarity (no confirmation needed)
 const MAX_FACES_TO_DETECT = 10; // Limit faces per photo
+
+/**
+ * Match suggestion for a detected face
+ */
+export interface FaceMatchSuggestion {
+  personId: string;
+  personName: string | null;
+  similarity: number;
+}
+
+/**
+ * Detected face with optional match suggestion (returned from detectFacesForPhoto)
+ */
+export interface DetectedFaceWithMatch {
+  id: string;
+  boundingBox: BoundingBox;
+  confidence: number;
+  indexed: boolean;
+  person?: { id: string; name: string | null } | null;
+  match?: FaceMatchSuggestion | null;
+}
 
 /**
  * Convert AWS BoundingBox to our format
@@ -73,6 +96,48 @@ function convertBoundingBox(awsBox: AWSBoundingBox | undefined): BoundingBox | u
     width: awsBox.Width ?? 0,
     height: awsBox.Height ?? 0,
   };
+}
+
+/**
+ * Crop a face region from an image using Sharp
+ * Adds padding around the face for better recognition
+ *
+ * @param imageBuffer - Original image buffer
+ * @param boundingBox - Face bounding box (percentages 0-1)
+ * @param padding - Extra padding as percentage (default 20%)
+ * @returns Cropped face image buffer
+ */
+async function cropFaceFromImage(
+  imageBuffer: Buffer,
+  boundingBox: BoundingBox,
+  padding: number = 0.2
+): Promise<Buffer> {
+  // Get image dimensions
+  const metadata = await sharp(imageBuffer).metadata();
+  const imageWidth = metadata.width ?? 0;
+  const imageHeight = metadata.height ?? 0;
+
+  if (imageWidth === 0 || imageHeight === 0) {
+    throw new Error('Could not get image dimensions');
+  }
+
+  // Convert percentage bounding box to pixels
+  const faceLeft = boundingBox.left * imageWidth;
+  const faceTop = boundingBox.top * imageHeight;
+  const faceWidth = boundingBox.width * imageWidth;
+  const faceHeight = boundingBox.height * imageHeight;
+
+  // Add padding (but keep within image bounds)
+  const paddingX = faceWidth * padding;
+  const paddingY = faceHeight * padding;
+
+  const left = Math.max(0, Math.floor(faceLeft - paddingX));
+  const top = Math.max(0, Math.floor(faceTop - paddingY));
+  const width = Math.min(imageWidth - left, Math.ceil(faceWidth + paddingX * 2));
+  const height = Math.min(imageHeight - top, Math.ceil(faceHeight + paddingY * 2));
+
+  // Crop the face region
+  return sharp(imageBuffer).extract({ left, top, width, height }).toBuffer();
 }
 
 /**
@@ -358,19 +423,13 @@ class RekognitionService {
   }
 
   /**
-   * Detect faces in a photo and save to database
+   * Detect faces in a photo, save to database, search for matches, and auto-tag
    * Main entry point for face detection on a photo
    *
    * @param photoId - Photo UUID
-   * @returns Array of created Face records
+   * @returns Array of detected faces with match suggestions
    */
-  async detectFacesForPhoto(photoId: string): Promise<
-    Array<{
-      id: string;
-      boundingBox: BoundingBox;
-      confidence: number;
-    }>
-  > {
+  async detectFacesForPhoto(photoId: string): Promise<DetectedFaceWithMatch[]> {
     // Get photo from database
     const photo = await prisma.photo.findUnique({
       where: { id: photoId },
@@ -420,11 +479,157 @@ class RekognitionService {
       faceCount: createdFaces.length,
     });
 
-    return createdFaces.map((face) => ({
-      id: face.id,
-      boundingBox: face.boundingBox as unknown as BoundingBox,
-      confidence: face.confidence,
-    }));
+    // Check if user has a collection with indexed faces
+    const collection = await prisma.faceCollection.findUnique({
+      where: { userId: photo.userId },
+    });
+
+    // If no collection or no indexed faces, return without matching
+    if (!collection) {
+      logger.info('No face collection found, skipping face matching', {
+        photoId,
+        userId: photo.userId,
+      });
+      return createdFaces.map((face) => ({
+        id: face.id,
+        boundingBox: face.boundingBox as unknown as BoundingBox,
+        confidence: face.confidence,
+        indexed: false,
+        person: null,
+        match: null,
+      }));
+    }
+
+    // Check if there are any indexed faces in the collection
+    const indexedFaceCount = await prisma.face.count({
+      where: {
+        photo: { userId: photo.userId },
+        indexed: true,
+      },
+    });
+
+    if (indexedFaceCount === 0) {
+      logger.info('No indexed faces in collection, skipping face matching', { photoId });
+      return createdFaces.map((face) => ({
+        id: face.id,
+        boundingBox: face.boundingBox as unknown as BoundingBox,
+        confidence: face.confidence,
+        indexed: false,
+        person: null,
+        match: null,
+      }));
+    }
+
+    // Search for matches for each detected face
+    const results: DetectedFaceWithMatch[] = [];
+    let autoTaggedCount = 0;
+
+    for (const face of createdFaces) {
+      const boundingBox = face.boundingBox as unknown as BoundingBox;
+      let match: FaceMatchSuggestion | null = null;
+      let person: { id: string; name: string | null } | null = null;
+      let indexed = false;
+
+      try {
+        // Crop the face region from the image
+        const croppedFace = await cropFaceFromImage(imageBuffer, boundingBox);
+
+        // Search for matches in the user's collection
+        const matches = await this.searchFacesByImage(
+          collection.awsCollectionId,
+          croppedFace,
+          FACE_MATCH_THRESHOLD
+        );
+
+        if (matches.length > 0 && matches[0]) {
+          const bestMatch = matches[0];
+
+          // Look up the Person from the matched face's awsFaceId
+          const matchedFace = await prisma.face.findFirst({
+            where: { awsFaceId: bestMatch.awsFaceId },
+            include: {
+              person: {
+                select: { id: true, name: true },
+              },
+            },
+          });
+
+          if (matchedFace?.person) {
+            const similarity = bestMatch.similarity;
+
+            if (similarity >= AUTO_TAG_THRESHOLD) {
+              // Auto-tag: >90% similarity
+              const indexResult = await this.indexFace(
+                collection.awsCollectionId,
+                croppedFace,
+                face.id
+              );
+
+              if (indexResult) {
+                // Update face record with person and indexed status
+                await prisma.face.update({
+                  where: { id: face.id },
+                  data: {
+                    personId: matchedFace.person.id,
+                    awsFaceId: indexResult.awsFaceId,
+                    indexed: true,
+                  },
+                });
+
+                person = matchedFace.person;
+                indexed = true;
+                autoTaggedCount++;
+
+                logger.info('Face auto-tagged', {
+                  faceId: face.id,
+                  personId: matchedFace.person.id,
+                  personName: matchedFace.person.name,
+                  similarity,
+                });
+              }
+            } else {
+              // Suggestion: 80-90% similarity
+              match = {
+                personId: matchedFace.person.id,
+                personName: matchedFace.person.name,
+                similarity,
+              };
+
+              logger.info('Face match suggestion', {
+                faceId: face.id,
+                personId: matchedFace.person.id,
+                personName: matchedFace.person.name,
+                similarity,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        // Log error but continue with other faces
+        logger.error('Error searching for face match', {
+          faceId: face.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+
+      results.push({
+        id: face.id,
+        boundingBox,
+        confidence: face.confidence,
+        indexed,
+        person,
+        match,
+      });
+    }
+
+    logger.info('Face detection and matching complete', {
+      photoId,
+      totalFaces: createdFaces.length,
+      autoTagged: autoTaggedCount,
+      suggestions: results.filter((r) => r.match).length,
+    });
+
+    return results;
   }
 
   /**
@@ -434,6 +639,7 @@ class RekognitionService {
     return {
       detectionThreshold: FACE_DETECTION_THRESHOLD,
       matchThreshold: FACE_MATCH_THRESHOLD,
+      autoTagThreshold: AUTO_TAG_THRESHOLD,
       maxFacesPerPhoto: MAX_FACES_TO_DETECT,
     };
   }

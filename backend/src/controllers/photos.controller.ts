@@ -6,6 +6,7 @@ import type { Request, Response } from 'express';
 import prisma from '../prisma/client.js';
 import { fileService, type SavePhotoResult } from '../services/fileService.js';
 import { aiService } from '../services/aiService.js';
+import { rekognitionService, type DetectedFaceWithMatch } from '../services/rekognitionService.js';
 import logger from '../utils/logger.js';
 import type { UploadPhotoRequest, GetPhotosQuery } from '../schemas/photo.schema.js';
 
@@ -13,6 +14,7 @@ import type { UploadPhotoRequest, GetPhotosQuery } from '../schemas/photo.schema
  * Upload one or more photos
  *
  * POST /photos/upload
+ * POST /photos/upload?detectFaces=true (optional: run face detection after upload)
  * Headers: Authorization: Bearer <token>
  * Body: multipart/form-data with 'photos' field (1-50 files)
  * Optional body fields: groupId
@@ -21,8 +23,16 @@ import type { UploadPhotoRequest, GetPhotosQuery } from '../schemas/photo.schema
  * {
  *   "success": true,
  *   "message": "X photo(s) uploaded successfully",
- *   "photos": [{ id, filename, originalName, uploadedAt, thumbnailUrl }]
+ *   "photos": [{
+ *     id, filename, originalName, uploadedAt, thumbnailUrl,
+ *     faces?: [{ id, boundingBox, confidence, indexed, person, match }] // only if detectFaces=true
+ *   }]
  * }
+ *
+ * When detectFaces=true:
+ * - Face detection runs on each uploaded photo
+ * - If user has tagged faces before, matches are found and auto-tagged (>90%) or suggested (80-90%)
+ * - Response includes face data for each photo
  *
  * Errors:
  * - 400 NO_FILES: No files provided
@@ -116,15 +126,68 @@ export const uploadPhotos = async (req: Request, res: Response): Promise<void> =
       });
     }
 
+    // Check if face detection is requested
+    const detectFaces = req.query.detectFaces === 'true';
+    const facesMap: Map<string, DetectedFaceWithMatch[]> = new Map();
+    let totalFaces = 0;
+    let totalAutoTagged = 0;
+    let totalSuggestions = 0;
+
+    if (detectFaces) {
+      logger.info('Running face detection on uploaded photos', {
+        photoCount: uploadedPhotos.length,
+        userId: req.user.id,
+      });
+
+      // Run face detection on each photo
+      for (const photo of uploadedPhotos) {
+        try {
+          const faces = await rekognitionService.detectFacesForPhoto(photo.id);
+          facesMap.set(photo.id, faces);
+          totalFaces += faces.length;
+          totalAutoTagged += faces.filter((f) => f.indexed && f.person).length;
+          totalSuggestions += faces.filter((f) => f.match).length;
+        } catch (err) {
+          logger.error('Face detection failed for photo', {
+            photoId: photo.id,
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
+          // Continue with other photos even if one fails
+          facesMap.set(photo.id, []);
+        }
+      }
+
+      logger.info('Face detection complete for batch upload', {
+        photoCount: uploadedPhotos.length,
+        totalFaces,
+        autoTagged: totalAutoTagged,
+        suggestions: totalSuggestions,
+      });
+    }
+
+    // Build response message
+    let message = `${uploadedPhotos.length} photo(s) uploaded successfully`;
+    if (detectFaces && totalFaces > 0) {
+      const recognized = totalAutoTagged + totalSuggestions;
+      message += `, detected ${totalFaces} face(s)`;
+      if (recognized > 0) {
+        message += `, ${recognized} recognized`;
+        if (totalAutoTagged > 0) {
+          message += ` (${totalAutoTagged} auto-tagged)`;
+        }
+      }
+    }
+
     res.status(201).json({
       success: true,
-      message: `${uploadedPhotos.length} photo(s) uploaded successfully`,
+      message,
       photos: uploadedPhotos.map((photo) => ({
         id: photo.id,
         filename: photo.filename,
         originalName: photo.originalName,
         uploadedAt: photo.uploadedAt,
         thumbnailUrl: `/api/photos/${photo.id}/thumbnail`,
+        ...(detectFaces && { faces: facesMap.get(photo.id) || [] }),
       })),
     });
   } catch (error) {

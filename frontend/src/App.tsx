@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { PhotosPage } from '@/pages/PhotosPage';
+import { PeoplePage } from '@/pages/PeoplePage';
+import { PersonPhotosPage } from '@/pages/PersonPhotosPage';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 
 function App() {
@@ -22,6 +24,22 @@ function App() {
           element={
             <ProtectedRoute>
               <PhotosPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/people"
+          element={
+            <ProtectedRoute>
+              <PeoplePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/people/:personId"
+          element={
+            <ProtectedRoute>
+              <PersonPhotosPage />
             </ProtectedRoute>
           }
         />

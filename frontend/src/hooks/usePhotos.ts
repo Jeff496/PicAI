@@ -60,13 +60,15 @@ export function useUploadPhotos() {
     mutationFn: async ({
       files,
       groupId,
+      detectFaces,
       onProgress,
     }: {
       files: File[];
       groupId?: string;
+      detectFaces?: boolean;
       onProgress?: (progress: number) => void;
     }): Promise<UploadResponse> => {
-      return photosService.upload(files, groupId, onProgress);
+      return photosService.upload(files, groupId, detectFaces, onProgress);
     },
     onSuccess: () => {
       // Invalidate photo list to refetch

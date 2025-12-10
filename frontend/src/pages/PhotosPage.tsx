@@ -2,16 +2,17 @@
 // Main photos page with upload form and photo grid
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/auth';
 import { usePhotos } from '@/hooks/usePhotos';
 import { UploadForm, PhotoGrid, PhotoViewer, TagFilter } from '@/components/photos';
-import type { Photo } from '@/types/api';
+import type { Photo, PhotoListItem } from '@/types/api';
 
 export function PhotosPage() {
   const user = useAuthStore((state) => state.user);
   const [showUpload, setShowUpload] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | PhotoListItem | null>(null);
   const [tagFilter, setTagFilter] = useState('');
 
   // Fetch photos with optional tag filter
@@ -48,6 +49,19 @@ export function PhotosPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Navigation tabs */}
+            <nav className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+              <span className="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white">
+                Photos
+              </span>
+              <Link
+                to="/people"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+              >
+                People
+              </Link>
+            </nav>
+
             {/* Upload button */}
             <button
               onClick={() => setShowUpload(!showUpload)}

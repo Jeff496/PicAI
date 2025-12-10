@@ -14,11 +14,21 @@ interface UploadFormProps {
   onUploadComplete?: () => void;
 }
 
+// Summary of face detection results after upload
+interface UploadSummary {
+  photoCount: number;
+  totalFaces: number;
+  autoTagged: number;
+  suggestions: number;
+}
+
 export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [detectFaces, setDetectFaces] = useState(false);
+  const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadMutation = useUploadPhotos();
@@ -110,6 +120,7 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
     setSelectedFiles([]);
     setError(null);
     setUploadProgress(0);
+    setUploadSummary(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -120,16 +131,46 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
 
     setError(null);
     setUploadProgress(0);
+    setUploadSummary(null);
 
     try {
-      await uploadMutation.mutateAsync({
+      const result = await uploadMutation.mutateAsync({
         files: selectedFiles,
         groupId,
+        detectFaces,
         onProgress: setUploadProgress,
       });
 
+      // If face detection was enabled, calculate summary
+      if (detectFaces && result.photos) {
+        let totalFaces = 0;
+        let autoTagged = 0;
+        let suggestions = 0;
+
+        for (const photo of result.photos) {
+          if (photo.faces) {
+            totalFaces += photo.faces.length;
+            autoTagged += photo.faces.filter((f) => f.indexed && f.person).length;
+            suggestions += photo.faces.filter((f) => f.match).length;
+          }
+        }
+
+        if (totalFaces > 0) {
+          setUploadSummary({
+            photoCount: result.photos.length,
+            totalFaces,
+            autoTagged,
+            suggestions,
+          });
+        }
+      }
+
       // Clear selection on success
-      clearAll();
+      setSelectedFiles([]);
+      setUploadProgress(0);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       onUploadComplete?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed';
@@ -189,6 +230,46 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
           </p>
         </div>
       </div>
+
+      {/* Face detection toggle */}
+      <div className="flex items-center gap-3">
+        <label className="relative inline-flex cursor-pointer items-center">
+          <input
+            type="checkbox"
+            checked={detectFaces}
+            onChange={(e) => setDetectFaces(e.target.checked)}
+            className="peer sr-only"
+          />
+          <div className="peer h-5 w-9 rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full dark:bg-gray-600" />
+        </label>
+        <span className="text-sm text-gray-600 dark:text-gray-400">Auto-detect and tag faces</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">(uses AWS Rekognition)</span>
+      </div>
+
+      {/* Upload summary (shown after upload with face detection) */}
+      {uploadSummary && (
+        <div className="rounded-md bg-blue-50 p-3 text-sm dark:bg-blue-900/20">
+          <p className="font-medium text-blue-700 dark:text-blue-400">Upload Complete</p>
+          <p className="text-blue-600 dark:text-blue-300">
+            Uploaded {uploadSummary.photoCount} photo{uploadSummary.photoCount !== 1 ? 's' : ''},
+            detected {uploadSummary.totalFaces} face{uploadSummary.totalFaces !== 1 ? 's' : ''}
+            {uploadSummary.autoTagged > 0 && <>, auto-tagged {uploadSummary.autoTagged}</>}
+            {uploadSummary.suggestions > 0 && (
+              <>
+                , {uploadSummary.suggestions} suggestion{uploadSummary.suggestions !== 1 ? 's' : ''}{' '}
+                to review
+              </>
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={() => setUploadSummary(null)}
+            className="mt-2 text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Error message */}
       {error && (
