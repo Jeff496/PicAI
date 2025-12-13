@@ -655,3 +655,102 @@ export const deletePhoto = async (req: Request, res: Response): Promise<void> =>
     message: 'Photo deleted successfully',
   });
 };
+
+/**
+ * Bulk delete multiple photos
+ *
+ * DELETE /photos/bulk
+ * Headers: Authorization: Bearer <token>
+ * Body: { "photoIds": ["uuid1", "uuid2", ...] }
+ *
+ * Response (200):
+ * {
+ *   "success": true,
+ *   "message": "Bulk delete complete",
+ *   "results": [{ "photoId": "...", "success": true|false, "error": "..." }],
+ *   "summary": { "total": 10, "succeeded": 8, "failed": 2 }
+ * }
+ */
+export const bulkDeletePhotos = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+      code: 'NO_USER',
+    });
+    return;
+  }
+
+  const { photoIds } = req.body as { photoIds: string[] };
+
+  if (!photoIds || !Array.isArray(photoIds) || photoIds.length === 0) {
+    res.status(400).json({
+      success: false,
+      error: 'photoIds array is required',
+      code: 'INVALID_REQUEST',
+    });
+    return;
+  }
+
+  // Limit to 50 photos per request
+  if (photoIds.length > 50) {
+    res.status(400).json({
+      success: false,
+      error: 'Maximum 50 photos per bulk delete request',
+      code: 'TOO_MANY_PHOTOS',
+    });
+    return;
+  }
+
+  // Only allow deletion of user's own photos (not group photos)
+  const photos = await prisma.photo.findMany({
+    where: {
+      id: { in: photoIds },
+      userId: req.user.id, // Only owner can delete
+    },
+    select: { id: true },
+  });
+
+  const ownedPhotoIds = new Set(photos.map((p) => p.id));
+  const results: Array<{ photoId: string; success: boolean; error?: string }> = [];
+
+  // Process each photo
+  for (const photoId of photoIds) {
+    if (!ownedPhotoIds.has(photoId)) {
+      results.push({ photoId, success: false, error: 'Photo not found or access denied' });
+      continue;
+    }
+
+    try {
+      await fileService.deletePhoto(photoId);
+      results.push({ photoId, success: true });
+    } catch (error) {
+      results.push({
+        photoId,
+        success: false,
+        error: error instanceof Error ? error.message : 'Delete failed',
+      });
+    }
+  }
+
+  const succeeded = results.filter((r) => r.success).length;
+  const failed = results.filter((r) => !r.success).length;
+
+  logger.info('Bulk photo delete completed', {
+    userId: req.user.id,
+    total: photoIds.length,
+    succeeded,
+    failed,
+  });
+
+  res.json({
+    success: true,
+    message: `Bulk delete complete: ${succeeded} succeeded, ${failed} failed`,
+    results,
+    summary: {
+      total: photoIds.length,
+      succeeded,
+      failed,
+    },
+  });
+};

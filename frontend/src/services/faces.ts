@@ -9,6 +9,7 @@ import type {
   PeopleResponse,
   PersonResponse,
   PersonPhotosResponse,
+  BulkDetectFacesResponse,
 } from '@/types/api';
 
 // Query parameters for listing people
@@ -115,6 +116,25 @@ export const facesService = {
    */
   async getPersonPhotos(personId: string): Promise<PersonPhotosResponse> {
     const { data } = await api.get<PersonPhotosResponse>(`/people/${personId}/photos`);
+    return data;
+  },
+
+  // ============================================
+  // Bulk Operations
+  // ============================================
+
+  /**
+   * Bulk detect faces in multiple photos
+   * @param photoIds Array of photo IDs to detect faces in
+   */
+  async bulkDetectFaces(photoIds: string[]): Promise<BulkDetectFacesResponse> {
+    // Extended timeout for bulk face detection: 30s base + 6s per photo, max 5 minutes
+    const timeout = Math.min(30000 + photoIds.length * 6000, 300000);
+    const { data } = await api.post<BulkDetectFacesResponse>(
+      '/photos/bulk-detect-faces',
+      { photoIds },
+      { timeout }
+    );
     return data;
   },
 };

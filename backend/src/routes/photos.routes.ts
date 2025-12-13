@@ -131,6 +131,92 @@ router.post(
  */
 router.get('/', authenticateJWT, validateQuery(getPhotosQuerySchema), photosController.getPhotos);
 
+// ============================================
+// Bulk Operations (must come before /:id routes)
+// ============================================
+
+/**
+ * POST /photos/bulk-detect-faces
+ *
+ * Bulk detect faces in multiple photos
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ *
+ * Body:
+ * {
+ *   "photoIds": ["uuid1", "uuid2", ...]
+ * }
+ *
+ * Response (200):
+ * {
+ *   "success": true,
+ *   "message": "Bulk face detection complete",
+ *   "results": [{ "photoId": "...", "success": true, "facesDetected": 3 }],
+ *   "summary": { "total": 10, "succeeded": 8, "failed": 2, "totalFacesDetected": 25 }
+ * }
+ */
+router.post(
+  '/bulk-detect-faces',
+  faceDetectionLimiter,
+  authenticateJWT,
+  facesController.bulkDetectFaces
+);
+
+/**
+ * POST /photos/bulk-detect-faces-progress
+ *
+ * Bulk detect faces with SSE progress streaming
+ * Same as bulk-detect-faces but streams progress events
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ * Accept: text/event-stream
+ *
+ * Body:
+ * {
+ *   "photoIds": ["uuid1", "uuid2", ...]
+ * }
+ *
+ * SSE Events:
+ * - { type: 'start', total: number }
+ * - { type: 'progress', current: number, total: number, photoId: string, success: boolean, ... }
+ * - { type: 'complete', summary: { total, succeeded, failed, totalFacesDetected } }
+ */
+router.post(
+  '/bulk-detect-faces-progress',
+  faceDetectionLimiter,
+  authenticateJWT,
+  facesController.bulkDetectFacesWithProgress
+);
+
+/**
+ * DELETE /photos/bulk
+ *
+ * Bulk delete multiple photos
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ *
+ * Body:
+ * {
+ *   "photoIds": ["uuid1", "uuid2", ...]
+ * }
+ *
+ * Response (200):
+ * {
+ *   "success": true,
+ *   "message": "Bulk delete complete",
+ *   "results": [{ "photoId": "...", "success": true|false, "error": "..." }],
+ *   "summary": { "total": 10, "succeeded": 8, "failed": 2 }
+ * }
+ */
+router.delete('/bulk', authenticateJWT, photosController.bulkDeletePhotos);
+
+// ============================================
+// Single Photo Routes
+// ============================================
+
 /**
  * GET /photos/:id
  *

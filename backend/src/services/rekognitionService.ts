@@ -447,18 +447,56 @@ class RekognitionService {
     // Detect faces using AWS
     const detectedFaces = await this.detectFaces(imageBuffer);
 
+    // Clean up existing faces before creating new ones (re-detection support)
+    // This handles both indexed and non-indexed faces
+    const existingFaces = await prisma.face.findMany({
+      where: { photoId },
+      select: { id: true, awsFaceId: true, indexed: true },
+    });
+
+    if (existingFaces.length > 0) {
+      // Get user's face collection for AWS cleanup
+      const userCollection = await prisma.faceCollection.findUnique({
+        where: { userId: photo.userId },
+      });
+
+      // Remove indexed faces from AWS Rekognition
+      if (userCollection) {
+        const indexedFaces = existingFaces.filter((f) => f.indexed && f.awsFaceId);
+        for (const face of indexedFaces) {
+          try {
+            await this.removeFace(userCollection.awsCollectionId, face.awsFaceId!);
+            logger.info('Removed indexed face from AWS during re-detection', {
+              faceId: face.id,
+              awsFaceId: face.awsFaceId,
+            });
+          } catch (err) {
+            logger.warn('Failed to remove face from AWS during re-detection', {
+              faceId: face.id,
+              awsFaceId: face.awsFaceId,
+              error: err instanceof Error ? err.message : 'Unknown error',
+            });
+            // Continue even if AWS removal fails - we still want to clean up the DB
+          }
+        }
+      }
+
+      // Delete ALL existing faces for this photo (not just non-indexed)
+      await prisma.face.deleteMany({
+        where: { photoId },
+      });
+
+      logger.info('Cleaned up existing faces during re-detection', {
+        photoId,
+        deletedCount: existingFaces.length,
+        indexedCount: existingFaces.filter((f) => f.indexed).length,
+      });
+    }
+
     if (detectedFaces.length === 0) {
       logger.info('No faces detected in photo', { photoId });
       return [];
     }
-
-    // Delete existing non-indexed faces for this photo (re-detection)
-    await prisma.face.deleteMany({
-      where: {
-        photoId,
-        indexed: false,
-      },
-    });
 
     // Create face records
     const createdFaces = await Promise.all(

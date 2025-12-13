@@ -6,7 +6,8 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/auth';
 import { usePhotos } from '@/hooks/usePhotos';
-import { UploadForm, PhotoGrid, PhotoViewer, TagFilter } from '@/components/photos';
+import { usePhotoSelection } from '@/hooks/usePhotoSelection';
+import { UploadForm, PhotoGrid, PhotoViewer, TagFilter, BulkActionBar } from '@/components/photos';
 import type { Photo, PhotoListItem } from '@/types/api';
 
 export function PhotosPage() {
@@ -14,6 +15,18 @@ export function PhotosPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | PhotoListItem | null>(null);
   const [tagFilter, setTagFilter] = useState('');
+
+  // Selection mode state
+  const {
+    selectedPhotoIds,
+    isSelectionMode,
+    selectedCount,
+    toggleSelection,
+    selectAll,
+    deselectAll,
+    enterSelectionMode,
+    exitSelectionMode,
+  } = usePhotoSelection();
 
   // Fetch photos with optional tag filter
   const {
@@ -36,8 +49,11 @@ export function PhotosPage() {
 
   const photos = photosResponse?.photos ?? [];
 
+  // Convert Set to Array for BulkActionBar
+  const selectedPhotoIdsArray = Array.from(selectedPhotoIds);
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 ${isSelectionMode ? 'pb-24' : ''}`}>
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur dark:border-gray-700 dark:bg-gray-900/80">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
@@ -62,29 +78,64 @@ export function PhotosPage() {
               </Link>
             </nav>
 
-            {/* Upload button */}
-            <button
-              onClick={() => setShowUpload(!showUpload)}
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                />
-              </svg>
-              Upload
-            </button>
+            {/* Selection mode toggle */}
+            {!isSelectionMode ? (
+              <button
+                onClick={enterSelectionMode}
+                disabled={photos.length === 0}
+                className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                  />
+                </svg>
+                Select
+              </button>
+            ) : (
+              <>
+                {/* Select/Deselect All */}
+                <button
+                  onClick={() =>
+                    selectedCount === photos.length ? deselectAll() : selectAll(photos)
+                  }
+                  className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                >
+                  {selectedCount === photos.length ? 'Deselect All' : 'Select All'}
+                </button>
+              </>
+            )}
 
-            {/* Logout button */}
-            <button
-              onClick={handleLogout}
-              className="rounded-md bg-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-            >
-              Logout
-            </button>
+            {/* Upload button (hidden in selection mode) */}
+            {!isSelectionMode && (
+              <button
+                onClick={() => setShowUpload(!showUpload)}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                  />
+                </svg>
+                Upload
+              </button>
+            )}
+
+            {/* Logout button (hidden in selection mode) */}
+            {!isSelectionMode && (
+              <button
+                onClick={handleLogout}
+                className="rounded-md bg-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              >
+                Logout
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -92,7 +143,7 @@ export function PhotosPage() {
       {/* Main content */}
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Upload form (collapsible) */}
-        {showUpload && (
+        {showUpload && !isSelectionMode && (
           <div className="mb-8 rounded-lg bg-white p-6 shadow dark:bg-gray-800">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">Upload Photos</h2>
@@ -145,37 +196,57 @@ export function PhotosPage() {
           </div>
         )}
 
-        {/* Tag filter */}
-        <div className="mb-6">
-          <TagFilter
-            value={tagFilter}
-            onChange={setTagFilter}
-            placeholder="Filter photos by tag..."
-          />
-          {tagFilter && (
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              Showing photos tagged with "{tagFilter}"
-            </p>
-          )}
-        </div>
+        {/* Tag filter (hidden in selection mode) */}
+        {!isSelectionMode && (
+          <div className="mb-6">
+            <TagFilter
+              value={tagFilter}
+              onChange={setTagFilter}
+              placeholder="Filter photos by tag..."
+            />
+            {tagFilter && (
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                Showing photos tagged with "{tagFilter}"
+              </p>
+            )}
+          </div>
+        )}
 
-        {/* Photo count */}
+        {/* Photo count / Selection info */}
         {!isLoading && !error && photos.length > 0 && (
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {photos.length} {photos.length === 1 ? 'photo' : 'photos'}
-              {tagFilter && ` matching "${tagFilter}"`}
+              {isSelectionMode
+                ? `${selectedCount} of ${photos.length} photo${photos.length !== 1 ? 's' : ''} selected`
+                : `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}${tagFilter ? ` matching "${tagFilter}"` : ''}`}
             </p>
           </div>
         )}
 
         {/* Photo grid */}
-        <PhotoGrid photos={photos} isLoading={isLoading} onViewPhoto={setSelectedPhoto} />
+        <PhotoGrid
+          photos={photos}
+          isLoading={isLoading}
+          isSelectionMode={isSelectionMode}
+          selectedPhotoIds={selectedPhotoIds}
+          onToggleSelection={toggleSelection}
+          onViewPhoto={setSelectedPhoto}
+        />
       </main>
 
-      {/* Photo viewer modal */}
-      {selectedPhoto && (
+      {/* Photo viewer modal (not shown in selection mode) */}
+      {selectedPhoto && !isSelectionMode && (
         <PhotoViewer photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} />
+      )}
+
+      {/* Bulk action bar */}
+      {isSelectionMode && (
+        <BulkActionBar
+          selectedCount={selectedCount}
+          selectedPhotoIds={selectedPhotoIdsArray}
+          onCancel={exitSelectionMode}
+          onComplete={refetch}
+        />
       )}
     </div>
   );

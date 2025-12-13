@@ -49,3 +49,16 @@ export const analyzeMissingSchema = z.object({
 });
 
 export type AnalyzeMissingRequest = z.infer<typeof analyzeMissingSchema>;
+
+/**
+ * Schema for bulk photo analysis
+ * POST /ai/analyze/bulk
+ */
+export const bulkAnalyzeSchema = z.object({
+  photoIds: z
+    .array(z.uuid('Invalid photo ID'))
+    .min(1, 'At least one photo ID is required')
+    .max(50, 'Maximum 50 photos per request'),
+});
+
+export type BulkAnalyzeRequest = z.infer<typeof bulkAnalyzeSchema>;

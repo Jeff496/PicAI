@@ -47,6 +47,8 @@ export function useDetectFaces() {
       });
       // Also invalidate to ensure fresh data
       queryClient.invalidateQueries({ queryKey: faceKeys.forPhoto(photoId) });
+      // Invalidate people list since face detection can change person-face associations
+      queryClient.invalidateQueries({ queryKey: faceKeys.people() });
     },
   });
 }
@@ -181,4 +183,27 @@ export function usePrefetchPeople() {
       queryFn: () => facesService.getPeople(params),
     });
   };
+}
+
+// ============================================
+// Bulk Operations
+// ============================================
+
+/**
+ * Hook to bulk detect faces in multiple photos
+ */
+export function useBulkDetectFaces() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (photoIds: string[]) => facesService.bulkDetectFaces(photoIds),
+    onSuccess: (_, photoIds) => {
+      // Invalidate faces for all processed photos
+      photoIds.forEach((photoId) => {
+        queryClient.invalidateQueries({ queryKey: faceKeys.forPhoto(photoId) });
+      });
+      // Also invalidate people list in case new matches were found
+      queryClient.invalidateQueries({ queryKey: faceKeys.people() });
+    },
+  });
 }

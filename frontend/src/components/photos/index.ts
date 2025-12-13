@@ -7,3 +7,5 @@ export { PhotoViewer } from './PhotoViewer';
 export { UploadForm } from './UploadForm';
 export { TagFilter } from './TagFilter';
 export { TagManagement } from './TagManagement';
+export { BulkActionBar } from './BulkActionBar';
+export { BulkProgressModal } from './BulkProgressModal';
