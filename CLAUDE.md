@@ -1,7 +1,7 @@
 # CLAUDE.md - PicAI Main Project Guide
 
-**Last Updated:** December 11, 2025
-**Status:** Phase 4.6 Complete - Face Detection & People Management UI Live
+**Last Updated:** December 13, 2025
+**Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
 
 This file provides guidance to Claude Code when working in the PicAI repository with the November 2025 technology stack.
 
@@ -161,9 +161,14 @@ PicAI/
 │   │   ├── services/
 │   │   │   ├── api.ts         # Axios with JWT interceptors
 │   │   │   ├── auth.ts        # Auth API service
-│   │   │   └── photos.ts      # Photo API service + AI methods
+│   │   │   ├── photos.ts      # Photo API service + AI methods
+│   │   │   └── faces.ts       # Face detection & people management API
+│   │   ├── utils/
+│   │   │   └── toast.ts       # Toast utilities for bulk operation feedback
 │   │   ├── hooks/
-│   │   │   └── usePhotos.ts   # TanStack Query hooks + AI mutations
+│   │   │   ├── usePhotos.ts   # TanStack Query hooks + AI mutations
+│   │   │   ├── useFaces.ts    # Face detection & people management hooks
+│   │   │   └── useBulkProgress.ts # SSE-based bulk operation progress tracking
 │   │   ├── types/
 │   │   │   └── api.ts         # TypeScript interfaces (with PhotoTag id)
 │   │   ├── pages/
@@ -180,7 +185,9 @@ PicAI/
 │   │           ├── UploadForm.tsx
 │   │           ├── PhotoViewer.tsx # Includes TagManagement
 │   │           ├── TagFilter.tsx   # Tag filtering input
-│   │           └── TagManagement.tsx # Add/remove tags, re-analyze
+│   │           ├── TagManagement.tsx # Add/remove tags, re-analyze
+│   │           ├── BulkActionBar.tsx # Bulk operations toolbar (SSE progress)
+│   │           └── BulkProgressModal.tsx # Real-time progress modal for bulk ops
 │   ├── public/
 │   ├── .env                   # DO NOT COMMIT
 │   ├── package.json
@@ -367,6 +374,52 @@ PicAI/
 - Setup guide: `docs/AWS_REKOGNITION_SETUP.md`
 - PKI details: `backend/pki/README.md`
 
+### Bulk Operations with SSE Progress Streaming (Phase 4.7)
+
+**Purpose:** Real-time progress feedback for bulk photo operations
+**Status:** ✅ Complete (December 13, 2025)
+
+**SSE Endpoints:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/photos/bulk-detect-faces-progress` | Bulk face detection with SSE progress |
+| POST | `/api/ai/analyze-bulk-progress` | Bulk AI analysis with SSE progress |
+
+**How SSE Progress Works:**
+1. Frontend sends POST request with `Accept: text/event-stream` header
+2. Backend streams progress events as each photo is processed
+3. Frontend parses SSE events using fetch readable streams (not EventSource)
+4. Progress modal shows real-time per-photo status
+
+**Event Types:**
+```typescript
+// Start event - sent when processing begins
+{ type: 'start', total: number }
+
+// Progress event - sent after each photo is processed
+{ type: 'progress', current: number, total: number, photoId: string, success: boolean, facesDetected?: number, error?: string }
+
+// Complete event - sent when all photos are done
+{ type: 'complete', summary: { total: number, succeeded: number, failed: number, totalFacesDetected?: number } }
+```
+
+**Frontend Components:**
+- `useBulkProgress` hook - SSE connection management with abort support
+- `BulkProgressModal` - Real-time progress bar and per-photo results
+- `BulkActionBar` - Toolbar with select mode and bulk action buttons
+- `showBulkOperationToast()` - Success/warning/error toast notifications (Sonner)
+
+**Why SSE over WebSocket?**
+- Simpler implementation (no bidirectional communication needed)
+- Works with standard HTTP (no upgrade needed)
+- Automatic reconnection handled by browser
+- Better for one-way server-to-client updates
+
+**Why fetch instead of EventSource?**
+- EventSource only supports GET requests
+- Bulk operations require POST with photoIds array
+- fetch with readable streams allows full control over request/response
+
 ---
 
 ## Performance Optimization
@@ -469,6 +522,7 @@ VITE_API_URL=https://your-cloudflare-tunnel.com/api
 - Zustand 5.0.8 (client state with persistence)
 - Axios 1.13.2
 - Zod 4.1.12
+- **Sonner 2.0.3** (toast notifications for bulk operations)
 
 ### Infrastructure
 - Raspberry Pi 5
@@ -604,7 +658,7 @@ export const env = envSchema.parse(process.env);
 
 ---
 
-**Last Updated:** December 9, 2025
-**Project Status:** Phase 4.5 Complete - AWS Rekognition Integration
+**Last Updated:** December 13, 2025
+**Project Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
 **Production URL:** https://piclyai.net
-**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), Tag filtering and management UI implemented, AWS Rekognition with IAM Roles Anywhere (complete - face detection, tagging, people management)
+**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), Tag filtering and management UI implemented, AWS Rekognition with IAM Roles Anywhere (complete - face detection, tagging, people management), SSE progress streaming for bulk operations with Sonner toast notifications

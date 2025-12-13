@@ -1,5 +1,8 @@
 # Backend CLAUDE.md - PicAI Express API
 
+**Last Updated:** December 13, 2025
+**Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
+
 **Technology:** Node.js 24.11.1 + TypeScript 5.9.3 + Express 5.1.0 + Prisma 6.19.0
 
 Backend-specific guidance for the PicAI Express.js API.
@@ -405,6 +408,90 @@ MAX_FACES_TO_DETECT = 10       // Max faces per photo
 
 ---
 
+## SSE Progress Streaming (Phase 4.7)
+
+Server-Sent Events endpoints for bulk operations with real-time progress.
+
+### SSE Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/photos/bulk-detect-faces-progress` | Yes | Bulk face detection with SSE progress |
+| POST | `/api/ai/analyze-bulk-progress` | Yes | Bulk AI analysis with SSE progress |
+
+### SSE Response Format
+
+```typescript
+// Set SSE headers
+res.setHeader('Content-Type', 'text/event-stream');
+res.setHeader('Cache-Control', 'no-cache');
+res.setHeader('Connection', 'keep-alive');
+res.setHeader('X-Accel-Buffering', 'no');  // Disable nginx buffering
+res.flushHeaders();
+
+// Send events
+const sendEvent = (data: object) => {
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+};
+
+// Event types
+sendEvent({ type: 'start', total: photoIds.length });
+sendEvent({ type: 'progress', current: i + 1, total, photoId, success: true, facesDetected: 3 });
+sendEvent({ type: 'complete', summary: { total, succeeded, failed, totalFacesDetected } });
+
+res.end();
+```
+
+### Key Implementation Details
+
+1. **Sequential processing** - Photos processed one at a time for predictable progress
+2. **Error isolation** - One photo's failure doesn't stop the entire operation
+3. **AWS cleanup on re-detection** - Indexed faces removed from AWS before new detection
+4. **Nginx compatibility** - `X-Accel-Buffering: no` header prevents proxy buffering
+
+### Controller Pattern
+
+```typescript
+// src/controllers/faces.controller.ts
+export const bulkDetectFacesWithProgress = async (req: Request, res: Response): Promise<void> => {
+  // Validation
+  const { photoIds } = req.body;
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const sendEvent = (data: object) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  sendEvent({ type: 'start', total: photoIds.length });
+
+  let succeeded = 0, failed = 0, totalFaces = 0;
+
+  for (let i = 0; i < photoIds.length; i++) {
+    const photoId = photoIds[i]!;
+    try {
+      const result = await rekognitionService.detectFacesForPhoto(photoId);
+      succeeded++;
+      totalFaces += result.faces.length;
+      sendEvent({ type: 'progress', current: i + 1, total: photoIds.length, photoId, success: true, facesDetected: result.faces.length });
+    } catch (error) {
+      failed++;
+      sendEvent({ type: 'progress', current: i + 1, total: photoIds.length, photoId, success: false, error: error.message });
+    }
+  }
+
+  sendEvent({ type: 'complete', summary: { total: photoIds.length, succeeded, failed, totalFacesDetected: totalFaces } });
+  res.end();
+};
+```
+
+---
+
 ## Development Commands
 
 ```bash
@@ -433,5 +520,6 @@ npm run format        # Prettier
 
 ---
 
-**Last Updated:** December 9, 2025
-**Status:** Phase 4.5 Complete - AWS Rekognition integration (face detection, tagging, people management)
+**Last Updated:** December 13, 2025
+**Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
+**New in Phase 4.7:** SSE endpoints for bulk face detection and AI analysis with real-time progress streaming, face re-detection now properly cleans up indexed faces from AWS

@@ -1,9 +1,9 @@
 # Frontend CLAUDE.md - PicAI React Application
 
-**Last Updated:** December 9, 2025
-**Status:** Phase 4.6 Complete - Face Detection & People Management UI Live
+**Last Updated:** December 13, 2025
+**Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
 
-**Technology:** React 19.2.0 + TypeScript 5.9.3 + Vite 7.2.2 + TailwindCSS 4.1.17 + Zustand 5.0.8
+**Technology:** React 19.2.0 + TypeScript 5.9.3 + Vite 7.2.2 + TailwindCSS 4.1.17 + Zustand 5.0.8 + Sonner 2.0.3
 
 Frontend-specific guidance for the PicAI React application with November 2025 technology stack.
 
@@ -21,6 +21,7 @@ Frontend-specific guidance for the PicAI React application with November 2025 te
 - **Server State:** TanStack Query 5.90.9 (React 19 compatible)
 - **API Client:** Axios 1.13.2 (HTTP/2 experimental support)
 - **Validation:** Zod 4.1.12 (14x faster, 57% smaller)
+- **Notifications:** Sonner 2.0.3 (toast notifications for bulk operations)
 
 ---
 
@@ -144,7 +145,10 @@ frontend/
 │   │   └── faces.ts             # Face detection & people management API
 │   ├── hooks/
 │   │   ├── usePhotos.ts         # TanStack Query hooks + AI mutation hooks
-│   │   └── useFaces.ts          # Face detection & people management hooks
+│   │   ├── useFaces.ts          # Face detection & people management hooks
+│   │   └── useBulkProgress.ts   # SSE-based bulk operation progress tracking
+│   ├── utils/
+│   │   └── toast.ts             # Toast utilities for bulk operation feedback
 │   ├── types/
 │   │   └── api.ts               # TypeScript interfaces (Photo, Face, Person, BoundingBox)
 │   ├── pages/
@@ -163,7 +167,9 @@ frontend/
 │       │   ├── UploadForm.tsx   # Drag-and-drop upload
 │       │   ├── PhotoViewer.tsx  # Full-screen modal with TagManagement
 │       │   ├── TagFilter.tsx    # Tag search/filter input
-│       │   └── TagManagement.tsx # Add/remove tags, re-analyze button
+│       │   ├── TagManagement.tsx # Add/remove tags, re-analyze button
+│       │   ├── BulkActionBar.tsx # Selection mode + bulk operations toolbar
+│       │   └── BulkProgressModal.tsx # Real-time SSE progress modal
 │       ├── faces/
 │       │   ├── index.ts         # Barrel export
 │       │   ├── FaceOverlay.tsx  # SVG face bounding boxes on images
@@ -653,6 +659,85 @@ test('renders photo card with title', () => {
 
 ---
 
+## Bulk Operations with SSE Progress (Phase 4.7)
+
+### useBulkProgress Hook
+
+```typescript
+// src/hooks/useBulkProgress.ts
+import { useState, useCallback, useRef } from 'react';
+
+export type BulkOperationType = 'detect-faces' | 're-analyze';
+
+export function useBulkProgress() {
+  const [progress, setProgress] = useState<BulkProgressState>(initialState);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const startOperation = useCallback(async (
+    operation: BulkOperationType,
+    photoIds: string[]
+  ): Promise<Summary> => {
+    // POST to SSE endpoint
+    const response = await fetch(`${baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({ photoIds }),
+      signal: abortControllerRef.current.signal,
+    });
+
+    // Parse SSE events from readable stream
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    // ... parse events, update progress state
+  }, [accessToken, queryClient]);
+
+  return { startOperation, progress, cancel, reset };
+}
+```
+
+### BulkProgressModal Component
+
+```typescript
+// Shows real-time progress during bulk operations
+<BulkProgressModal
+  isOpen={showProgressModal}
+  operation={currentOperation}
+  progress={progress}
+  onCancel={cancel}
+  onClose={() => setShowProgressModal(false)}
+/>
+```
+
+### Toast Notifications (Sonner)
+
+```typescript
+// src/utils/toast.ts
+import { toast } from 'sonner';
+
+export function showBulkOperationToast(operation: BulkOperation, summary: BulkSummary): void {
+  if (failed === 0) {
+    toast.success(`Successfully processed ${count} photos`);
+  } else if (succeeded === 0) {
+    toast.error(`Operation failed for all ${count} photos`);
+  } else {
+    toast.warning(`${succeeded} succeeded, ${failed} failed`);
+  }
+}
+```
+
+### Key Patterns
+
+1. **Use fetch, not EventSource** - EventSource only supports GET
+2. **Abort controller for cancellation** - Allow users to cancel mid-operation
+3. **Invalidate queries on completion** - Refresh cached data after bulk ops
+4. **Toast for completion summary** - Success/warning/error based on results
+
+---
+
 ## Important Reminders
 
 1. **Use Zustand for auth state** - Not Context API (already implemented)
@@ -667,6 +752,8 @@ test('renders photo card with title', () => {
 10. **Blob URLs for auth-protected images** - Use useThumbnail hook
 11. **Face detection is manual** - User must click "Detect Faces" button (not automatic)
 12. **AWS Rekognition integration** - Face bounding boxes, tagging, and people management via useFaces hooks
+13. **Bulk operations use SSE** - useBulkProgress hook for real-time progress tracking
+14. **Sonner for toasts** - Use showBulkOperationToast() for bulk operation feedback
 
 ---
 
@@ -680,7 +767,7 @@ For detailed examples and patterns, see:
 
 ---
 
-**Last Updated:** December 9, 2025
-**Status:** Phase 4.6 Complete - Face Detection & People Management UI Live
+**Last Updated:** December 13, 2025
+**Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
 **Domain:** piclyai.net
-**New in Phase 4.6:** Face detection UI (FaceOverlay, DetectFacesButton, FaceTagPopup), People management pages (PeoplePage, PersonPhotosPage), Person components (PersonCard, PersonGrid), Face/People API integration with TanStack Query hooks
+**New in Phase 4.7:** Bulk operations toolbar (BulkActionBar), SSE progress modal (BulkProgressModal), useBulkProgress hook for real-time streaming, Sonner toast notifications for operation feedback, selection mode for photo grid
