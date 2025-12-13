@@ -174,7 +174,13 @@ export const photosService = {
    * @param photoIds Array of photo IDs to re-analyze
    */
   async bulkAnalyze(photoIds: string[]): Promise<BulkAnalyzeResponse> {
-    const { data } = await api.post<BulkAnalyzeResponse>('/ai/analyze/bulk', { photoIds });
+    // Extended timeout for bulk operations: 30s base + 5s per photo, max 5 minutes
+    const timeout = Math.min(30000 + photoIds.length * 5000, 300000);
+    const { data } = await api.post<BulkAnalyzeResponse>(
+      '/ai/analyze/bulk',
+      { photoIds },
+      { timeout }
+    );
     return data;
   },
 
@@ -183,8 +189,11 @@ export const photosService = {
    * @param photoIds Array of photo IDs to delete
    */
   async bulkDelete(photoIds: string[]): Promise<BulkDeleteResponse> {
+    // Extended timeout for bulk delete: 30s base + 2s per photo, max 2 minutes
+    const timeout = Math.min(30000 + photoIds.length * 2000, 120000);
     const { data } = await api.delete<BulkDeleteResponse>('/photos/bulk', {
       data: { photoIds },
+      timeout,
     });
     return data;
   },

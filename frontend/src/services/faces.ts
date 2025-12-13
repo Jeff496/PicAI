@@ -128,9 +128,13 @@ export const facesService = {
    * @param photoIds Array of photo IDs to detect faces in
    */
   async bulkDetectFaces(photoIds: string[]): Promise<BulkDetectFacesResponse> {
-    const { data } = await api.post<BulkDetectFacesResponse>('/photos/bulk-detect-faces', {
-      photoIds,
-    });
+    // Extended timeout for bulk face detection: 30s base + 6s per photo, max 5 minutes
+    const timeout = Math.min(30000 + photoIds.length * 6000, 300000);
+    const { data } = await api.post<BulkDetectFacesResponse>(
+      '/photos/bulk-detect-faces',
+      { photoIds },
+      { timeout }
+    );
     return data;
   },
 };

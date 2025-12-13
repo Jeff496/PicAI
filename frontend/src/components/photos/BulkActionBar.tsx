@@ -3,9 +3,10 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useBulkAnalyzePhotos, useBulkDeletePhotos } from '@/hooks/usePhotos';
-import { useBulkDetectFaces } from '@/hooks/useFaces';
+import { useBulkDeletePhotos } from '@/hooks/usePhotos';
+import { useBulkProgress, type BulkOperationType } from '@/hooks/useBulkProgress';
 import { showBulkOperationToast } from '@/utils/toast';
+import { BulkProgressModal } from './BulkProgressModal';
 
 interface BulkActionBarProps {
   selectedCount: number;
@@ -21,37 +22,42 @@ export function BulkActionBar({
   onComplete,
 }: BulkActionBarProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [currentOperation, setCurrentOperation] = useState<BulkOperationType>('detect-faces');
 
-  const bulkAnalyze = useBulkAnalyzePhotos();
-  const bulkDetectFaces = useBulkDetectFaces();
   const bulkDelete = useBulkDeletePhotos();
+  const { startOperation, progress, cancel, reset } = useBulkProgress();
 
-  const isProcessing = bulkAnalyze.isPending || bulkDetectFaces.isPending || bulkDelete.isPending;
+  const isProcessing = progress.isRunning || bulkDelete.isPending;
 
-  const handleReanalyze = () => {
-    bulkAnalyze.mutate(selectedPhotoIds, {
-      onSuccess: (response) => {
-        showBulkOperationToast('re-analyze', response.summary);
-        onComplete?.();
-        onCancel();
-      },
-      onError: (err) => {
-        toast.error(err instanceof Error ? err.message : 'Failed to re-analyze photos');
-      },
-    });
+  const handleReanalyze = async () => {
+    setCurrentOperation('re-analyze');
+    setShowProgressModal(true);
+
+    try {
+      const summary = await startOperation('re-analyze', selectedPhotoIds);
+      showBulkOperationToast('re-analyze', summary);
+      onComplete?.();
+    } catch (error) {
+      if ((error as Error).message !== 'Operation cancelled') {
+        toast.error(error instanceof Error ? error.message : 'Failed to re-analyze photos');
+      }
+    }
   };
 
-  const handleDetectFaces = () => {
-    bulkDetectFaces.mutate(selectedPhotoIds, {
-      onSuccess: (response) => {
-        showBulkOperationToast('detect-faces', response.summary);
-        onComplete?.();
-        onCancel();
-      },
-      onError: (err) => {
-        toast.error(err instanceof Error ? err.message : 'Failed to detect faces');
-      },
-    });
+  const handleDetectFaces = async () => {
+    setCurrentOperation('detect-faces');
+    setShowProgressModal(true);
+
+    try {
+      const summary = await startOperation('detect-faces', selectedPhotoIds);
+      showBulkOperationToast('detect-faces', summary);
+      onComplete?.();
+    } catch (error) {
+      if ((error as Error).message !== 'Operation cancelled') {
+        toast.error(error instanceof Error ? error.message : 'Failed to detect faces');
+      }
+    }
   };
 
   const handleDelete = () => {
@@ -66,6 +72,18 @@ export function BulkActionBar({
         toast.error(err instanceof Error ? err.message : 'Failed to delete photos');
       },
     });
+  };
+
+  const handleProgressModalClose = () => {
+    setShowProgressModal(false);
+    reset();
+    if (progress.summary && progress.summary.succeeded > 0) {
+      onCancel(); // Exit selection mode after successful operation
+    }
+  };
+
+  const handleProgressModalCancel = () => {
+    cancel();
   };
 
   return (
@@ -85,39 +103,15 @@ export function BulkActionBar({
                 disabled={selectedCount === 0 || isProcessing}
                 className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {bulkAnalyze.isPending ? (
-                  <>
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                        fill="none"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Re-analyzing...
-                  </>
-                ) : (
-                  <>
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                      />
-                    </svg>
-                    Re-analyze
-                  </>
-                )}
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                Re-analyze
               </button>
 
               {/* Detect Faces button */}
@@ -126,39 +120,15 @@ export function BulkActionBar({
                 disabled={selectedCount === 0 || isProcessing}
                 className="inline-flex items-center gap-2 rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {bulkDetectFaces.isPending ? (
-                  <>
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                        fill="none"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Detecting...
-                  </>
-                ) : (
-                  <>
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    Detect Faces
-                  </>
-                )}
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Detect Faces
               </button>
 
               {/* Delete button */}
@@ -188,17 +158,17 @@ export function BulkActionBar({
               </button>
             </div>
           </div>
-
-          {/* Progress indicator */}
-          {isProcessing && (
-            <div className="mt-3">
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-700">
-                <div className="h-2 animate-pulse rounded-full bg-blue-600" style={{ width: '100%' }} />
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Progress modal for face detection and re-analysis */}
+      <BulkProgressModal
+        isOpen={showProgressModal}
+        operation={currentOperation}
+        progress={progress}
+        onCancel={handleProgressModalCancel}
+        onClose={handleProgressModalClose}
+      />
 
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (

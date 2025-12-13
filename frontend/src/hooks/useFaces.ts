@@ -47,6 +47,8 @@ export function useDetectFaces() {
       });
       // Also invalidate to ensure fresh data
       queryClient.invalidateQueries({ queryKey: faceKeys.forPhoto(photoId) });
+      // Invalidate people list since face detection can change person-face associations
+      queryClient.invalidateQueries({ queryKey: faceKeys.people() });
     },
   });
 }
