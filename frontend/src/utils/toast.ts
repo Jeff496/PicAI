@@ -18,10 +18,7 @@ interface BulkSummary {
  * - Warning (yellow): Some succeeded, some failed
  * - Error (red): All operations failed
  */
-export function showBulkOperationToast(
-  operation: BulkOperation,
-  summary: BulkSummary
-): void {
+export function showBulkOperationToast(operation: BulkOperation, summary: BulkSummary): void {
   const { total, succeeded, failed, totalFacesDetected } = summary;
 
   // All succeeded
@@ -51,9 +48,13 @@ function getSuccessMessage(
   switch (operation) {
     case 're-analyze':
       return `Successfully re-analyzed ${count} photo${count !== 1 ? 's' : ''}`;
-    case 'detect-faces':
-      const faceInfo = facesDetected !== undefined ? `. Found ${facesDetected} face${facesDetected !== 1 ? 's' : ''}` : '';
+    case 'detect-faces': {
+      const faceInfo =
+        facesDetected !== undefined
+          ? `. Found ${facesDetected} face${facesDetected !== 1 ? 's' : ''}`
+          : '';
       return `Successfully processed ${count} photo${count !== 1 ? 's' : ''} for faces${faceInfo}`;
+    }
     case 'delete':
       return `Successfully deleted ${count} photo${count !== 1 ? 's' : ''}`;
   }
