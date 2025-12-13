@@ -9,6 +9,8 @@ import type {
   AnalyzeResponse,
   AddTagResponse,
   RemoveTagResponse,
+  BulkAnalyzeResponse,
+  BulkDeleteResponse,
 } from '@/types/api';
 
 // Query parameters for listing photos
@@ -160,6 +162,30 @@ export const photosService = {
    */
   async removeTag(photoId: string, tagId: string): Promise<RemoveTagResponse> {
     const { data } = await api.delete<RemoveTagResponse>(`/photos/${photoId}/tags/${tagId}`);
+    return data;
+  },
+
+  // ============================================
+  // Bulk Operations
+  // ============================================
+
+  /**
+   * Bulk re-analyze multiple photos with Azure AI
+   * @param photoIds Array of photo IDs to re-analyze
+   */
+  async bulkAnalyze(photoIds: string[]): Promise<BulkAnalyzeResponse> {
+    const { data } = await api.post<BulkAnalyzeResponse>('/ai/analyze/bulk', { photoIds });
+    return data;
+  },
+
+  /**
+   * Bulk delete multiple photos
+   * @param photoIds Array of photo IDs to delete
+   */
+  async bulkDelete(photoIds: string[]): Promise<BulkDeleteResponse> {
+    const { data } = await api.delete<BulkDeleteResponse>('/photos/bulk', {
+      data: { photoIds },
+    });
     return data;
   },
 };

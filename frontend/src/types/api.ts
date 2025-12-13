@@ -328,3 +328,53 @@ export interface PersonPhotosResponse {
   success: true;
   photos: PhotoListItem[];
 }
+
+// ============================================
+// Bulk Operations Types
+// ============================================
+
+// Result for a single photo in bulk operations
+export interface BulkPhotoResult {
+  photoId: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface BulkAnalyzeResponse {
+  success: true;
+  message: string;
+  results: BulkPhotoResult[];
+  summary: {
+    total: number;
+    succeeded: number;
+    failed: number;
+  };
+}
+
+export interface BulkDetectFacesResponse {
+  success: true;
+  message: string;
+  results: Array<{
+    photoId: string;
+    success: boolean;
+    facesDetected?: number;
+    error?: string;
+  }>;
+  summary: {
+    total: number;
+    succeeded: number;
+    failed: number;
+    totalFacesDetected: number;
+  };
+}
+
+export interface BulkDeleteResponse {
+  success: true;
+  message: string;
+  results: BulkPhotoResult[];
+  summary: {
+    total: number;
+    succeeded: number;
+    failed: number;
+  };
+}

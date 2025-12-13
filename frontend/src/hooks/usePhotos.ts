@@ -157,3 +157,41 @@ export function useRemoveTag() {
     },
   });
 }
+
+// ============================================
+// Bulk Operations
+// ============================================
+
+/**
+ * Hook to bulk re-analyze photos with Azure AI
+ */
+export function useBulkAnalyzePhotos() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (photoIds: string[]) => photosService.bulkAnalyze(photoIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: photoKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Hook to bulk delete photos
+ */
+export function useBulkDeletePhotos() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (photoIds: string[]) => photosService.bulkDelete(photoIds),
+    onSuccess: (_, deletedIds) => {
+      // Remove deleted photos from cache
+      deletedIds.forEach((id) => {
+        queryClient.removeQueries({ queryKey: photoKeys.detail(id) });
+        queryClient.removeQueries({ queryKey: photoKeys.thumbnail(id) });
+      });
+      // Invalidate lists to refetch
+      queryClient.invalidateQueries({ queryKey: photoKeys.lists() });
+    },
+  });
+}
