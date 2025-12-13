@@ -1,7 +1,7 @@
 # CLAUDE.md - PicAI Main Project Guide
 
-**Last Updated:** December 1, 2025
-**Status:** Phase 4 Complete - Tag Filtering & Management UI Live
+**Last Updated:** December 11, 2025
+**Status:** Phase 4.6 Complete - Face Detection & People Management UI Live
 
 This file provides guidance to Claude Code when working in the PicAI repository with the November 2025 technology stack.
 
@@ -47,16 +47,20 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 - Sharp 0.34.5 for image processing (thumbnails)
 - **heic-convert** for HEIC→JPEG conversion (iPhone photo support)
 - **jose 6.1.2 for JWT authentication** (Node.js 24 compatible, replaces jsonwebtoken)
+- **@aws-sdk/client-rekognition** for face detection and collections
+- **@aws-sdk/credential-providers** for IAM Roles Anywhere authentication
 - Zod 4.1.12 for validation (14x faster parsing)
 
 **Infrastructure:**
 - Cloudflare Tunnel 2025.8.1 (UDP proxy rearchitecture)
 - Azure Computer Vision API 2023-10-01 GA (F0 Free tier)
+- AWS Rekognition API (Face detection and collections with IAM Roles Anywhere)
 - Local file storage on Pi (originals + thumbnails)
 
 **Communication:**
 - Frontend calls backend via Cloudflare Tunnel: `https://piclyai.net/api/*`
-- Backend calls Azure Computer Vision API when photos uploaded
+- Backend calls Azure Computer Vision API when photos uploaded (auto-tagging)
+- Backend calls AWS Rekognition API on manual face detection trigger
 - All communication over HTTPS
 
 ---
