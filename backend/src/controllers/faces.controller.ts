@@ -643,3 +643,152 @@ export const bulkDetectFaces = async (req: Request, res: Response): Promise<void
     },
   });
 };
+
+/**
+ * Bulk detect faces in multiple photos with SSE progress streaming
+ *
+ * POST /photos/bulk-detect-faces-progress
+ * Headers: Authorization: Bearer <token>
+ *
+ * Streams progress events as each photo is processed.
+ * Uses Server-Sent Events (SSE) format.
+ *
+ * Events:
+ * - { type: 'start', total: number }
+ * - { type: 'progress', current: number, total: number, photoId: string, success: boolean, facesDetected?: number, error?: string }
+ * - { type: 'complete', summary: { total, succeeded, failed, totalFacesDetected } }
+ */
+export const bulkDetectFacesWithProgress = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+      code: 'NO_USER',
+    });
+    return;
+  }
+
+  const { photoIds } = req.body as { photoIds: string[] };
+
+  if (!photoIds || !Array.isArray(photoIds) || photoIds.length === 0) {
+    res.status(400).json({
+      success: false,
+      error: 'photoIds array is required',
+      code: 'INVALID_REQUEST',
+    });
+    return;
+  }
+
+  if (photoIds.length > 20) {
+    res.status(400).json({
+      success: false,
+      error: 'Maximum 20 photos per bulk face detection request',
+      code: 'TOO_MANY_PHOTOS',
+    });
+    return;
+  }
+
+  // Verify user has access to all photos
+  const photos = await prisma.photo.findMany({
+    where: {
+      id: { in: photoIds },
+      OR: [
+        { userId: req.user.id },
+        {
+          group: {
+            members: {
+              some: { userId: req.user.id },
+            },
+          },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+
+  const accessiblePhotoIds = new Set(photos.map((p) => p.id));
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+  res.flushHeaders();
+
+  // Helper to send SSE event
+  const sendEvent = (data: object) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  // Send start event
+  sendEvent({ type: 'start', total: photoIds.length });
+
+  let succeeded = 0;
+  let failed = 0;
+  let totalFacesDetected = 0;
+
+  // Process each photo and stream progress
+  for (let i = 0; i < photoIds.length; i++) {
+    const photoId = photoIds[i]!;
+
+    if (!accessiblePhotoIds.has(photoId)) {
+      failed++;
+      sendEvent({
+        type: 'progress',
+        current: i + 1,
+        total: photoIds.length,
+        photoId,
+        success: false,
+        error: 'Photo not found or access denied',
+      });
+      continue;
+    }
+
+    try {
+      const detectedFaces = await rekognitionService.detectFacesForPhoto(photoId);
+      const facesDetected = detectedFaces.length;
+      totalFacesDetected += facesDetected;
+      succeeded++;
+
+      sendEvent({
+        type: 'progress',
+        current: i + 1,
+        total: photoIds.length,
+        photoId,
+        success: true,
+        facesDetected,
+      });
+    } catch (error) {
+      failed++;
+      sendEvent({
+        type: 'progress',
+        current: i + 1,
+        total: photoIds.length,
+        photoId,
+        success: false,
+        error: error instanceof Error ? error.message : 'Face detection failed',
+      });
+    }
+  }
+
+  // Send completion event
+  sendEvent({
+    type: 'complete',
+    summary: {
+      total: photoIds.length,
+      succeeded,
+      failed,
+      totalFacesDetected,
+    },
+  });
+
+  logger.info('Bulk face detection with progress completed', {
+    userId: req.user.id,
+    total: photoIds.length,
+    succeeded,
+    failed,
+    totalFacesDetected,
+  });
+
+  res.end();
+};

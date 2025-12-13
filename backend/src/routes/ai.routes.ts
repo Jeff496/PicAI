@@ -72,6 +72,33 @@ const analysisLimiter = rateLimit({
  */
 router.post('/analyze/bulk', analysisLimiter, authenticateJWT, aiController.bulkAnalyzePhotos);
 
+/**
+ * POST /ai/analyze-bulk-progress
+ *
+ * Bulk analyze photos with SSE progress streaming
+ * Same as /analyze/bulk but streams progress events
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ * Accept: text/event-stream
+ *
+ * Body:
+ * {
+ *   "photoIds": ["uuid1", "uuid2", ...]
+ * }
+ *
+ * SSE Events:
+ * - { type: 'start', total: number }
+ * - { type: 'progress', current: number, total: number, photoId: string, success: boolean, ... }
+ * - { type: 'complete', summary: { total, succeeded, failed } }
+ */
+router.post(
+  '/analyze-bulk-progress',
+  analysisLimiter,
+  authenticateJWT,
+  aiController.bulkAnalyzePhotosWithProgress
+);
+
 // ============================================
 // Single Photo Routes
 // ============================================
