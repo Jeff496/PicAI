@@ -1,7 +1,7 @@
 # Frontend CLAUDE.md - PicAI React Application
 
-**Last Updated:** December 1, 2025
-**Status:** Phase 4 Complete - Tag Filtering & Management UI Live
+**Last Updated:** December 9, 2025
+**Status:** Phase 4.6 Complete - Face Detection & People Management UI Live
 
 **Technology:** React 19.2.0 + TypeScript 5.9.3 + Vite 7.2.2 + TailwindCSS 4.1.17 + Zustand 5.0.8
 
@@ -140,26 +140,39 @@ frontend/
 │   ├── services/
 │   │   ├── api.ts               # Axios instance with JWT interceptors
 │   │   ├── auth.ts              # Auth API (login, register, refresh)
-│   │   └── photos.ts            # Photo API (upload, list, delete, AI methods)
+│   │   ├── photos.ts            # Photo API (upload, list, delete, AI methods)
+│   │   └── faces.ts             # Face detection & people management API
 │   ├── hooks/
-│   │   └── usePhotos.ts         # TanStack Query hooks + AI mutation hooks
+│   │   ├── usePhotos.ts         # TanStack Query hooks + AI mutation hooks
+│   │   └── useFaces.ts          # Face detection & people management hooks
 │   ├── types/
-│   │   └── api.ts               # TypeScript interfaces (PhotoTag with id)
+│   │   └── api.ts               # TypeScript interfaces (Photo, Face, Person, BoundingBox)
 │   ├── pages/
 │   │   ├── LoginPage.tsx        # Login form
 │   │   ├── RegisterPage.tsx     # Registration form
-│   │   └── PhotosPage.tsx       # Main gallery page with TagFilter
+│   │   ├── PhotosPage.tsx       # Main gallery page with TagFilter
+│   │   ├── PeoplePage.tsx       # People browser page
+│   │   └── PersonPhotosPage.tsx # Photos of specific person
 │   └── components/
 │       ├── layout/
 │       │   └── ProtectedRoute.tsx  # Auth route guard
-│       └── photos/
+│       ├── photos/
+│       │   ├── index.ts         # Barrel export
+│       │   ├── PhotoCard.tsx    # Individual photo card
+│       │   ├── PhotoGrid.tsx    # Responsive photo grid
+│       │   ├── UploadForm.tsx   # Drag-and-drop upload
+│       │   ├── PhotoViewer.tsx  # Full-screen modal with TagManagement
+│       │   ├── TagFilter.tsx    # Tag search/filter input
+│       │   └── TagManagement.tsx # Add/remove tags, re-analyze button
+│       ├── faces/
+│       │   ├── index.ts         # Barrel export
+│       │   ├── FaceOverlay.tsx  # SVG face bounding boxes on images
+│       │   ├── FaceTagPopup.tsx # Popup for tagging/naming faces
+│       │   └── DetectFacesButton.tsx # Manual face detection trigger
+│       └── people/
 │           ├── index.ts         # Barrel export
-│           ├── PhotoCard.tsx    # Individual photo card
-│           ├── PhotoGrid.tsx    # Responsive photo grid
-│           ├── UploadForm.tsx   # Drag-and-drop upload
-│           ├── PhotoViewer.tsx  # Full-screen modal with TagManagement
-│           ├── TagFilter.tsx    # Tag search/filter input
-│           └── TagManagement.tsx # Add/remove tags, re-analyze button
+│           ├── PersonCard.tsx   # Individual person card
+│           └── PersonGrid.tsx   # Responsive people grid
 ├── public/
 ├── .env                          # DO NOT COMMIT
 ├── .env.example
@@ -652,6 +665,8 @@ test('renders photo card with title', () => {
 8. **Vite 7** - Requires Node.js 20.19+ or 22.12+
 9. **Use @ path alias** - Configure in vite.config.ts
 10. **Blob URLs for auth-protected images** - Use useThumbnail hook
+11. **Face detection is manual** - User must click "Detect Faces" button (not automatic)
+12. **AWS Rekognition integration** - Face bounding boxes, tagging, and people management via useFaces hooks
 
 ---
 
@@ -665,7 +680,7 @@ For detailed examples and patterns, see:
 
 ---
 
-**Last Updated:** December 1, 2025
-**Status:** Phase 4 Complete - Tag Filtering & Management UI Live
+**Last Updated:** December 9, 2025
+**Status:** Phase 4.6 Complete - Face Detection & People Management UI Live
 **Domain:** piclyai.net
-**New in Phase 4:** TagFilter component for filtering photos by tag, TagManagement component for add/remove tags and re-analyze
+**New in Phase 4.6:** Face detection UI (FaceOverlay, DetectFacesButton, FaceTagPopup), People management pages (PeoplePage, PersonPhotosPage), Person components (PersonCard, PersonGrid), Face/People API integration with TanStack Query hooks
