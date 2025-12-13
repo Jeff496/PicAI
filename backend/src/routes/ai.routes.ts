@@ -39,6 +39,43 @@ const analysisLimiter = rateLimit({
  * Error: { success: false, error: "message", code: "ERROR_CODE" }
  */
 
+// ============================================
+// Bulk Operations (must come before /:photoId routes)
+// ============================================
+
+/**
+ * POST /ai/analyze/bulk
+ *
+ * Bulk analyze multiple photos using Azure Computer Vision
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ *
+ * Body:
+ * {
+ *   "photoIds": ["uuid1", "uuid2", ...]
+ * }
+ *
+ * Response (200):
+ * {
+ *   "success": true,
+ *   "message": "Bulk analysis complete: X succeeded, Y failed",
+ *   "results": [{ "photoId": "...", "success": true|false, "error": "..." }],
+ *   "summary": { "total": 10, "succeeded": 8, "failed": 2 }
+ * }
+ *
+ * Errors:
+ * - 400 INVALID_REQUEST: Invalid photoIds
+ * - 400 TOO_MANY_PHOTOS: More than 50 photos
+ * - 401 NO_USER: Authentication required
+ * - 429 RATE_LIMIT_EXCEEDED: Too many requests
+ */
+router.post('/analyze/bulk', analysisLimiter, authenticateJWT, aiController.bulkAnalyzePhotos);
+
+// ============================================
+// Single Photo Routes
+// ============================================
+
 /**
  * POST /ai/analyze/:photoId
  *

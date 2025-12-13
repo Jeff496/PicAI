@@ -5,7 +5,7 @@ import type { Request, Response } from 'express';
 import { aiService } from '../services/aiService.js';
 import prisma from '../prisma/client.js';
 import logger from '../utils/logger.js';
-import type { AddTagRequest } from '../schemas/ai.schema.js';
+import type { AddTagRequest, BulkAnalyzeRequest } from '../schemas/ai.schema.js';
 
 /**
  * Analyze a single photo
@@ -323,4 +323,112 @@ export const removeTag = async (req: Request, res: Response): Promise<void> => {
     }
     throw error;
   }
+};
+
+/**
+ * Bulk analyze multiple photos
+ *
+ * POST /ai/analyze/bulk
+ * Headers: Authorization: Bearer <token>
+ * Body: { "photoIds": ["uuid1", "uuid2", ...] }
+ *
+ * Response (200):
+ * {
+ *   "success": true,
+ *   "message": "Bulk analysis complete",
+ *   "results": [{ "photoId": "...", "success": true|false, "error": "..." }],
+ *   "summary": { "total": 10, "succeeded": 8, "failed": 2 }
+ * }
+ */
+export const bulkAnalyzePhotos = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+      code: 'NO_USER',
+    });
+    return;
+  }
+
+  const { photoIds } = req.body as BulkAnalyzeRequest;
+
+  if (!photoIds || !Array.isArray(photoIds) || photoIds.length === 0) {
+    res.status(400).json({
+      success: false,
+      error: 'photoIds array is required',
+      code: 'INVALID_REQUEST',
+    });
+    return;
+  }
+
+  // Limit to 50 photos per request
+  if (photoIds.length > 50) {
+    res.status(400).json({
+      success: false,
+      error: 'Maximum 50 photos per bulk request',
+      code: 'TOO_MANY_PHOTOS',
+    });
+    return;
+  }
+
+  // Verify user has access to all photos
+  const photos = await prisma.photo.findMany({
+    where: {
+      id: { in: photoIds },
+      OR: [
+        { userId: req.user.id },
+        {
+          group: {
+            members: {
+              some: { userId: req.user.id },
+            },
+          },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+
+  const accessiblePhotoIds = new Set(photos.map((p) => p.id));
+  const results: Array<{ photoId: string; success: boolean; error?: string }> = [];
+
+  // Process each photo
+  for (const photoId of photoIds) {
+    if (!accessiblePhotoIds.has(photoId)) {
+      results.push({ photoId, success: false, error: 'Photo not found or access denied' });
+      continue;
+    }
+
+    try {
+      await aiService.analyzePhoto(photoId);
+      results.push({ photoId, success: true });
+    } catch (error) {
+      results.push({
+        photoId,
+        success: false,
+        error: error instanceof Error ? error.message : 'Analysis failed',
+      });
+    }
+  }
+
+  const succeeded = results.filter((r) => r.success).length;
+  const failed = results.filter((r) => !r.success).length;
+
+  logger.info('Bulk photo analysis completed', {
+    userId: req.user.id,
+    total: photoIds.length,
+    succeeded,
+    failed,
+  });
+
+  res.json({
+    success: true,
+    message: `Bulk analysis complete: ${succeeded} succeeded, ${failed} failed`,
+    results,
+    summary: {
+      total: photoIds.length,
+      succeeded,
+      failed,
+    },
+  });
 };
