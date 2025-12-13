@@ -2,8 +2,10 @@
 // Bottom action bar for bulk photo operations
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useBulkAnalyzePhotos, useBulkDeletePhotos } from '@/hooks/usePhotos';
 import { useBulkDetectFaces } from '@/hooks/useFaces';
+import { showBulkOperationToast } from '@/utils/toast';
 
 interface BulkActionBarProps {
   selectedCount: number;
@@ -19,7 +21,6 @@ export function BulkActionBar({
   onComplete,
 }: BulkActionBarProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const bulkAnalyze = useBulkAnalyzePhotos();
   const bulkDetectFaces = useBulkDetectFaces();
@@ -28,41 +29,41 @@ export function BulkActionBar({
   const isProcessing = bulkAnalyze.isPending || bulkDetectFaces.isPending || bulkDelete.isPending;
 
   const handleReanalyze = () => {
-    setError(null);
     bulkAnalyze.mutate(selectedPhotoIds, {
-      onSuccess: () => {
+      onSuccess: (response) => {
+        showBulkOperationToast('re-analyze', response.summary);
         onComplete?.();
         onCancel();
       },
       onError: (err) => {
-        setError(err instanceof Error ? err.message : 'Failed to re-analyze photos');
+        toast.error(err instanceof Error ? err.message : 'Failed to re-analyze photos');
       },
     });
   };
 
   const handleDetectFaces = () => {
-    setError(null);
     bulkDetectFaces.mutate(selectedPhotoIds, {
-      onSuccess: () => {
+      onSuccess: (response) => {
+        showBulkOperationToast('detect-faces', response.summary);
         onComplete?.();
         onCancel();
       },
       onError: (err) => {
-        setError(err instanceof Error ? err.message : 'Failed to detect faces');
+        toast.error(err instanceof Error ? err.message : 'Failed to detect faces');
       },
     });
   };
 
   const handleDelete = () => {
-    setError(null);
     bulkDelete.mutate(selectedPhotoIds, {
-      onSuccess: () => {
+      onSuccess: (response) => {
+        showBulkOperationToast('delete', response.summary);
         setShowDeleteConfirm(false);
         onComplete?.();
         onCancel();
       },
       onError: (err) => {
-        setError(err instanceof Error ? err.message : 'Failed to delete photos');
+        toast.error(err instanceof Error ? err.message : 'Failed to delete photos');
       },
     });
   };
@@ -72,13 +73,6 @@ export function BulkActionBar({
       {/* Fixed bottom action bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-700 bg-gray-800 p-4 shadow-lg">
         <div className="mx-auto max-w-7xl">
-          {/* Error message */}
-          {error && (
-            <div className="mb-3 rounded-md bg-red-900/50 px-4 py-2 text-sm text-red-300">
-              {error}
-            </div>
-          )}
-
           <div className="flex items-center justify-between">
             <div className="font-medium text-white">
               {selectedCount} photo{selectedCount !== 1 ? 's' : ''} selected
