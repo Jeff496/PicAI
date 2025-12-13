@@ -10,10 +10,20 @@ type PhotoItem = Photo | PhotoListItem;
 interface PhotoGridProps {
   photos: PhotoItem[];
   isLoading?: boolean;
+  isSelectionMode?: boolean;
+  selectedPhotoIds?: Set<string>;
+  onToggleSelection?: (photoId: string) => void;
   onViewPhoto?: (photo: PhotoItem) => void;
 }
 
-export function PhotoGrid({ photos, isLoading, onViewPhoto }: PhotoGridProps) {
+export function PhotoGrid({
+  photos,
+  isLoading,
+  isSelectionMode = false,
+  selectedPhotoIds,
+  onToggleSelection,
+  onViewPhoto,
+}: PhotoGridProps) {
   // Loading skeleton
   if (isLoading) {
     return (
@@ -57,7 +67,14 @@ export function PhotoGrid({ photos, isLoading, onViewPhoto }: PhotoGridProps) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {photos.map((photo) => (
-        <PhotoCard key={photo.id} photo={photo} onViewFull={onViewPhoto} />
+        <PhotoCard
+          key={photo.id}
+          photo={photo}
+          isSelectionMode={isSelectionMode}
+          isSelected={selectedPhotoIds?.has(photo.id) ?? false}
+          onToggleSelection={() => onToggleSelection?.(photo.id)}
+          onViewFull={onViewPhoto}
+        />
       ))}
     </div>
   );
