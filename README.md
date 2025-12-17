@@ -2,15 +2,21 @@
 
 Privacy-focused photo management platform with AI-powered organization and automatic album generation.
 
+**Production:** https://piclyai.net
+
 ## Overview
 
-PicAI is a web application that helps you organize and share photos using AI. Photos are stored locally on your Raspberry Pi for privacy, while Azure Computer Vision automatically tags and categorizes them. The system creates smart albums based on time periods or content, and allows group photo sharing.
+PicAI is a web application that helps you organize and share photos using AI. Photos are stored locally on your Raspberry Pi for privacy, while Azure Computer Vision automatically tags and categorizes them. AWS Rekognition provides face detection and recognition for people-based organization. The system creates smart albums based on time periods or content, and allows group photo sharing.
 
 ### Key Features
 
-- Secure user authentication with JWT
-- Drag-and-drop photo upload
+- Secure user authentication with JWT (access + refresh tokens)
+- Drag-and-drop photo upload with iPhone HEIC support
 - Automatic AI tagging using Azure Computer Vision
+- Face detection and recognition using AWS Rekognition
+- People management - tag faces to organize photos by person
+- Tag management - add, remove, and filter by tags
+- Bulk operations with real-time SSE progress streaming
 - Smart album generation by date or content
 - Group photo sharing
 - Album download and public sharing
@@ -21,27 +27,33 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 ### Backend
 - Node.js 24.11.1 with TypeScript 5.9.3
 - Express 5.1.0
-- PostgreSQL 15 with Prisma 6.19.0 ORM
-- Bcrypt 6.0.0 for password hashing
+- PostgreSQL 18.1 with Prisma 6.19.0 ORM
+- jose 6.1.2 for JWT authentication (Node.js 24 compatible)
+- Bcrypt 6.0.0 for password hashing (12 salt rounds)
 - Multer 2.0.2 for file uploads
 - Sharp 0.34.5 for image processing
+- heic-convert for iPhone HEIC photo support
 - Zod 4.1.12 for validation
+- @aws-sdk/client-rekognition for face detection
+- @aws-sdk/credential-providers for IAM Roles Anywhere auth
 
 ### Frontend
 - React 19.2.0 with TypeScript 5.9.3
 - Vite 7.2.2
 - TailwindCSS 4.1.17
 - React Router 7.9.6
-- React Query 5.90.9
+- TanStack Query 5.90.9
+- Zustand 5.0.8 for client state
 - Axios 1.13.2
+- Sonner 2.0.3 for toast notifications
 
 ### Infrastructure
 - Raspberry Pi 5 (backend hosting)
 - Azure Static Web Apps (frontend hosting)
 - Azure Computer Vision API (image tagging)
-- AWS Rekognition (face detection/recognition)
+- AWS Rekognition (face detection/recognition with IAM Roles Anywhere)
 - Cloudflare Tunnel (secure connectivity)
-- PostgreSQL 15 (database)
+- PostgreSQL 18.1 (database)
 
 ## Architecture
 
@@ -59,9 +71,10 @@ Photos are stored locally on the Raspberry Pi. The frontend is served from Azure
 
 - Raspberry Pi 5 (or Pi 4 with 4GB+ RAM)
 - Node.js 24.11.1 LTS
-- PostgreSQL 15
+- PostgreSQL 18.1
 - Cloudflare account (free tier)
 - Azure account (free tier)
+- AWS account (free tier for 12 months)
 - GitHub account
 
 ## Installation
@@ -116,7 +129,8 @@ FRONTEND_URL=https://your-app.azurestaticapps.net
 DATABASE_URL=postgresql://picai_user:password@localhost:5432/picai
 
 JWT_SECRET=your-secret-key-min-32-characters
-JWT_EXPIRATION=7d
+ACCESS_TOKEN_EXPIRATION=15m
+REFRESH_TOKEN_EXPIRATION=7d
 
 AZURE_VISION_KEY=your-azure-key
 AZURE_VISION_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
@@ -138,9 +152,10 @@ For production, configure `VITE_API_URL` in Azure Static Web Apps settings.
 
 ## Database Setup
 
-### PostgreSQL Installation
+### PostgreSQL 18.1 Installation
 
 ```bash
+# Add PostgreSQL APT repository for version 18
 sudo apt install postgresql postgresql-contrib
 sudo systemctl start postgresql
 sudo systemctl enable postgresql
@@ -260,18 +275,26 @@ PicAI/
 │   │   ├── controllers/       # Request handlers
 │   │   ├── services/          # Business logic
 │   │   ├── middleware/        # Express middleware
+│   │   ├── schemas/           # Zod validation schemas
 │   │   ├── utils/             # Utilities
-│   │   └── prisma/            # Database schema
+│   │   └── prisma/            # Prisma client
+│   ├── prisma/                # Database schema & migrations
+│   ├── pki/                   # PKI certificates for AWS (gitignored keys)
 │   ├── storage/               # Photo storage (gitignored)
 │   ├── tests/
 │   └── package.json
 ├── frontend/
 │   ├── src/
-│   │   ├── components/        # React components
+│   │   ├── components/
+│   │   │   ├── layout/        # Layout components
+│   │   │   ├── photos/        # Photo-related components
+│   │   │   ├── faces/         # Face detection components
+│   │   │   └── people/        # People management components
 │   │   ├── pages/             # Page components
-│   │   ├── context/           # React Context
+│   │   ├── stores/            # Zustand state stores
 │   │   ├── hooks/             # Custom hooks
 │   │   ├── services/          # API client
+│   │   ├── utils/             # Utility functions
 │   │   └── types/             # TypeScript types
 │   ├── public/
 │   └── package.json
@@ -291,19 +314,23 @@ PicAI/
 - **albums** - Photo collections
 - **album_photos** - Album-photo relationships
 - **share_links** - Public sharing tokens
+- **face_collections** - AWS Rekognition collection per user
+- **people** - Named individuals for face tagging
+- **faces** - Detected faces with bounding boxes
 
 See `backend/prisma/schema.prisma` for complete schema.
 
 ## Security
 
-- JWT authentication with 7-day expiration
-- Password hashing with bcrypt (10 salt rounds)
+- JWT authentication with jose (15min access tokens, 7-day refresh tokens)
+- Password hashing with bcrypt (12 salt rounds)
 - Input validation using Zod schemas
-- File upload type and size validation
+- File upload type and size validation (JPEG, PNG, HEIC only, 25MB max)
 - HTTPS enforced via Cloudflare Tunnel
 - CORS restricted to frontend domain
 - Rate limiting (100 requests/minute per IP)
 - SQL injection protection via Prisma ORM
+- AWS IAM Roles Anywhere (certificate-based auth, no static credentials)
 
 ## Costs
 
