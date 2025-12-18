@@ -5,6 +5,9 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { ApiError, RefreshResponse } from '@/types/api';
 
+// API base URL - used for both axios instance and manual requests (e.g., token refresh)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
 // Token getter/setter functions - set by auth store initialization
 let getAccessToken: () => string | null = () => null;
 let getRefreshToken: () => string | null = () => null;
@@ -26,7 +29,7 @@ export function initializeTokenAccessors(accessors: {
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -111,10 +114,9 @@ api.interceptors.response.use(
           }
 
           // Call refresh endpoint
-          const response = await axios.post<RefreshResponse>(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/auth/refresh`,
-            { refreshToken }
-          );
+          const response = await axios.post<RefreshResponse>(`${API_BASE_URL}/auth/refresh`, {
+            refreshToken,
+          });
 
           const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
 

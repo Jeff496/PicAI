@@ -316,9 +316,20 @@ export const deletePerson = async (req: Request, res: Response): Promise<void> =
   }
 
   // Remove all indexed faces from AWS collection
+  // Wrap in try-catch to prevent AWS failures from blocking person deletion
   for (const face of person.faces) {
     if (face.awsFaceId) {
-      await rekognitionService.removeFace(person.collection.awsCollectionId, face.awsFaceId);
+      try {
+        await rekognitionService.removeFace(person.collection.awsCollectionId, face.awsFaceId);
+      } catch (awsError) {
+        // Log warning but continue - don't let AWS failure block deletion
+        logger.warn('Failed to remove face from AWS collection during person deletion', {
+          personId,
+          faceId: face.awsFaceId,
+          collectionId: person.collection.awsCollectionId,
+          error: awsError instanceof Error ? awsError.message : 'Unknown error',
+        });
+      }
     }
   }
 
