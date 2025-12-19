@@ -28,6 +28,7 @@ model User {
   photos             Photo[]
   groups             GroupMembership[]
   createdGroups      Group[]           @relation("GroupCreator")
+  createdInvites     GroupInvite[]     @relation("InviteCreator")
   albums             Album[]
   faceCollection     FaceCollection?   // Lazy-created on first face index
 
@@ -48,6 +49,7 @@ model Group {
   members     GroupMembership[]
   photos      Photo[]
   albums      Album[]
+  invites     GroupInvite[]
 
   @@map("groups")
 }
@@ -66,6 +68,26 @@ model GroupMembership {
 
   @@unique([groupId, userId])
   @@map("group_memberships")
+}
+
+// Group invite links
+model GroupInvite {
+  id        String    @id @default(uuid())
+  groupId   String    @map("group_id")
+  token     String    @unique
+  expiresAt DateTime? @map("expires_at")
+  maxUses   Int?      @map("max_uses")      // null = unlimited
+  useCount  Int       @default(0) @map("use_count")
+  createdBy String    @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  group     Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator   User      @relation("InviteCreator", fields: [createdBy], references: [id])
+
+  @@index([token])
+  @@index([groupId])
+  @@map("group_invites")
 }
 
 // Photo metadata
