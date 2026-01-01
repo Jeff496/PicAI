@@ -116,6 +116,10 @@ const envSchema = z.object({
       { message: 'THUMBNAIL_DIR must be writable' }
     ),
   MAX_FILE_SIZE: z.coerce.number().int().positive().default(26214400), // 25MB in bytes
+
+  // SendGrid Email Service (Optional)
+  SENDGRID_API_KEY: z.string().optional(),
+  SENDGRID_FROM_EMAIL: z.string().email().optional(),
 });
 
 // Infer TypeScript type from Zod schema
