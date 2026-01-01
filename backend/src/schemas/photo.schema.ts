@@ -13,9 +13,19 @@ export const uploadPhotoSchema = z.object({
 
 /**
  * Schema for query parameters when listing photos
+ * groupId can be:
+ * - undefined: personal photos only (default)
+ * - UUID: specific group
+ * - "all": all photos user has access to (personal + all groups)
  */
 export const getPhotosQuerySchema = z.object({
-  groupId: z.string().uuid('Invalid group ID format').optional(),
+  groupId: z
+    .string()
+    .refine(
+      (val) => val === 'all' || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val),
+      'Group ID must be a valid UUID or "all"'
+    )
+    .optional(),
   tag: z.string().min(1).max(200).optional(),
   limit: z
     .string()
