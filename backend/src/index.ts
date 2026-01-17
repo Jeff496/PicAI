@@ -207,9 +207,9 @@ app.use(errorHandler);
  * ========================================
  * STEP 7: START SERVER
  * ========================================
- * Only starts if file is directly executed (not imported for tests)
+ * Changed so server runs for pm2
  */
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.env.NODE_ENV !== 'test') {
   const PORT = env.PORT;
 
   // Ensure storage directories exist before starting server
