@@ -2,8 +2,14 @@
 // Email service using SendGrid for group invitations
 // Optional - gracefully degrades if SendGrid not configured
 
-// import { env } from '../config/env.js';
+import sgMail from '@sendgrid/mail';
+import { env } from '../config/env.js';
 import logger from '../utils/logger.js';
+
+// Initialize SendGrid if API key is available
+if (env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(env.SENDGRID_API_KEY);
+}
 
 interface GroupInviteEmailParams {
   to: string;
@@ -13,23 +19,12 @@ interface GroupInviteEmailParams {
   expiresAt?: Date;
 }
 
-/**
- * Email service for sending group invites via SendGrid
- *
- * Note: This service is optional and will gracefully degrade if SendGrid is not configured.
- * To enable email invites:
- * 1. Install @sendgrid/mail: npm install @sendgrid/mail
- * 2. Set environment variables: SENDGRID_API_KEY and SENDGRID_FROM_EMAIL
- * 3. Uncomment the SendGrid imports and initialization below
- */
 export const emailService = {
   /**
    * Check if email service is configured and available
    */
   isConfigured(): boolean {
-    // SendGrid module not installed yet
-    // return !!(env.SENDGRID_API_KEY && env.SENDGRID_FROM_EMAIL);
-    return false;
+    return !!(env.SENDGRID_API_KEY && env.SENDGRID_FROM_EMAIL);
   },
 
   /**
@@ -47,13 +42,12 @@ export const emailService = {
       return false;
     }
 
-    const { to, groupName, inviterName, inviteLink } = params;
+    const { to, groupName, inviterName, inviteLink, expiresAt } = params;
 
-    // TODO: Uncomment when @sendgrid/mail is installed
-    // const expiryText = expiresAt
-    //   ? `This invite expires on ${expiresAt.toLocaleDateString()}.`
-    //   : 'This invite does not expire.';
-    /*
+    const expiryText = expiresAt
+      ? `This invite expires on ${expiresAt.toLocaleDateString()}.`
+      : 'This invite does not expire.';
+
     const msg = {
       to,
       from: env.SENDGRID_FROM_EMAIL!,
@@ -104,14 +98,5 @@ If you didn't expect this invitation, you can safely ignore this email.
       logger.error('Failed to send group invite email', { error, to, groupName });
       return false;
     }
-    */
-
-    logger.info('Email service not implemented yet - would send invite to:', {
-      to,
-      groupName,
-      inviterName,
-      inviteLink,
-    });
-    return false;
   },
 };
