@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/auth';
 import { usePhotos } from '@/hooks/usePhotos';
 import { usePhotoSelection } from '@/hooks/usePhotoSelection';
+import { useGroups } from '@/hooks/useGroups';
 import { UploadForm, PhotoGrid, PhotoViewer, TagFilter, BulkActionBar } from '@/components/photos';
 import type { Photo, PhotoListItem } from '@/types/api';
 
@@ -15,6 +16,7 @@ export function PhotosPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | PhotoListItem | null>(null);
   const [tagFilter, setTagFilter] = useState('');
+  const [groupFilter, setGroupFilter] = useState<string | undefined>(undefined);
 
   // Selection mode state
   const {
@@ -28,7 +30,11 @@ export function PhotosPage() {
     exitSelectionMode,
   } = usePhotoSelection();
 
-  // Fetch photos with optional tag filter
+  // Fetch user's groups for the filter dropdown
+  const { data: groupsResponse } = useGroups();
+  const groups = groupsResponse?.data?.groups ?? [];
+
+  // Fetch photos with optional tag and group filter
   const {
     data: photosResponse,
     isLoading,
@@ -36,6 +42,7 @@ export function PhotosPage() {
     refetch,
   } = usePhotos({
     tag: tagFilter || undefined,
+    groupId: groupFilter,
   });
 
   const handleLogout = async () => {
@@ -75,6 +82,12 @@ export function PhotosPage() {
                 className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
               >
                 People
+              </Link>
+              <Link
+                to="/groups"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+              >
+                Groups
               </Link>
             </nav>
 
@@ -196,9 +209,27 @@ export function PhotosPage() {
           </div>
         )}
 
-        {/* Tag filter (hidden in selection mode) */}
+        {/* Filters (hidden in selection mode) */}
         {!isSelectionMode && (
-          <div className="mb-6">
+          <div className="mb-6 space-y-3">
+            {/* Group filter */}
+            {groups.length > 0 && (
+              <select
+                value={groupFilter ?? ''}
+                onChange={(e) => setGroupFilter(e.target.value || undefined)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white sm:w-auto"
+              >
+                <option value="">My Photos</option>
+                <option value="all">All Photos</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Tag filter */}
             <TagFilter
               value={tagFilter}
               onChange={setTagFilter}

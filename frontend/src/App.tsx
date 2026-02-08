@@ -8,6 +8,9 @@ import { RegisterPage } from '@/pages/RegisterPage';
 import { PhotosPage } from '@/pages/PhotosPage';
 import { PeoplePage } from '@/pages/PeoplePage';
 import { PersonPhotosPage } from '@/pages/PersonPhotosPage';
+import { GroupsPage } from '@/pages/GroupsPage';
+import { GroupDetailPage } from '@/pages/GroupDetailPage';
+import { InvitePage } from '@/pages/InvitePage';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 
 function App() {
@@ -43,6 +46,25 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/groups"
+          element={
+            <ProtectedRoute>
+              <GroupsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/groups/:groupId"
+          element={
+            <ProtectedRoute>
+              <GroupDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Public invite page (no auth required) */}
+        <Route path="/invite/:token" element={<InvitePage />} />
 
         {/* Default redirect */}
         <Route path="/" element={<Navigate to="/photos" replace />} />

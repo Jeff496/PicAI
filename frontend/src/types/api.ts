@@ -165,6 +165,10 @@ export interface Group {
   };
 }
 
+export interface GroupWithCreator extends Group {
+  creator: { id: string; name: string };
+}
+
 export interface GroupMembership {
   id: string;
   groupId: string;
@@ -172,6 +176,105 @@ export interface GroupMembership {
   role: 'owner' | 'admin' | 'member';
   joinedAt: string;
   user?: User;
+}
+
+export interface GroupMemberWithUser extends GroupMembership {
+  isOwner: boolean;
+  user: User;
+}
+
+export interface GroupInvite {
+  id: string;
+  groupId: string;
+  token: string;
+  expiresAt: string | null;
+  maxUses: number | null;
+  useCount: number;
+  createdBy: string;
+  createdAt: string;
+  creator?: { id: string; name: string };
+}
+
+export interface InviteInfo {
+  group: { id: string; name: string; description: string | null };
+  invitedBy: { id: string; name: string };
+  expiresAt: string | null;
+}
+
+// Group Request Types
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateGroupRequest {
+  name?: string;
+  description?: string;
+}
+
+export interface CreateInviteRequest {
+  expiresInDays?: number;
+  maxUses?: number;
+}
+
+export interface EmailInviteRequest {
+  email: string;
+  expiresInDays?: number;
+}
+
+// Group Response Types
+export interface GroupsResponse {
+  success: true;
+  data: { groups: GroupWithCreator[] };
+  pagination: { total: number; limit: number; offset: number };
+}
+
+export interface GroupDetailResponse {
+  success: true;
+  data: {
+    group: GroupWithCreator;
+    membership: GroupMembership;
+    isOwner: boolean;
+  };
+}
+
+export interface GroupResponse {
+  success: true;
+  data: { group: Group };
+  message: string;
+}
+
+export interface GroupMembersResponse {
+  success: true;
+  data: { members: GroupMemberWithUser[] };
+}
+
+export interface GroupInvitesResponse {
+  success: true;
+  data: { invites: GroupInvite[] };
+}
+
+export interface InviteResponse {
+  success: true;
+  data: { invite: GroupInvite };
+  message: string;
+}
+
+export interface InviteInfoResponse {
+  success: true;
+  data: InviteInfo;
+}
+
+export interface JoinGroupResponse {
+  success: true;
+  data: { group: { id: string; name: string }; membership: GroupMembership };
+  message: string;
+}
+
+export interface EmailInviteResponse {
+  success: true;
+  data: { invite: GroupInvite; emailSent: boolean };
+  message: string;
 }
 
 // ============================================

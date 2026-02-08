@@ -52,6 +52,9 @@ export const emailService = {
       to,
       from: env.SENDGRID_FROM_EMAIL!,
       subject: `${inviterName} invited you to join "${groupName}" on PicAI`,
+      trackingSettings: {
+        clickTracking: { enable: false, enableText: false },
+      },
       html: `
         <!DOCTYPE html>
         <html>
