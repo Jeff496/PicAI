@@ -3,7 +3,11 @@
 
 import { Router } from 'express';
 import { authenticateJWT } from '../middleware/auth.middleware.js';
-import { validateRequest, validateParams, validateQuery } from '../middleware/validate.middleware.js';
+import {
+  validateRequest,
+  validateParams,
+  validateQuery,
+} from '../middleware/validate.middleware.js';
 import {
   createGroupSchema,
   updateGroupSchema,
@@ -13,6 +17,7 @@ import {
   createInviteSchema,
   inviteIdParamSchema,
   getGroupsQuerySchema,
+  emailInviteSchema,
 } from '../schemas/groups.schema.js';
 import * as groupsController from '../controllers/groups.controller.js';
 import rateLimit from 'express-rate-limit';
@@ -29,22 +34,91 @@ const inviteRateLimiter = rateLimit({
 // ========== GROUP CRUD ==========
 router.post('/', authenticateJWT, validateRequest(createGroupSchema), groupsController.createGroup);
 router.get('/', authenticateJWT, validateQuery(getGroupsQuerySchema), groupsController.getGroups);
-router.get('/:id', authenticateJWT, validateParams(groupIdParamSchema), groupsController.getGroupById);
-router.put('/:id', authenticateJWT, validateParams(groupIdParamSchema), validateRequest(updateGroupSchema), groupsController.updateGroup);
-router.delete('/:id', authenticateJWT, validateParams(groupIdParamSchema), groupsController.deleteGroup);
+router.get(
+  '/:id',
+  authenticateJWT,
+  validateParams(groupIdParamSchema),
+  groupsController.getGroupById
+);
+router.put(
+  '/:id',
+  authenticateJWT,
+  validateParams(groupIdParamSchema),
+  validateRequest(updateGroupSchema),
+  groupsController.updateGroup
+);
+router.delete(
+  '/:id',
+  authenticateJWT,
+  validateParams(groupIdParamSchema),
+  groupsController.deleteGroup
+);
 
 // ========== GROUP PHOTOS ==========
-router.get('/:id/photos', authenticateJWT, validateParams(groupIdParamSchema), groupsController.getGroupPhotos);
+router.get(
+  '/:id/photos',
+  authenticateJWT,
+  validateParams(groupIdParamSchema),
+  groupsController.getGroupPhotos
+);
 
 // ========== MEMBERSHIP ==========
-router.get('/:id/members', authenticateJWT, validateParams(groupIdParamSchema), groupsController.getGroupMembers);
-router.put('/:id/members/:userId', authenticateJWT, validateParams(memberUserIdParamSchema), validateRequest(updateMemberRoleSchema), groupsController.updateMemberRole);
-router.delete('/:id/members/:userId', authenticateJWT, validateParams(memberUserIdParamSchema), groupsController.removeMember);
-router.delete('/:id/leave', authenticateJWT, validateParams(groupIdParamSchema), groupsController.leaveGroup);
+router.get(
+  '/:id/members',
+  authenticateJWT,
+  validateParams(groupIdParamSchema),
+  groupsController.getGroupMembers
+);
+router.put(
+  '/:id/members/:userId',
+  authenticateJWT,
+  validateParams(memberUserIdParamSchema),
+  validateRequest(updateMemberRoleSchema),
+  groupsController.updateMemberRole
+);
+router.delete(
+  '/:id/members/:userId',
+  authenticateJWT,
+  validateParams(memberUserIdParamSchema),
+  groupsController.removeMember
+);
+router.delete(
+  '/:id/leave',
+  authenticateJWT,
+  validateParams(groupIdParamSchema),
+  groupsController.leaveGroup
+);
 
 // ========== INVITES ==========
-router.post('/:id/invites', authenticateJWT, inviteRateLimiter, validateParams(groupIdParamSchema), validateRequest(createInviteSchema), groupsController.createInvite);
-router.get('/:id/invites', authenticateJWT, validateParams(groupIdParamSchema), groupsController.getGroupInvites);
-router.delete('/:id/invites/:inviteId', authenticateJWT, validateParams(inviteIdParamSchema), groupsController.revokeInvite);
+router.post(
+  '/:id/invites',
+  authenticateJWT,
+  inviteRateLimiter,
+  validateParams(groupIdParamSchema),
+  validateRequest(createInviteSchema),
+  groupsController.createInvite
+);
+router.get(
+  '/:id/invites',
+  authenticateJWT,
+  validateParams(groupIdParamSchema),
+  groupsController.getGroupInvites
+);
+router.delete(
+  '/:id/invites/:inviteId',
+  authenticateJWT,
+  validateParams(inviteIdParamSchema),
+  groupsController.revokeInvite
+);
+
+// ========== EMAIL INVITES ==========
+router.post(
+  '/:id/invite-email',
+  authenticateJWT,
+  inviteRateLimiter,
+  validateParams(groupIdParamSchema),
+  validateRequest(emailInviteSchema),
+  groupsController.sendEmailInvite
+);
 
 export default router;

@@ -22,7 +22,9 @@ export const getPhotosQuerySchema = z.object({
   groupId: z
     .string()
     .refine(
-      (val) => val === 'all' || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val),
+      (val) =>
+        val === 'all' ||
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val),
       'Group ID must be a valid UUID or "all"'
     )
     .optional(),

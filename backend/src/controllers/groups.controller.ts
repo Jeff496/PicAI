@@ -3,6 +3,8 @@
 
 import type { Request, Response } from 'express';
 import { groupService, isOwner, isAdmin, canManageMembers } from '../services/groupService.js';
+import { emailService } from '../services/emailService.js';
+import { env } from '../config/env.js';
 import prisma from '../prisma/client.js';
 import type { GetGroupsQuery } from '../schemas/groups.schema.js';
 
@@ -46,7 +48,9 @@ export const getGroupById = async (req: Request, res: Response): Promise<void> =
   }
 
   if (!result.membership) {
-    res.status(403).json({ success: false, error: 'Not a member of this group', code: 'NOT_GROUP_MEMBER' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Not a member of this group', code: 'NOT_GROUP_MEMBER' });
     return;
   }
 
@@ -73,7 +77,9 @@ export const updateGroup = async (req: Request, res: Response): Promise<void> =>
   }
 
   if (!isOwner(result.group, userId)) {
-    res.status(403).json({ success: false, error: 'Only owner can update group', code: 'FORBIDDEN' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Only owner can update group', code: 'FORBIDDEN' });
     return;
   }
 
@@ -98,7 +104,9 @@ export const deleteGroup = async (req: Request, res: Response): Promise<void> =>
   }
 
   if (!isOwner(result.group, userId)) {
-    res.status(403).json({ success: false, error: 'Only owner can delete group', code: 'FORBIDDEN' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Only owner can delete group', code: 'FORBIDDEN' });
     return;
   }
 
@@ -119,7 +127,9 @@ export const getGroupMembers = async (req: Request, res: Response): Promise<void
   });
 
   if (!membership) {
-    res.status(403).json({ success: false, error: 'Not a member of this group', code: 'NOT_GROUP_MEMBER' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Not a member of this group', code: 'NOT_GROUP_MEMBER' });
     return;
   }
 
@@ -127,7 +137,7 @@ export const getGroupMembers = async (req: Request, res: Response): Promise<void
   const group = await prisma.group.findUnique({ where: { id: id! } });
 
   // Mark owner in response
-  const membersWithRole = members.map(m => ({
+  const membersWithRole = members.map((m) => ({
     ...m,
     isOwner: m.userId === group?.createdBy,
   }));
@@ -152,13 +162,17 @@ export const updateMemberRole = async (req: Request, res: Response): Promise<voi
 
   // Only owner can change roles
   if (!isOwner(group, userId)) {
-    res.status(403).json({ success: false, error: 'Only owner can change member roles', code: 'FORBIDDEN' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Only owner can change member roles', code: 'FORBIDDEN' });
     return;
   }
 
   // Cannot change owner's role
   if (targetUserId === group.createdBy) {
-    res.status(400).json({ success: false, error: 'Cannot change owner role', code: 'CANNOT_CHANGE_OWNER' });
+    res
+      .status(400)
+      .json({ success: false, error: 'Cannot change owner role', code: 'CANNOT_CHANGE_OWNER' });
     return;
   }
 
@@ -197,7 +211,9 @@ export const removeMember = async (req: Request, res: Response): Promise<void> =
 
   // Cannot remove owner
   if (targetUserId === group.createdBy) {
-    res.status(400).json({ success: false, error: 'Cannot remove group owner', code: 'CANNOT_REMOVE_OWNER' });
+    res
+      .status(400)
+      .json({ success: false, error: 'Cannot remove group owner', code: 'CANNOT_REMOVE_OWNER' });
     return;
   }
 
@@ -208,7 +224,9 @@ export const removeMember = async (req: Request, res: Response): Promise<void> =
   const targetIsAdmin = isAdmin(targetMembership);
 
   if (!isSelf && !actorIsOwner && !(actorIsAdmin && !targetIsAdmin)) {
-    res.status(403).json({ success: false, error: 'Not authorized to remove this member', code: 'FORBIDDEN' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Not authorized to remove this member', code: 'FORBIDDEN' });
     return;
   }
 
@@ -230,7 +248,13 @@ export const leaveGroup = async (req: Request, res: Response): Promise<void> => 
 
   // Owner cannot leave (must delete or transfer ownership)
   if (isOwner(group, userId)) {
-    res.status(400).json({ success: false, error: 'Owner cannot leave group. Delete the group instead.', code: 'OWNER_CANNOT_LEAVE' });
+    res
+      .status(400)
+      .json({
+        success: false,
+        error: 'Owner cannot leave group. Delete the group instead.',
+        code: 'OWNER_CANNOT_LEAVE',
+      });
     return;
   }
 
@@ -239,7 +263,9 @@ export const leaveGroup = async (req: Request, res: Response): Promise<void> => 
   });
 
   if (!membership) {
-    res.status(400).json({ success: false, error: 'Not a member of this group', code: 'NOT_GROUP_MEMBER' });
+    res
+      .status(400)
+      .json({ success: false, error: 'Not a member of this group', code: 'NOT_GROUP_MEMBER' });
     return;
   }
 
@@ -267,7 +293,9 @@ export const createInvite = async (req: Request, res: Response): Promise<void> =
   });
 
   if (!canManageMembers(group, membership, userId)) {
-    res.status(403).json({ success: false, error: 'Only owner or admin can create invites', code: 'FORBIDDEN' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Only owner or admin can create invites', code: 'FORBIDDEN' });
     return;
   }
 
@@ -296,7 +324,9 @@ export const getGroupInvites = async (req: Request, res: Response): Promise<void
   });
 
   if (!canManageMembers(group, membership, userId)) {
-    res.status(403).json({ success: false, error: 'Only owner or admin can view invites', code: 'FORBIDDEN' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Only owner or admin can view invites', code: 'FORBIDDEN' });
     return;
   }
 
@@ -324,7 +354,9 @@ export const revokeInvite = async (req: Request, res: Response): Promise<void> =
   });
 
   if (!canManageMembers(group, membership, userId)) {
-    res.status(403).json({ success: false, error: 'Only owner or admin can revoke invites', code: 'FORBIDDEN' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Only owner or admin can revoke invites', code: 'FORBIDDEN' });
     return;
   }
 
@@ -347,7 +379,9 @@ export const getInviteInfo = async (req: Request, res: Response): Promise<void> 
   const invite = await groupService.getInviteByToken(token!);
 
   if (!invite) {
-    res.status(404).json({ success: false, error: 'Invite not found or expired', code: 'INVITE_NOT_FOUND' });
+    res
+      .status(404)
+      .json({ success: false, error: 'Invite not found or expired', code: 'INVITE_NOT_FOUND' });
     return;
   }
 
@@ -359,7 +393,13 @@ export const getInviteInfo = async (req: Request, res: Response): Promise<void> 
 
   // Check max uses
   if (invite.maxUses && invite.useCount >= invite.maxUses) {
-    res.status(410).json({ success: false, error: 'Invite has reached maximum uses', code: 'INVITE_MAX_USES_REACHED' });
+    res
+      .status(410)
+      .json({
+        success: false,
+        error: 'Invite has reached maximum uses',
+        code: 'INVITE_MAX_USES_REACHED',
+      });
     return;
   }
 
@@ -405,6 +445,60 @@ export const joinViaInvite = async (req: Request, res: Response): Promise<void> 
   }
 };
 
+// ========== EMAIL INVITES ==========
+
+export const sendEmailInvite = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user!.id;
+  const { id } = req.params;
+  const { email, expiresInDays } = req.body;
+
+  const group = await prisma.group.findUnique({ where: { id: id! } });
+
+  if (!group) {
+    res.status(404).json({ success: false, error: 'Group not found', code: 'NOT_FOUND' });
+    return;
+  }
+
+  const membership = await prisma.groupMembership.findUnique({
+    where: { groupId_userId: { groupId: id!, userId } },
+  });
+
+  if (!canManageMembers(group, membership, userId)) {
+    res
+      .status(403)
+      .json({ success: false, error: 'Only owner or admin can send invites', code: 'FORBIDDEN' });
+    return;
+  }
+
+  const inviter = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true },
+  });
+
+  // Create invite
+  const invite = await groupService.createInvite(id!, userId, expiresInDays);
+
+  // Build invite link
+  const inviteLink = `${env.FRONTEND_URL}/invite/${invite.token}`;
+
+  // Send email
+  const emailSent = await emailService.sendGroupInvite({
+    to: email,
+    groupName: group.name,
+    inviterName: inviter?.name || 'Someone',
+    inviteLink,
+    expiresAt: invite.expiresAt || undefined,
+  });
+
+  res.status(201).json({
+    success: true,
+    data: { invite, emailSent },
+    message: emailSent
+      ? 'Invite email sent successfully'
+      : 'Invite created but email could not be sent',
+  });
+};
+
 // ========== GROUP PHOTOS ==========
 
 export const getGroupPhotos = async (req: Request, res: Response): Promise<void> => {
@@ -418,7 +512,9 @@ export const getGroupPhotos = async (req: Request, res: Response): Promise<void>
   });
 
   if (!membership) {
-    res.status(403).json({ success: false, error: 'Not a member of this group', code: 'NOT_GROUP_MEMBER' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Not a member of this group', code: 'NOT_GROUP_MEMBER' });
     return;
   }
 

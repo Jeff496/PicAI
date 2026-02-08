@@ -209,7 +209,7 @@ app.use(errorHandler);
  * ========================================
  * Only starts if file is directly executed (not imported for tests)
  */
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.env.NODE_ENV !== 'test') {
   const PORT = env.PORT;
 
   // Ensure storage directories exist before starting server
@@ -263,6 +263,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     logger.info('  POST   /api/groups/:id/invites');
     logger.info('  GET    /api/groups/:id/invites');
     logger.info('  DELETE /api/groups/:id/invites/:inviteId');
+    logger.info('  POST   /api/groups/:id/invite-email');
     logger.info('  GET    /api/invites/:token');
     logger.info('  POST   /api/invites/:token/join');
     logger.info('==============================================');

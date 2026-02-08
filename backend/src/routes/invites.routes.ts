@@ -13,6 +13,11 @@ const router = Router();
 router.get('/:token', validateParams(inviteTokenParamSchema), groupsController.getInviteInfo);
 
 // Requires auth to join
-router.post('/:token/join', authenticateJWT, validateParams(inviteTokenParamSchema), groupsController.joinViaInvite);
+router.post(
+  '/:token/join',
+  authenticateJWT,
+  validateParams(inviteTokenParamSchema),
+  groupsController.joinViaInvite
+);
 
 export default router;
