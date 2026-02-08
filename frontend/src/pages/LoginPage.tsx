@@ -3,7 +3,7 @@
 // Simple functional UI for testing API integration
 
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import { authService } from '@/services/auth';
 import { useAuthStore } from '@/stores/authStore';
@@ -11,6 +11,7 @@ import type { ApiError } from '@/types/api';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const isLoading = useAuthStore((state) => state.isLoading);
 
   const [email, setEmail] = useState('');
@@ -23,7 +24,8 @@ export function LoginPage() {
 
     try {
       await authService.login({ email, password });
-      navigate('/photos');
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/photos';
+      navigate(from);
     } catch (err) {
       const axiosError = err as AxiosError<ApiError>;
       if (axiosError.response?.data?.error) {

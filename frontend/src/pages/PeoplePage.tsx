@@ -56,6 +56,12 @@ export function PeoplePage() {
               <span className="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white">
                 People
               </span>
+              <Link
+                to="/groups"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+              >
+                Groups
+              </Link>
             </nav>
 
             {/* Logout button */}
