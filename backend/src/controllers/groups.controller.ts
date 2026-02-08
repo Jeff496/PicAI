@@ -248,13 +248,11 @@ export const leaveGroup = async (req: Request, res: Response): Promise<void> => 
 
   // Owner cannot leave (must delete or transfer ownership)
   if (isOwner(group, userId)) {
-    res
-      .status(400)
-      .json({
-        success: false,
-        error: 'Owner cannot leave group. Delete the group instead.',
-        code: 'OWNER_CANNOT_LEAVE',
-      });
+    res.status(400).json({
+      success: false,
+      error: 'Owner cannot leave group. Delete the group instead.',
+      code: 'OWNER_CANNOT_LEAVE',
+    });
     return;
   }
 
@@ -393,13 +391,11 @@ export const getInviteInfo = async (req: Request, res: Response): Promise<void> 
 
   // Check max uses
   if (invite.maxUses && invite.useCount >= invite.maxUses) {
-    res
-      .status(410)
-      .json({
-        success: false,
-        error: 'Invite has reached maximum uses',
-        code: 'INVITE_MAX_USES_REACHED',
-      });
+    res.status(410).json({
+      success: false,
+      error: 'Invite has reached maximum uses',
+      code: 'INVITE_MAX_USES_REACHED',
+    });
     return;
   }
 

@@ -3,6 +3,7 @@
 // Uses fileService for file operations and Prisma for database access
 
 import type { Request, Response } from 'express';
+import type { Prisma } from '../generated/prisma/client.js';
 import prisma from '../prisma/client.js';
 import { fileService, type SavePhotoResult } from '../services/fileService.js';
 import { aiService } from '../services/aiService.js';
@@ -243,7 +244,7 @@ export const getPhotos = async (req: Request, res: Response): Promise<void> => {
   const { groupId, tag, limit, offset } = req.parsedQuery as GetPhotosQuery;
 
   // Build where clause with support for group filtering
-  let whereClause: any;
+  let whereClause: Prisma.PhotoWhereInput;
 
   if (groupId === 'all') {
     // All photos user has access to (personal + all groups they're in)
