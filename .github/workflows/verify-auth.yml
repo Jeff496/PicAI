@@ -46,7 +46,7 @@ jobs:
         working-directory: ./backend
         run: |
           cat > .env << EOF
-          NODE_ENV=test
+          NODE_ENV=development
           PORT=3001
           FRONTEND_URL=http://localhost:5173
           DATABASE_URL=postgresql://picai_user:test_password@localhost:5432/picai_test

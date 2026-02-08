@@ -3,6 +3,7 @@
 // Uses fileService for file operations and Prisma for database access
 
 import type { Request, Response } from 'express';
+import type { Prisma } from '../generated/prisma/client.js';
 import prisma from '../prisma/client.js';
 import { fileService, type SavePhotoResult } from '../services/fileService.js';
 import { aiService } from '../services/aiService.js';
@@ -242,22 +243,27 @@ export const getPhotos = async (req: Request, res: Response): Promise<void> => {
   // Get parsed query params from validateQuery middleware (Express 5 req.query is read-only)
   const { groupId, tag, limit, offset } = req.parsedQuery as GetPhotosQuery;
 
-  // Build where clause with support for tag filtering
-  const where: {
-    userId?: string;
-    groupId?: string;
-    aiTags?: {
-      some: { tag: { contains: string; mode: 'insensitive' }; confidence: { gte: number } };
-    };
-  } = {};
+  // Build where clause with support for group filtering
+  let whereClause: Prisma.PhotoWhereInput;
 
-  if (groupId) {
-    // If filtering by group, verify membership
-    const membership = await prisma.groupMembership.findFirst({
-      where: {
-        groupId,
-        userId: req.user.id,
-      },
+  if (groupId === 'all') {
+    // All photos user has access to (personal + all groups they're in)
+    const memberships = await prisma.groupMembership.findMany({
+      where: { userId: req.user.id },
+      select: { groupId: true },
+    });
+    const groupIds = memberships.map((m) => m.groupId);
+
+    whereClause = {
+      OR: [
+        { userId: req.user.id, groupId: null }, // Personal photos
+        { groupId: { in: groupIds } }, // Group photos
+      ],
+    };
+  } else if (groupId) {
+    // Specific group - verify membership
+    const membership = await prisma.groupMembership.findUnique({
+      where: { groupId_userId: { groupId, userId: req.user.id } },
     });
 
     if (!membership) {
@@ -269,27 +275,30 @@ export const getPhotos = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    where.groupId = groupId;
+    whereClause = { groupId };
   } else {
-    // Only show user's own photos when not filtering by group
-    where.userId = req.user.id;
+    // Default: personal photos only
+    whereClause = { userId: req.user.id, groupId: null };
   }
 
-  // Filter by tag if provided (case-insensitive partial match)
+  // Add tag filter if provided (case-insensitive partial match)
   if (tag) {
-    where.aiTags = {
-      some: {
-        tag: {
-          contains: tag,
-          mode: 'insensitive',
+    whereClause = {
+      ...whereClause,
+      aiTags: {
+        some: {
+          tag: {
+            contains: tag,
+            mode: 'insensitive',
+          },
+          confidence: { gte: 0.5 },
         },
-        confidence: { gte: 0.5 },
       },
     };
   }
 
   const photos = await prisma.photo.findMany({
-    where,
+    where: whereClause,
     include: {
       aiTags: {
         where: {
@@ -308,7 +317,7 @@ export const getPhotos = async (req: Request, res: Response): Promise<void> => {
   });
 
   // Get total count for pagination
-  const total = await prisma.photo.count({ where });
+  const total = await prisma.photo.count({ where: whereClause });
 
   res.json({
     success: true,

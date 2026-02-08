@@ -12,6 +12,8 @@ import photoRoutes from './routes/photos.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import facesRoutes from './routes/faces.routes.js';
 import peopleRoutes from './routes/people.routes.js';
+import groupsRoutes from './routes/groups.routes.js';
+import invitesRoutes from './routes/invites.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import logger from './utils/logger.js';
 import prisma from './prisma/client.js';
@@ -188,8 +190,10 @@ app.use('/api/photos', photoRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/faces', facesRoutes);
 app.use('/api/people', peopleRoutes);
+app.use('/api/groups', groupsRoutes);
+app.use('/api/invites', invitesRoutes);
 
-// future: /api/albums, /api/groups, /api/users
+// future: /api/albums, /api/users
 
 /**
  * ========================================
@@ -205,7 +209,7 @@ app.use(errorHandler);
  * ========================================
  * Only starts if file is directly executed (not imported for tests)
  */
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.env.NODE_ENV !== 'test') {
   const PORT = env.PORT;
 
   // Ensure storage directories exist before starting server
@@ -247,6 +251,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     logger.info('  POST   /api/ai/analyze/:photoId');
     logger.info('  POST   /api/ai/analyze-missing');
     logger.info('  GET    /api/ai/status');
+    logger.info('  POST   /api/groups');
+    logger.info('  GET    /api/groups');
+    logger.info('  GET    /api/groups/:id');
+    logger.info('  PUT    /api/groups/:id');
+    logger.info('  DELETE /api/groups/:id');
+    logger.info('  GET    /api/groups/:id/members');
+    logger.info('  PUT    /api/groups/:id/members/:userId');
+    logger.info('  DELETE /api/groups/:id/members/:userId');
+    logger.info('  DELETE /api/groups/:id/leave');
+    logger.info('  POST   /api/groups/:id/invites');
+    logger.info('  GET    /api/groups/:id/invites');
+    logger.info('  DELETE /api/groups/:id/invites/:inviteId');
+    logger.info('  POST   /api/groups/:id/invite-email');
+    logger.info('  GET    /api/invites/:token');
+    logger.info('  POST   /api/invites/:token/join');
     logger.info('==============================================');
   });
 
