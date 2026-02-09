@@ -6,7 +6,6 @@ import type { Request, Response } from 'express';
 import type { Prisma } from '../generated/prisma/client.js';
 import prisma from '../prisma/client.js';
 import { fileService, type SavePhotoResult } from '../services/fileService.js';
-import { aiService } from '../services/aiService.js';
 import { rekognitionService, type DetectedFaceWithMatch } from '../services/rekognitionService.js';
 import { ingestService } from '../services/ingestService.js';
 import logger from '../utils/logger.js';
@@ -117,20 +116,8 @@ export const uploadPhotos = async (req: Request, res: Response): Promise<void> =
       uploadedPhotos.push(photo);
     }
 
-    // Run AI analysis for each uploaded photo (blocking)
-    // Waits for tags to be saved before responding so the user sees tagged photos immediately
-    const photoTags = new Map<string, Array<{ tag: string; confidence: number; category: string }>>();
-    for (const photo of uploadedPhotos) {
-      try {
-        const tags = await aiService.analyzePhoto(photo.id);
-        photoTags.set(photo.id, tags);
-      } catch (err) {
-        logger.warn('AI analysis failed during upload, continuing without tags', {
-          photoId: photo.id,
-          error: err instanceof Error ? err.message : 'Unknown error',
-        });
-      }
-    }
+    // AI analysis is NOT triggered here — the frontend handles it via SSE
+    // (/ai/analyze-bulk-progress) so the user sees per-photo progress in real-time
 
     // Check if face detection is requested
     const detectFaces = req.query.detectFaces === 'true';
@@ -172,12 +159,7 @@ export const uploadPhotos = async (req: Request, res: Response): Promise<void> =
     }
 
     // Build response message
-    const taggedCount = photoTags.size;
     let message = `${uploadedPhotos.length} photo(s) uploaded successfully`;
-    if (taggedCount > 0) {
-      const totalTags = Array.from(photoTags.values()).reduce((sum, tags) => sum + tags.length, 0);
-      message += `, ${totalTags} AI tag(s) added`;
-    }
     if (detectFaces && totalFaces > 0) {
       const recognized = totalAutoTagged + totalSuggestions;
       message += `, detected ${totalFaces} face(s)`;
@@ -198,11 +180,6 @@ export const uploadPhotos = async (req: Request, res: Response): Promise<void> =
         originalName: photo.originalName,
         uploadedAt: photo.uploadedAt,
         thumbnailUrl: `/api/photos/${photo.id}/thumbnail`,
-        tags: (photoTags.get(photo.id) || []).map((t) => ({
-          tag: t.tag,
-          confidence: t.confidence,
-          category: t.category,
-        })),
         ...(detectFaces && { faces: facesMap.get(photo.id) || [] }),
       })),
     });

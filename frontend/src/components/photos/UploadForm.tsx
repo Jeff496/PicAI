@@ -1,8 +1,10 @@
 // src/components/photos/UploadForm.tsx
 // Photo upload form with drag-and-drop support
+// Two-phase progress: file upload (axios) → AI analysis (SSE)
 
 import { useState, useRef, useCallback } from 'react';
 import { useUploadPhotos } from '@/hooks/usePhotos';
+import { useBulkProgress } from '@/hooks/useBulkProgress';
 
 // Max file size: 25MB
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
@@ -29,9 +31,11 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [detectFaces, setDetectFaces] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadMutation = useUploadPhotos();
+  const { startOperation, progress: analysisProgress, reset: resetAnalysis } = useBulkProgress();
 
   const validateFiles = (files: FileList | File[]): File[] => {
     const fileArray = Array.from(files);
@@ -121,6 +125,8 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
     setError(null);
     setUploadProgress(0);
     setUploadSummary(null);
+    setIsAnalyzing(false);
+    resetAnalysis();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -132,8 +138,11 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
     setError(null);
     setUploadProgress(0);
     setUploadSummary(null);
+    setIsAnalyzing(false);
+    resetAnalysis();
 
     try {
+      // Phase 1: Upload files
       const result = await uploadMutation.mutateAsync({
         files: selectedFiles,
         groupId,
@@ -165,6 +174,20 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
         }
       }
 
+      // Phase 2: AI analysis via SSE (per-photo progress)
+      const photoIds = result.photos?.map((p) => p.id) || [];
+      if (photoIds.length > 0) {
+        setIsAnalyzing(true);
+        try {
+          await startOperation('re-analyze', photoIds);
+        } catch (err) {
+          // Analysis failure is non-fatal — photos are uploaded, tags can be added later
+          console.warn('AI analysis failed:', err);
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }
+
       // Clear selection on success
       setSelectedFiles([]);
       setUploadProgress(0);
@@ -175,6 +198,7 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed';
       setError(message);
+      setIsAnalyzing(false);
     }
   };
 
@@ -184,6 +208,8 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const isBusy = uploadMutation.isPending || isAnalyzing;
+
   return (
     <div className="space-y-4">
       {/* Drop zone */}
@@ -191,10 +217,11 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => !isBusy && fileInputRef.current?.click()}
         className={`
           relative cursor-pointer rounded-lg border-2 border-dashed p-8 text-center
           transition-colors duration-200
+          ${isBusy ? 'pointer-events-none opacity-50' : ''}
           ${
             isDragging
               ? 'border-primary bg-primary/5'
@@ -238,6 +265,7 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
             type="checkbox"
             checked={detectFaces}
             onChange={(e) => setDetectFaces(e.target.checked)}
+            disabled={isBusy}
             className="peer sr-only"
           />
           <div className="peer h-5 w-9 rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full dark:bg-gray-600" />
@@ -247,7 +275,7 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
       </div>
 
       {/* Upload summary (shown after upload with face detection) */}
-      {uploadSummary && (
+      {uploadSummary && !isBusy && (
         <div className="rounded-md bg-blue-50 p-3 text-sm dark:bg-blue-900/20">
           <p className="font-medium text-blue-700 dark:text-blue-400">Upload Complete</p>
           <p className="text-blue-600 dark:text-blue-300">
@@ -279,7 +307,7 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
       )}
 
       {/* Selected files list */}
-      {selectedFiles.length > 0 && (
+      {selectedFiles.length > 0 && !isBusy && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -328,7 +356,7 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
         </div>
       )}
 
-      {/* Upload progress */}
+      {/* Phase 1: Upload progress */}
       {uploadMutation.isPending && (
         <div className="space-y-1">
           <div className="flex justify-between text-sm">
@@ -344,8 +372,55 @@ export function UploadForm({ groupId, onUploadComplete }: UploadFormProps) {
         </div>
       )}
 
+      {/* Phase 2: AI analysis progress (SSE per-photo tracking) */}
+      {isAnalyzing && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              <span className="text-gray-600 dark:text-gray-400">
+                Analyzing photo {analysisProgress.current} of {analysisProgress.total}...
+              </span>
+            </div>
+            {analysisProgress.total > 0 && (
+              <span className="text-gray-600 dark:text-gray-400">
+                {Math.round((analysisProgress.current / analysisProgress.total) * 100)}%
+              </span>
+            )}
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+            <div
+              className="h-full bg-primary transition-all duration-500"
+              style={{
+                width:
+                  analysisProgress.total > 0
+                    ? `${(analysisProgress.current / analysisProgress.total) * 100}%`
+                    : '0%',
+              }}
+            />
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-500">
+            Tagging and categorizing with Azure Computer Vision
+          </p>
+        </div>
+      )}
+
       {/* Upload button */}
-      {selectedFiles.length > 0 && !uploadMutation.isPending && (
+      {selectedFiles.length > 0 && !isBusy && (
         <button
           type="button"
           onClick={handleUpload}
