@@ -1,7 +1,8 @@
 // src/components/photos/PhotoViewer.tsx
-// Full-screen photo viewer modal with face detection
+// Full-screen photo viewer modal with side panel for details
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { X, AlertCircle, Calendar, Maximize2 } from 'lucide-react';
 import { photosService } from '@/services/photos';
 import { usePhoto } from '@/hooks/usePhotos';
 import { useFaces } from '@/hooks/useFaces';
@@ -48,7 +49,6 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
   const handleFaceClick = useCallback((face: Face) => {
     if (imageRef.current) {
       const rect = imageRef.current.getBoundingClientRect();
-      // Position popup near the face
       const faceX = rect.left + face.boundingBox.left * rect.width;
       const faceY = rect.top + (face.boundingBox.top + face.boundingBox.height) * rect.height + 10;
       setPopupPosition({ x: faceX, y: faceY });
@@ -74,7 +74,6 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
           blobUrlRef.current = blobUrl;
           setImageUrl(blobUrl);
         } else {
-          // Clean up if unmounted during fetch
           URL.revokeObjectURL(blobUrl);
         }
       } catch {
@@ -92,7 +91,6 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
 
     return () => {
       isMounted = false;
-      // Clean up blob URL using ref
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
         blobUrlRef.current = null;
@@ -103,11 +101,8 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
   // Close on escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
+      if (e.key === 'Escape') onClose();
     };
-
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
@@ -115,9 +110,7 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
   // Prevent body scroll when modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = '';
-    };
+    return () => { document.body.style.overflow = ''; };
   }, []);
 
   // Track image dimensions for face overlay
@@ -139,49 +132,38 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/95"
       onClick={onClose}
     >
       {/* Close button */}
       <button
         type="button"
         onClick={onClose}
-        className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+        className="absolute right-3 top-3 z-20 rounded-full bg-white/10 p-2 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
       >
-        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
+        <X className="h-5 w-5" />
       </button>
 
-      {/* Main content - scrollable container */}
+      {/* Layout: side-by-side on lg+, stacked on smaller */}
       <div
-        className="flex max-h-[90vh] max-w-[90vw] flex-col items-center overflow-y-auto"
+        className="flex h-full w-full max-w-[95vw] flex-col lg:flex-row lg:items-center lg:justify-center lg:gap-4 lg:p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Image with face overlay */}
-        <div ref={imageContainerRef} className="relative flex shrink-0 items-center justify-center">
+        {/* Image area */}
+        <div
+          ref={imageContainerRef}
+          className="relative flex min-h-0 flex-1 items-center justify-center p-4 lg:p-0"
+        >
           {isLoading && (
             <div className="flex h-64 w-64 items-center justify-center">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+              <div className="h-10 w-10 animate-spin rounded-full border-3 border-white/20 border-t-white" />
             </div>
           )}
 
           {error && (
-            <div className="flex h-64 w-64 flex-col items-center justify-center text-white">
-              <svg className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <p className="mt-2">{error}</p>
+            <div className="flex flex-col items-center justify-center text-white/60">
+              <AlertCircle className="h-12 w-12" />
+              <p className="mt-2 text-sm">{error}</p>
             </div>
           )}
 
@@ -191,7 +173,7 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
                 ref={imageRef}
                 src={imageUrl}
                 alt={photo.originalName}
-                className="max-h-[75vh] max-w-full object-contain"
+                className="max-h-[85vh] max-w-full rounded object-contain lg:max-h-[90vh]"
                 onLoad={updateImageDimensions}
               />
               {/* Face bounding boxes overlay */}
@@ -207,40 +189,45 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
           )}
         </div>
 
-        {/* Photo details */}
-        <div className="mt-4 mb-4 w-full max-w-2xl shrink-0 rounded-lg bg-white/10 p-4 backdrop-blur">
-          <h2 className="text-lg font-medium text-white">{photo.originalName}</h2>
-          <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-white/80">
-            <div>
-              <span className="text-white/60">Uploaded:</span> {formatDate(photo.uploadedAt)}
+        {/* Details side panel */}
+        <div className="w-full shrink-0 overflow-y-auto border-t border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm lg:h-[90vh] lg:w-80 lg:rounded-lg lg:border lg:border-white/10">
+          {/* File info */}
+          <div className="space-y-3">
+            <p className="truncate text-sm text-white/50" title={photo.originalName}>
+              {photo.originalName}
+            </p>
+            <div className="flex items-center gap-2 text-xs text-white/40">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>{formatDate(photo.uploadedAt)}</span>
             </div>
             {'width' in photo && photo.width && photo.height && (
-              <div>
-                <span className="text-white/60">Dimensions:</span> {photo.width} x {photo.height}
+              <div className="flex items-center gap-2 text-xs text-white/40">
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>{photo.width} x {photo.height}</span>
               </div>
             )}
           </div>
 
           {/* Face Detection */}
-          <div className="mt-4 border-t border-white/10 pt-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-white/80">Face Detection</h3>
-            </div>
+          <div className="mt-5 border-t border-white/10 pt-5">
+            <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-white/40">
+              Face Detection
+            </h3>
             <DetectFacesButton
               photoId={photo.id}
               faceCount={faces.length}
               onDetected={() => refetchFaces()}
             />
             {faces.length > 0 && (
-              <p className="mt-2 text-xs text-white/60">
-                Click on faces in the image above to tag them.
+              <p className="mt-2 text-xs text-white/40">
+                Click on faces in the image to tag them.
               </p>
             )}
           </div>
 
           {/* AI Tags with management */}
           {'tags' in photo && (
-            <div className="mt-4 border-t border-white/10 pt-4">
+            <div className="mt-5 border-t border-white/10 pt-5">
               <TagManagement photoId={photo.id} tags={photo.tags || []} />
             </div>
           )}

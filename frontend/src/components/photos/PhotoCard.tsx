@@ -1,7 +1,8 @@
 // src/components/photos/PhotoCard.tsx
-// Individual photo card displaying thumbnail with actions
+// Individual photo card — minimal chrome, photo-focused
 
 import { useState } from 'react';
+import { Trash2, ImageIcon } from 'lucide-react';
 import { useThumbnail, useDeletePhoto } from '@/hooks/usePhotos';
 import type { Photo, PhotoListItem } from '@/types/api';
 
@@ -44,129 +45,59 @@ export function PhotoCard({
     }
   };
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   return (
     <div
-      className={`group relative overflow-hidden rounded-lg bg-white shadow transition-all hover:shadow-md dark:bg-gray-800 ${
-        isSelected ? 'ring-4 ring-primary ring-offset-2 dark:ring-offset-gray-900' : ''
+      className={`group relative aspect-square cursor-pointer overflow-hidden rounded-md bg-gray-100 dark:bg-white/5 ${
+        isSelected ? 'ring-2 ring-accent ring-offset-1 ring-offset-gray-50 dark:ring-offset-gray-950' : ''
       }`}
+      onClick={handleClick}
     >
-      {/* Selection checkbox overlay */}
+      {/* Selection checkbox */}
       {isSelectionMode && (
-        <div className="absolute left-2 top-2 z-10">
+        <div className="absolute left-1.5 top-1.5 z-10">
           <input
             type="checkbox"
             checked={isSelected}
             onChange={onToggleSelection}
             onClick={(e) => e.stopPropagation()}
-            className="h-5 w-5 cursor-pointer rounded border-2 border-white bg-white/80 text-primary shadow-sm focus:ring-2 focus:ring-primary focus:ring-offset-0"
+            className="h-4 w-4 cursor-pointer rounded border-white/80 bg-white/80 text-accent shadow-sm focus:ring-1 focus:ring-accent focus:ring-offset-0"
           />
         </div>
       )}
 
-      {/* Thumbnail container */}
-      <div
-        className="relative aspect-square cursor-pointer bg-gray-100 dark:bg-gray-700"
-        onClick={handleClick}
-      >
-        {thumbnailLoading ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-primary" />
-          </div>
-        ) : thumbnailUrl ? (
-          <img src={thumbnailUrl} alt={photo.originalName} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full items-center justify-center text-gray-400">
-            <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
-        )}
+      {/* Thumbnail */}
+      {thumbnailLoading ? (
+        <div className="flex h-full items-center justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-accent dark:border-white/10 dark:border-t-accent" />
+        </div>
+      ) : thumbnailUrl ? (
+        <img
+          src={thumbnailUrl}
+          alt={photo.originalName}
+          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center text-gray-300 dark:text-gray-600">
+          <ImageIcon className="h-8 w-8" />
+        </div>
+      )}
 
-        {/* Overlay on hover (hidden in selection mode) */}
-        {!isSelectionMode && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-            <button
-              type="button"
-              className="rounded-full bg-white/90 p-2 text-gray-700 hover:bg-white"
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewFull?.(photo);
-              }}
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-                />
-              </svg>
-            </button>
-          </div>
-        )}
+      {/* Selection tint */}
+      {isSelectionMode && isSelected && (
+        <div className="absolute inset-0 bg-accent/15" />
+      )}
 
-        {/* Selection overlay for selected items */}
-        {isSelectionMode && isSelected && (
-          <div className="absolute inset-0 bg-primary/20 transition-opacity" />
-        )}
-      </div>
-
-      {/* Photo info */}
-      <div className="p-3">
-        <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-          {photo.originalName}
-        </p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(photo.uploadedAt)}</p>
-
-        {/* AI tags (only available on full Photo type) */}
-        {'tags' in photo && photo.tags && photo.tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {photo.tags.slice(0, 3).map((tag, index) => (
-              <span
-                key={`${tag.tag}-${index}`}
-                className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                title={`${(tag.confidence * 100).toFixed(0)}% confidence`}
-              >
-                {tag.tag}
-              </span>
-            ))}
-            {photo.tags.length > 3 && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                +{photo.tags.length - 3}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Delete button (hidden in selection mode) */}
+      {/* Delete button (hover only, not in selection mode) */}
       {!isSelectionMode && (
         <button
           type="button"
-          onClick={() => setShowConfirm(true)}
-          className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 text-gray-500 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:bg-gray-800/90"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowConfirm(true);
+          }}
+          className="absolute right-1.5 top-1.5 rounded-full bg-black/40 p-1.5 text-white/80 opacity-0 transition-opacity hover:bg-black/60 hover:text-white group-hover:opacity-100"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
+          <Trash2 className="h-3.5 w-3.5" />
         </button>
       )}
 
@@ -174,29 +105,38 @@ export function PhotoCard({
       {showConfirm && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => setShowConfirm(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowConfirm(false);
+          }}
         >
           <div
-            className="mx-4 w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800"
+            className="mx-4 w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-gray-900"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Delete Photo</h3>
+            <h3 className="text-base font-medium text-gray-900 dark:text-white">Delete Photo</h3>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Are you sure you want to delete "{photo.originalName}"? This action cannot be undone.
+              Are you sure you want to delete this photo? This action cannot be undone.
             </p>
             <div className="mt-4 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setShowConfirm(false)}
-                className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowConfirm(false);
+                }}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete();
+                }}
                 disabled={deleteMutation.isPending}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
               >
                 {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
               </button>
