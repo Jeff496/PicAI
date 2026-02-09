@@ -6,7 +6,6 @@ import type { Request, Response } from 'express';
 import type { Prisma } from '../generated/prisma/client.js';
 import prisma from '../prisma/client.js';
 import { fileService, type SavePhotoResult } from '../services/fileService.js';
-import { aiService } from '../services/aiService.js';
 import { rekognitionService, type DetectedFaceWithMatch } from '../services/rekognitionService.js';
 import { ingestService } from '../services/ingestService.js';
 import logger from '../utils/logger.js';
@@ -117,16 +116,8 @@ export const uploadPhotos = async (req: Request, res: Response): Promise<void> =
       uploadedPhotos.push(photo);
     }
 
-    // Trigger AI analysis for each uploaded photo (fire-and-forget)
-    // This runs asynchronously - uploads return immediately
-    for (const photo of uploadedPhotos) {
-      aiService.analyzePhoto(photo.id).catch((err) => {
-        logger.error('AI analysis failed', {
-          photoId: photo.id,
-          error: err instanceof Error ? err.message : 'Unknown error',
-        });
-      });
-    }
+    // AI analysis is NOT triggered here — the frontend handles it via SSE
+    // (/ai/analyze-bulk-progress) so the user sees per-photo progress in real-time
 
     // Check if face detection is requested
     const detectFaces = req.query.detectFaces === 'true';
