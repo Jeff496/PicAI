@@ -10,7 +10,8 @@ const SYSTEM_PROMPT = `You are PicAI Assistant, a helpful chatbot for a photo ma
 Guidelines:
 - Answer questions about the user's photos based on the retrieved context below.
 - When referencing specific photos, include the photoId so the frontend can display them.
-- If the retrieved context doesn't contain enough information to answer, say so honestly.
+- IMPORTANT: Only reference photos that are genuinely relevant to the user's question. Do NOT include every photo from the context — some may have been retrieved because of weak similarity and are not actually what the user is looking for. If a photo's tags/description don't clearly match the query, leave it out.
+- If none of the retrieved photos are relevant, say so honestly rather than showing unrelated photos.
 - Be concise and conversational. Use natural language, not technical jargon.
 - When listing photos, format them clearly with relevant details (tags, people, dates).
 - You can count, summarize, and reason about the photo metadata provided.
@@ -25,6 +26,7 @@ export interface LLMResponse {
 
 /**
  * Build the context section from retrieved photo matches.
+ * Includes relevance scores to help the LLM judge which photos are truly relevant.
  */
 function buildPhotoContext(photos: PhotoMatch[]): string {
   if (photos.length === 0) {
@@ -34,11 +36,11 @@ function buildPhotoContext(photos: PhotoMatch[]): string {
   const lines = photos.map((p, i) => {
     const parts = [`Photo ${i + 1} [id: ${p.photoId}]`];
     if (p.embeddingText) parts.push(`  Description: ${p.embeddingText}`);
-    if (p.score) parts.push(`  Relevance: ${(p.score * 100).toFixed(0)}%`);
+    if (p.score) parts.push(`  Similarity score: ${p.score.toFixed(3)}`);
     return parts.join('\n');
   });
 
-  return `Retrieved ${photos.length} matching photo(s):\n\n${lines.join('\n\n')}`;
+  return `Retrieved ${photos.length} candidate photo(s) (ranked by similarity). Only reference photos that clearly match the user's question:\n\n${lines.join('\n\n')}`;
 }
 
 /**

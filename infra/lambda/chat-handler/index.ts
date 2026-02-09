@@ -70,7 +70,7 @@ async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
 
   // 2. Search for relevant photos
   console.log(`Searching photos for query: "${message}"`);
-  const photos = await searchPhotos(message, userId, 5);
+  const photos = await searchPhotos(message, userId);
   console.log(`Found ${photos.length} matching photos`);
 
   // 3. Generate LLM response with photo context + conversation history
@@ -85,17 +85,22 @@ async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     timestamp: new Date().toISOString(),
   };
 
-  // Build photo match objects once — used for both DynamoDB storage and API response
-  const photoMatches: ChatPhotoMatch[] = photos.map((p) => ({
-    photoId: p.photoId,
-    tags: p.tags ? p.tags.split(', ').filter(Boolean) : [],
-    people: p.people ? p.people.split(', ').filter(Boolean) : [],
-    takenAt: p.takenAt || null,
-    uploadedAt: p.uploadedAt || '',
-    originalName: p.originalName || '',
-    groupName: p.groupName || null,
-    score: p.score,
-  }));
+  // Build photo match objects — only include photos the LLM actually referenced
+  const referencedIds = new Set(llmResponse.photoIds);
+  const photoMatches: ChatPhotoMatch[] = photos
+    .filter((p) => referencedIds.has(p.photoId))
+    .map((p) => ({
+      photoId: p.photoId,
+      tags: p.tags ? p.tags.split(', ').filter(Boolean) : [],
+      people: p.people ? p.people.split(', ').filter(Boolean) : [],
+      takenAt: p.takenAt || null,
+      uploadedAt: p.uploadedAt || '',
+      originalName: p.originalName || '',
+      groupName: p.groupName || null,
+      score: p.score,
+    }));
+
+  console.log(`Photo filtering: ${photos.length} search results → ${llmResponse.photoIds.length} LLM-referenced → ${photoMatches.length} returned`);
 
   const assistantMessage: ChatMessage = {
     role: 'assistant',
