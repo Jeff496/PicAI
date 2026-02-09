@@ -10,6 +10,7 @@ import { PersonPhotosPage } from '@/pages/PersonPhotosPage';
 import { GroupsPage } from '@/pages/GroupsPage';
 import { GroupDetailPage } from '@/pages/GroupDetailPage';
 import { InvitePage } from '@/pages/InvitePage';
+import { ChatPage } from '@/pages/ChatPage';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 
 function App() {
@@ -68,6 +69,15 @@ function App() {
           element={
             <ProtectedRoute>
               <GroupDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
             </ProtectedRoute>
           }
         />

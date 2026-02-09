@@ -278,6 +278,80 @@ export interface EmailInviteResponse {
 }
 
 // ============================================
+// Chat Types (RAG Chatbot - API Gateway)
+// ============================================
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  photoIds?: string[];
+  photos?: ChatPhotoMatch[];
+}
+
+export interface ChatPhotoMatch {
+  photoId: string;
+  tags: string[];
+  people: string[];
+  takenAt: string | null;
+  uploadedAt: string;
+  originalName: string;
+  groupName: string | null;
+  score: number;
+}
+
+export interface ChatSession {
+  userId: string;
+  sessionId: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatSessionSummary {
+  sessionId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Chat API Request/Response Types
+export interface SendMessageRequest {
+  message: string;
+  userId: string;
+  sessionId?: string;
+}
+
+export interface ChatResponse {
+  success: true;
+  data: {
+    sessionId: string;
+    isNewSession: boolean;
+    response: string;
+    photos: ChatPhotoMatch[];
+    usage: {
+      inputTokens: number;
+      outputTokens: number;
+    };
+  };
+}
+
+export interface ChatHistorySessionsResponse {
+  success: true;
+  data: {
+    sessions: ChatSessionSummary[];
+  };
+}
+
+export interface ChatHistorySessionResponse {
+  success: true;
+  data: {
+    session: ChatSession;
+  };
+}
+
+// ============================================
 // Error Types
 // ============================================
 

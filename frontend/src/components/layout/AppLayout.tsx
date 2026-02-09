@@ -7,6 +7,7 @@ const navItems = [
   { path: '/photos', label: 'Photos' },
   { path: '/people', label: 'People' },
   { path: '/groups', label: 'Groups' },
+  { path: '/chat', label: 'Chat' },
 ];
 
 interface AppLayoutProps {
