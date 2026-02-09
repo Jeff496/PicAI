@@ -1,7 +1,7 @@
 # Backend CLAUDE.md - PicAI Express API
 
-**Last Updated:** December 13, 2025
-**Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
+**Last Updated:** February 8, 2026
+**Status:** Phase 5 Complete - Groups, Invites & UI Refresh
 
 **Technology:** Node.js 24.11.1 + TypeScript 5.9.3 + Express 5.1.0 + Prisma 6.19.0
 
@@ -34,18 +34,23 @@ backend/
 │   │   ├── photos.routes.ts          # Photo upload, list, get, delete, thumbnails, tags, faces
 │   │   ├── ai.routes.ts              # AI analysis endpoints
 │   │   ├── faces.routes.ts           # Face tagging endpoints
-│   │   └── people.routes.ts          # Person management endpoints
+│   │   ├── people.routes.ts          # Person management endpoints
+│   │   ├── groups.routes.ts          # Group CRUD, membership, photos, invites
+│   │   └── invites.routes.ts         # Public invite link handling
 │   ├── controllers/
 │   │   ├── auth.controller.ts        # Authentication logic
 │   │   ├── photos.controller.ts      # Photo CRUD operations
 │   │   ├── ai.controller.ts          # AI analysis controllers
 │   │   ├── faces.controller.ts       # Face detection and tagging
-│   │   └── people.controller.ts      # Person CRUD operations
+│   │   ├── people.controller.ts      # Person CRUD operations
+│   │   └── groups.controller.ts      # Group, membership, invite logic
 │   ├── services/
 │   │   ├── authService.ts            # JWT with jose, bcrypt hashing
 │   │   ├── fileService.ts            # Photo storage, thumbnails, HEIC, AWS cleanup
 │   │   ├── aiService.ts              # Azure Computer Vision integration
-│   │   └── rekognitionService.ts     # AWS Rekognition face collections
+│   │   ├── rekognitionService.ts     # AWS Rekognition face collections
+│   │   ├── groupService.ts           # Group operations and membership
+│   │   └── emailService.ts           # SendGrid email invitations
 │   ├── middleware/
 │   │   ├── auth.middleware.ts        # JWT verification
 │   │   ├── validate.middleware.ts    # Zod validation
@@ -56,7 +61,8 @@ backend/
 │   │   ├── photo.schema.ts           # Zod schemas for photo endpoints
 │   │   ├── ai.schema.ts              # Zod schemas for AI endpoints
 │   │   ├── face.schema.ts            # Zod schemas for face endpoints
-│   │   └── people.schema.ts          # Zod schemas for people endpoints
+│   │   ├── people.schema.ts          # Zod schemas for people endpoints
+│   │   └── groups.schema.ts          # Zod schemas for group endpoints
 │   ├── utils/
 │   │   └── logger.ts                 # Winston logger setup
 │   ├── prisma/
@@ -85,24 +91,6 @@ backend/
 ├── package.json
 ├── tsconfig.json
 └── CLAUDE.md                         # This file
-```
-
-### Planned Files (To Be Implemented)
-
-```
-src/
-├── routes/
-│   ├── albums.routes.ts              # Album CRUD, auto-generation
-│   ├── groups.routes.ts              # Group CRUD, membership
-│   └── users.routes.ts               # User profile management
-├── controllers/
-│   ├── albums.controller.ts
-│   ├── groups.controller.ts
-│   └── users.controller.ts
-├── services/
-│   └── albumService.ts               # Album generation logic
-└── types/
-    └── api.types.ts                  # API response types
 ```
 
 ---
@@ -408,6 +396,44 @@ MAX_FACES_TO_DETECT = 10       // Max faces per photo
 
 ---
 
+## Groups & Invites (Phase 5 - Implemented)
+
+### Group Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/groups` | Yes | Create group (creator becomes owner) |
+| GET | `/api/groups` | Yes | List user's groups (paginated) |
+| GET | `/api/groups/:id` | Yes | Get group details (members only) |
+| PUT | `/api/groups/:id` | Yes | Update name/description (owner only) |
+| DELETE | `/api/groups/:id` | Yes | Delete group (owner only, cascade) |
+| GET | `/api/groups/:id/photos` | Yes | List photos in group (paginated) |
+| GET | `/api/groups/:id/members` | Yes | List members with roles |
+| PUT | `/api/groups/:id/members/:userId` | Yes | Update member role (owner only) |
+| DELETE | `/api/groups/:id/members/:userId` | Yes | Remove member (owner/admin) |
+| DELETE | `/api/groups/:id/leave` | Yes | Leave group (non-owner) |
+| POST | `/api/groups/:id/invites` | Yes | Create invite link (owner/admin) |
+| GET | `/api/groups/:id/invites` | Yes | List invites (owner/admin) |
+| DELETE | `/api/groups/:id/invites/:inviteId` | Yes | Revoke invite (owner/admin) |
+| POST | `/api/groups/:id/invite-email` | Yes | Send email invite via SendGrid (owner/admin) |
+
+### Public Invite Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/invites/:token` | No | Get invite info (group name, inviter) |
+| POST | `/api/invites/:token/join` | Yes | Accept invite and join group |
+
+### Key Design Decisions
+
+- **Role-based access:** owner > admin > member with specific permission gates
+- **Invite links:** Token-based with optional expiration and max-use limits
+- **Email invites:** Via SendGrid with invite link in email body
+- **Cascade delete:** Deleting a group removes memberships, invites (photos set to null)
+- **Rate limiting:** Group invites limited to 50/hour per IP
+
+---
+
 ## SSE Progress Streaming (Phase 4.7)
 
 Server-Sent Events endpoints for bulk operations with real-time progress.
@@ -520,6 +546,6 @@ npm run format        # Prettier
 
 ---
 
-**Last Updated:** December 13, 2025
-**Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
-**New in Phase 4.7:** SSE endpoints for bulk face detection and AI analysis with real-time progress streaming, face re-detection now properly cleans up indexed faces from AWS
+**Last Updated:** February 8, 2026
+**Status:** Phase 5 Complete - Groups, Invites & UI Refresh
+**New in Phase 5:** Group CRUD with role-based membership (owner/admin/member), invite links with expiration/max-use, email invites via SendGrid, group-scoped photo management

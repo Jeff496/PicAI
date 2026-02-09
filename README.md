@@ -10,17 +10,18 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 
 ### Key Features
 
-- Secure user authentication with JWT (access + refresh tokens)
-- Drag-and-drop photo upload with iPhone HEIC support
-- Automatic AI tagging using Azure Computer Vision
-- Face detection and recognition using AWS Rekognition
-- People management - tag faces to organize photos by person
-- Tag management - add, remove, and filter by tags
-- Bulk operations with real-time SSE progress streaming
-- Smart album generation by date or content
-- Group photo sharing
-- Album download and public sharing
-- Privacy-first architecture with local storage
+- **Authentication** - JWT with access + refresh tokens, login/register
+- **Photo Management** - Drag-and-drop upload with iPhone HEIC support, gallery view
+- **AI Tagging** - Automatic tagging using Azure Computer Vision (objects, scenes, text, people)
+- **Face Detection** - AWS Rekognition for face detection, tagging, and recognition
+- **People** - Tag faces to organize photos by person, people browser
+- **Tag Management** - Add, remove, and filter photos by tags
+- **Bulk Operations** - Bulk analyze, detect faces, and delete with real-time SSE progress
+- **Groups** - Create groups, invite members (link or email), role-based access (owner/admin/member)
+- **Group Photos** - Upload photos to groups, group-scoped viewing and operations
+- **Landing Page** - Public landing page with feature showcase
+- **Theme** - Light/dark mode with persistent preference
+- **Privacy-first** - Photos stored locally on Raspberry Pi, not in the cloud
 
 ## Technology Stack
 
@@ -36,15 +37,18 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 - Zod 4.1.12 for validation
 - @aws-sdk/client-rekognition for face detection
 - @aws-sdk/credential-providers for IAM Roles Anywhere auth
+- @sendgrid/mail for group email invitations
+- express-rate-limit for per-endpoint rate limiting
 
 ### Frontend
 - React 19.2.0 with TypeScript 5.9.3
 - Vite 7.2.2
 - TailwindCSS 4.1.17
-- React Router 7.9.6
+- React Router DOM 7.9.6
 - TanStack Query 5.90.9
-- Zustand 5.0.8 for client state
+- Zustand 5.0.8 for client state (auth + theme)
 - Axios 1.13.2
+- Lucide React for icons
 - Sonner 2.0.3 for toast notifications
 
 ### Infrastructure
@@ -286,16 +290,17 @@ PicAI/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── layout/        # Layout components
-│   │   │   ├── photos/        # Photo-related components
-│   │   │   ├── faces/         # Face detection components
-│   │   │   └── people/        # People management components
-│   │   ├── pages/             # Page components
-│   │   ├── stores/            # Zustand state stores
-│   │   ├── hooks/             # Custom hooks
-│   │   ├── services/          # API client
+│   │   │   ├── layout/        # AppLayout, ProtectedRoute
+│   │   │   ├── photos/        # Photo grid, viewer, upload, bulk ops
+│   │   │   ├── faces/         # Face overlay, tagging popup
+│   │   │   ├── people/        # Person cards and grid
+│   │   │   └── groups/        # Group cards, member list, invite modals
+│   │   ├── pages/             # Landing, Login, Register, Photos, People, Groups, Invite
+│   │   ├── stores/            # Zustand stores (auth, theme)
+│   │   ├── hooks/             # Custom hooks (photos, faces, groups, bulk progress)
+│   │   ├── services/          # API services (auth, photos, faces, groups)
 │   │   ├── utils/             # Utility functions
-│   │   └── types/             # TypeScript types
+│   │   └── types/             # TypeScript interfaces
 │   ├── public/
 │   └── package.json
 ├── docs/
@@ -307,16 +312,17 @@ PicAI/
 ## Database Schema
 
 - **users** - User accounts and authentication
-- **groups** - Photo sharing groups
-- **group_memberships** - User-group relationships
-- **photos** - Photo metadata and file paths
-- **ai_tags** - AI-generated image tags
-- **albums** - Photo collections
+- **groups** - Photo sharing groups (name, description, creator)
+- **group_memberships** - User-group relationships with roles (owner/admin/member)
+- **group_invites** - Invite links with optional expiration and max-use limits
+- **photos** - Photo metadata and file paths (optionally linked to group)
+- **ai_tags** - AI-generated image tags with confidence scores
+- **albums** - Photo collections (auto-generated or manual)
 - **album_photos** - Album-photo relationships
 - **share_links** - Public sharing tokens
-- **face_collections** - AWS Rekognition collection per user
+- **face_collections** - AWS Rekognition collection per user (1:1)
 - **people** - Named individuals for face tagging
-- **faces** - Detected faces with bounding boxes
+- **faces** - Detected faces with bounding boxes and AWS face IDs
 
 See `backend/prisma/schema.prisma` for complete schema.
 
@@ -324,11 +330,12 @@ See `backend/prisma/schema.prisma` for complete schema.
 
 - JWT authentication with jose (15min access tokens, 7-day refresh tokens)
 - Password hashing with bcrypt (12 salt rounds)
-- Input validation using Zod schemas
+- Input validation using Zod schemas on all endpoints
 - File upload type and size validation (JPEG, PNG, HEIC only, 25MB max)
 - HTTPS enforced via Cloudflare Tunnel
 - CORS restricted to frontend domain
-- Rate limiting (100 requests/minute per IP)
+- Per-endpoint rate limiting (login, register, upload, face detection, invites)
+- Role-based group access control (owner/admin/member permissions)
 - SQL injection protection via Prisma ORM
 - AWS IAM Roles Anywhere (certificate-based auth, no static credentials)
 
@@ -342,6 +349,7 @@ All services use free tiers:
 | Azure Static Web Apps | Free | $0 |
 | AWS Rekognition | Free (12 mo) | $0 |
 | Cloudflare Tunnel | Free | $0 |
+| SendGrid | Free | $0 |
 | Raspberry Pi | Self-hosted | ~$5 (electricity) |
 | **Total** | | **~$5/month** |
 
@@ -349,6 +357,7 @@ All services use free tiers:
 - Azure Computer Vision: 5,000 calls/month, 20/minute
 - AWS Rekognition: 5,000 DetectFaces/month, 1,000 IndexFaces/month (first 12 months)
 - Azure Static Web Apps: 100GB bandwidth/month
+- SendGrid: 100 emails/day (free tier)
 
 ## Troubleshooting
 

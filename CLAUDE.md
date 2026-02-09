@@ -1,9 +1,9 @@
 # CLAUDE.md - PicAI Main Project Guide
 
-**Last Updated:** December 13, 2025
-**Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
+**Last Updated:** February 8, 2026
+**Status:** Phase 5 Complete - Groups, Invites & UI Refresh
 
-This file provides guidance to Claude Code when working in the PicAI repository with the November 2025 technology stack.
+This file provides guidance to Claude Code when working in the PicAI repository.
 
 **Production:** https://piclyai.net
 
@@ -32,10 +32,11 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 - Hosted on Azure Static Web Apps (Free tier)
 - TailwindCSS 4.1.17 for styling (CSS-first configuration)
 - Vite 7.2.2 for build tooling
-- Zustand 5.0.8 for client state (with localStorage persistence)
+- Zustand 5.0.8 for client state (auth + theme with localStorage persistence)
 - TanStack Query 5.90.9 for server state
 - Axios 1.13.2 for API calls (with token refresh interceptors)
 - React Router DOM 7.9.6 for routing
+- Lucide React for icons
 - Zod 4.1.12 for validation
 
 **Backend:**
@@ -50,6 +51,7 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 - **@aws-sdk/client-rekognition** for face detection and collections
 - **@aws-sdk/credential-providers** for IAM Roles Anywhere authentication
 - Zod 4.1.12 for validation (14x faster parsing)
+- @sendgrid/mail for group email invitations
 
 **Infrastructure:**
 - Cloudflare Tunnel 2025.8.1 (UDP proxy rearchitecture)
@@ -73,18 +75,25 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 1. **users** - User accounts (id, email, password_hash, name, profile_picture_url)
 2. **groups** - Photo sharing groups (id, name, description, created_by)
 3. **group_memberships** - User-group relationships (id, group_id, user_id, role)
-4. **photos** - Photo metadata (id, user_id, group_id, filename, file_path, thumbnail_path, uploaded_at, taken_at)
-5. **ai_tags** - AI-generated labels (id, photo_id, tag, confidence, category)
-6. **albums** - Photo collections (id, name, user_id, group_id, is_auto_generated, generation_criteria)
-7. **album_photos** - Many-to-many album-photo relationship
-8. **share_links** - Public album sharing (id, album_id, token, expires_at)
+4. **group_invites** - Invite links with optional expiry/max uses (id, group_id, token, expires_at, max_uses, use_count, created_by)
+5. **photos** - Photo metadata (id, user_id, group_id, filename, file_path, thumbnail_path, uploaded_at, taken_at)
+6. **ai_tags** - AI-generated labels (id, photo_id, tag, confidence, category)
+7. **albums** - Photo collections (id, name, user_id, group_id, is_auto_generated, generation_criteria)
+8. **album_photos** - Many-to-many album-photo relationship
+9. **share_links** - Public album sharing (id, album_id, token, expires_at)
+10. **face_collections** - AWS Rekognition collection per user (1:1 with user)
+11. **people** - Named individuals for face tagging (id, name, collection_id)
+12. **faces** - Detected faces with bounding boxes (id, photo_id, person_id, aws_face_id, bounding_box, confidence)
 
 **Key Relationships:**
-- Users can belong to multiple groups
+- Users can belong to multiple groups (via group_memberships with role: owner/admin/member)
 - Photos belong to one user and optionally one group
-- Photos can have multiple AI tags
+- Photos can have multiple AI tags and detected faces
+- Faces can be linked to a Person for recognition
+- Each user has one FaceCollection (created lazily)
 - Albums can contain multiple photos, photos can be in multiple albums
 - Share links are tied to specific albums
+- Group invites support expiration and use limits
 
 **Prisma 6 Configuration:**
 ```prisma
@@ -114,15 +123,25 @@ PicAI/
 │   │   ├── routes/
 │   │   │   ├── auth.routes.ts # Auth endpoints
 │   │   │   ├── photos.routes.ts # Photo CRUD + tag management
-│   │   │   └── ai.routes.ts   # AI analysis endpoints
+│   │   │   ├── ai.routes.ts   # AI analysis endpoints
+│   │   │   ├── faces.routes.ts # Face tagging endpoints
+│   │   │   ├── people.routes.ts # Person management endpoints
+│   │   │   ├── groups.routes.ts # Group CRUD, membership, invites
+│   │   │   └── invites.routes.ts # Public invite link handling
 │   │   ├── controllers/
 │   │   │   ├── auth.controller.ts
 │   │   │   ├── photos.controller.ts
-│   │   │   └── ai.controller.ts
+│   │   │   ├── ai.controller.ts
+│   │   │   ├── faces.controller.ts
+│   │   │   ├── people.controller.ts
+│   │   │   └── groups.controller.ts
 │   │   ├── services/
 │   │   │   ├── authService.ts # JWT with jose
 │   │   │   ├── fileService.ts # Photo storage, thumbnails, HEIC conversion
-│   │   │   └── aiService.ts   # Azure Computer Vision integration
+│   │   │   ├── aiService.ts   # Azure Computer Vision integration
+│   │   │   ├── rekognitionService.ts # AWS Rekognition face collections
+│   │   │   ├── groupService.ts # Group operations and membership
+│   │   │   └── emailService.ts # SendGrid email invitations
 │   │   ├── middleware/
 │   │   │   ├── auth.middleware.ts
 │   │   │   ├── validate.middleware.ts
@@ -131,7 +150,10 @@ PicAI/
 │   │   ├── schemas/
 │   │   │   ├── auth.schema.ts # Zod schemas
 │   │   │   ├── photo.schema.ts
-│   │   │   └── ai.schema.ts
+│   │   │   ├── ai.schema.ts
+│   │   │   ├── face.schema.ts
+│   │   │   ├── people.schema.ts
+│   │   │   └── groups.schema.ts
 │   │   ├── utils/
 │   │   │   └── logger.ts      # Winston logger
 │   │   ├── prisma/
@@ -151,43 +173,69 @@ PicAI/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── CLAUDE.md              # Backend-specific guidance
-├── frontend/                   # React app (Phase 4 Complete)
+├── frontend/                   # React app (Phase 5 Complete)
 │   ├── src/
-│   │   ├── main.tsx           # Entry point with React Query
+│   │   ├── main.tsx           # Entry point with React Query + Sonner
 │   │   ├── App.tsx            # Router configuration
 │   │   ├── index.css          # TailwindCSS 4 config
 │   │   ├── stores/
-│   │   │   └── authStore.ts   # Zustand auth state
+│   │   │   ├── authStore.ts   # Zustand auth state
+│   │   │   └── themeStore.ts  # Zustand theme state (light/dark)
 │   │   ├── services/
 │   │   │   ├── api.ts         # Axios with JWT interceptors
 │   │   │   ├── auth.ts        # Auth API service
 │   │   │   ├── photos.ts      # Photo API service + AI methods
-│   │   │   └── faces.ts       # Face detection & people management API
+│   │   │   ├── faces.ts       # Face detection & people management API
+│   │   │   └── groups.ts      # Group CRUD, membership, invites API
 │   │   ├── utils/
 │   │   │   └── toast.ts       # Toast utilities for bulk operation feedback
 │   │   ├── hooks/
 │   │   │   ├── usePhotos.ts   # TanStack Query hooks + AI mutations
 │   │   │   ├── useFaces.ts    # Face detection & people management hooks
-│   │   │   └── useBulkProgress.ts # SSE-based bulk operation progress tracking
+│   │   │   ├── useGroups.ts   # Group CRUD, membership, invite hooks
+│   │   │   ├── useBulkProgress.ts # SSE-based bulk operation progress tracking
+│   │   │   └── usePhotoSelection.ts # Selection mode state management
 │   │   ├── types/
-│   │   │   └── api.ts         # TypeScript interfaces (with PhotoTag id)
+│   │   │   └── api.ts         # TypeScript interfaces
 │   │   ├── pages/
+│   │   │   ├── LandingPage.tsx    # Public landing page with hero + features
 │   │   │   ├── LoginPage.tsx
 │   │   │   ├── RegisterPage.tsx
-│   │   │   └── PhotosPage.tsx # Includes TagFilter
+│   │   │   ├── PhotosPage.tsx     # Gallery with tag/group filter
+│   │   │   ├── PeoplePage.tsx     # People browser
+│   │   │   ├── PersonPhotosPage.tsx # Photos of specific person
+│   │   │   ├── GroupsPage.tsx     # Group list
+│   │   │   ├── GroupDetailPage.tsx # Group photos + members + invites
+│   │   │   └── InvitePage.tsx     # Public invite acceptance
 │   │   └── components/
 │   │       ├── layout/
+│   │       │   ├── AppLayout.tsx      # Header, nav, theme toggle, logout
 │   │       │   └── ProtectedRoute.tsx
-│   │       └── photos/
-│   │           ├── index.ts       # Barrel export
-│   │           ├── PhotoCard.tsx
-│   │           ├── PhotoGrid.tsx
-│   │           ├── UploadForm.tsx
-│   │           ├── PhotoViewer.tsx # Includes TagManagement
-│   │           ├── TagFilter.tsx   # Tag filtering input
-│   │           ├── TagManagement.tsx # Add/remove tags, re-analyze
-│   │           ├── BulkActionBar.tsx # Bulk operations toolbar (SSE progress)
-│   │           └── BulkProgressModal.tsx # Real-time progress modal for bulk ops
+│   │       ├── photos/
+│   │       │   ├── index.ts       # Barrel export
+│   │       │   ├── PhotoCard.tsx
+│   │       │   ├── PhotoGrid.tsx
+│   │       │   ├── UploadForm.tsx
+│   │       │   ├── PhotoViewer.tsx # Full-screen modal + TagManagement
+│   │       │   ├── TagFilter.tsx
+│   │       │   ├── TagManagement.tsx
+│   │       │   ├── BulkActionBar.tsx
+│   │       │   └── BulkProgressModal.tsx
+│   │       ├── faces/
+│   │       │   ├── index.ts
+│   │       │   ├── FaceOverlay.tsx
+│   │       │   ├── FaceTagPopup.tsx
+│   │       │   └── DetectFacesButton.tsx
+│   │       ├── people/
+│   │       │   ├── index.ts
+│   │       │   ├── PersonCard.tsx
+│   │       │   └── PersonGrid.tsx
+│   │       └── groups/
+│   │           ├── GroupCard.tsx
+│   │           ├── GroupMemberList.tsx
+│   │           ├── CreateGroupModal.tsx
+│   │           ├── InviteLinkModal.tsx
+│   │           └── EmailInviteModal.tsx
 │   ├── public/
 │   ├── .env                   # DO NOT COMMIT
 │   ├── package.json
@@ -374,6 +422,43 @@ PicAI/
 - Setup guide: `docs/AWS_REKOGNITION_SETUP.md`
 - PKI details: `backend/pki/README.md`
 
+### Groups & Invites (Phase 5) - Implemented
+
+**Purpose:** Collaborative photo sharing with role-based membership
+**Status:** ✅ Complete (February 2026)
+
+**Group Endpoints:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/groups` | Create group |
+| GET | `/api/groups` | List user's groups (paginated) |
+| GET | `/api/groups/:id` | Get group details |
+| PUT | `/api/groups/:id` | Update group (owner only) |
+| DELETE | `/api/groups/:id` | Delete group (owner only) |
+| GET | `/api/groups/:id/photos` | List photos in group |
+| GET | `/api/groups/:id/members` | List members |
+| PUT | `/api/groups/:id/members/:userId` | Update member role (owner only) |
+| DELETE | `/api/groups/:id/members/:userId` | Remove member |
+| DELETE | `/api/groups/:id/leave` | Leave group |
+| POST | `/api/groups/:id/invites` | Create invite link (owner/admin) |
+| GET | `/api/groups/:id/invites` | List invites (owner/admin) |
+| DELETE | `/api/groups/:id/invites/:inviteId` | Revoke invite (owner/admin) |
+| POST | `/api/groups/:id/invite-email` | Send email invite (owner/admin) |
+
+**Public Invite Endpoints:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/invites/:token` | Get invite info (public, no auth) |
+| POST | `/api/invites/:token/join` | Join via invite link (auth required) |
+
+**Key Features:**
+- Role-based membership: owner, admin, member
+- Invite links with optional expiration and max-use limits
+- Email invitations via SendGrid
+- Group-scoped photo upload, viewing, and bulk operations
+- Owner can edit/delete group and manage member roles
+- Members can leave, admins can invite
+
 ### Bulk Operations with SSE Progress Streaming (Phase 4.7)
 
 **Purpose:** Real-time progress feedback for bulk photo operations
@@ -508,6 +593,8 @@ VITE_API_URL=https://your-cloudflare-tunnel.com/api
 - Zod 4.1.12 (14x faster)
 - Sharp 0.34.5
 - **heic-convert** (HEIC→JPEG for iPhone photos)
+- **@sendgrid/mail** (email invitations)
+- **express-rate-limit** (per-endpoint rate limiting)
 - Winston 3.18.3
 - Multer 2.0.2 (security patched)
 - PM2 6.0.13
@@ -519,8 +606,9 @@ VITE_API_URL=https://your-cloudflare-tunnel.com/api
 - TailwindCSS 4.1.17 (CSS-first config)
 - React Router DOM 7.9.6
 - TanStack Query 5.90.9
-- Zustand 5.0.8 (client state with persistence)
+- Zustand 5.0.8 (auth + theme state with persistence)
 - Axios 1.13.2
+- Lucide React (icons)
 - Zod 4.1.12
 - **Sonner 2.0.3** (toast notifications for bulk operations)
 
@@ -658,7 +746,7 @@ export const env = envSchema.parse(process.env);
 
 ---
 
-**Last Updated:** December 13, 2025
-**Project Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
+**Last Updated:** February 8, 2026
+**Project Status:** Phase 5 Complete - Groups, Invites & UI Refresh
 **Production URL:** https://piclyai.net
-**Critical Changes:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), Tag filtering and management UI implemented, AWS Rekognition with IAM Roles Anywhere (complete - face detection, tagging, people management), SSE progress streaming for bulk operations with Sonner toast notifications
+**Key Decisions:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), AWS Rekognition with IAM Roles Anywhere, SendGrid for email invites, Lucide React for icons, light/dark theme support

@@ -1,11 +1,11 @@
 # Frontend CLAUDE.md - PicAI React Application
 
-**Last Updated:** December 13, 2025
-**Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
+**Last Updated:** February 8, 2026
+**Status:** Phase 5 Complete - Groups, Invites & UI Refresh
 
-**Technology:** React 19.2.0 + TypeScript 5.9.3 + Vite 7.2.2 + TailwindCSS 4.1.17 + Zustand 5.0.8 + Sonner 2.0.3
+**Technology:** React 19.2.0 + TypeScript 5.9.3 + Vite 7.2.2 + TailwindCSS 4.1.17 + Zustand 5.0.8 + Lucide React + Sonner 2.0.3
 
-Frontend-specific guidance for the PicAI React application with November 2025 technology stack.
+Frontend-specific guidance for the PicAI React application.
 
 **See main `CLAUDE.md` in project root for overall architecture and conventions.**
 
@@ -133,38 +133,47 @@ Browser targets upgraded:
 ```
 frontend/
 ├── src/
-│   ├── main.tsx                 # React + React Query entry point
+│   ├── main.tsx                 # React + React Query + Sonner entry point
 │   ├── App.tsx                  # Root component with routing
 │   ├── index.css                # TailwindCSS 4 configuration
 │   ├── stores/
-│   │   └── authStore.ts         # Zustand auth state with persistence
+│   │   ├── authStore.ts         # Zustand auth state with persistence
+│   │   └── themeStore.ts        # Zustand theme state (light/dark)
 │   ├── services/
 │   │   ├── api.ts               # Axios instance with JWT interceptors
 │   │   ├── auth.ts              # Auth API (login, register, refresh)
 │   │   ├── photos.ts            # Photo API (upload, list, delete, AI methods)
-│   │   └── faces.ts             # Face detection & people management API
+│   │   ├── faces.ts             # Face detection & people management API
+│   │   └── groups.ts            # Group CRUD, membership, invites API
 │   ├── hooks/
 │   │   ├── usePhotos.ts         # TanStack Query hooks + AI mutation hooks
 │   │   ├── useFaces.ts          # Face detection & people management hooks
-│   │   └── useBulkProgress.ts   # SSE-based bulk operation progress tracking
+│   │   ├── useGroups.ts         # Group CRUD, membership, invite hooks
+│   │   ├── useBulkProgress.ts   # SSE-based bulk operation progress tracking
+│   │   └── usePhotoSelection.ts # Selection mode state management
 │   ├── utils/
 │   │   └── toast.ts             # Toast utilities for bulk operation feedback
 │   ├── types/
-│   │   └── api.ts               # TypeScript interfaces (Photo, Face, Person, BoundingBox)
+│   │   └── api.ts               # TypeScript interfaces (Photo, Face, Person, Group, etc.)
 │   ├── pages/
+│   │   ├── LandingPage.tsx      # Public landing page with hero + features
 │   │   ├── LoginPage.tsx        # Login form
 │   │   ├── RegisterPage.tsx     # Registration form
-│   │   ├── PhotosPage.tsx       # Main gallery page with TagFilter
-│   │   ├── PeoplePage.tsx       # People browser page
-│   │   └── PersonPhotosPage.tsx # Photos of specific person
+│   │   ├── PhotosPage.tsx       # Main gallery with tag/group filter
+│   │   ├── PeoplePage.tsx       # People browser page (searchable)
+│   │   ├── PersonPhotosPage.tsx # Photos of specific person
+│   │   ├── GroupsPage.tsx       # Group list (searchable, create group)
+│   │   ├── GroupDetailPage.tsx  # Group photos + members + invites (tabs)
+│   │   └── InvitePage.tsx       # Public invite acceptance page
 │   └── components/
 │       ├── layout/
-│       │   └── ProtectedRoute.tsx  # Auth route guard
+│       │   ├── AppLayout.tsx    # Header, 3-tab nav, theme toggle, logout
+│       │   └── ProtectedRoute.tsx # Auth route guard
 │       ├── photos/
 │       │   ├── index.ts         # Barrel export
 │       │   ├── PhotoCard.tsx    # Individual photo card
-│       │   ├── PhotoGrid.tsx    # Responsive photo grid
-│       │   ├── UploadForm.tsx   # Drag-and-drop upload
+│       │   ├── PhotoGrid.tsx    # Responsive photo grid with selection
+│       │   ├── UploadForm.tsx   # Drag-and-drop upload (optional groupId)
 │       │   ├── PhotoViewer.tsx  # Full-screen modal with TagManagement
 │       │   ├── TagFilter.tsx    # Tag search/filter input
 │       │   ├── TagManagement.tsx # Add/remove tags, re-analyze button
@@ -175,10 +184,16 @@ frontend/
 │       │   ├── FaceOverlay.tsx  # SVG face bounding boxes on images
 │       │   ├── FaceTagPopup.tsx # Popup for tagging/naming faces
 │       │   └── DetectFacesButton.tsx # Manual face detection trigger
-│       └── people/
-│           ├── index.ts         # Barrel export
-│           ├── PersonCard.tsx   # Individual person card
-│           └── PersonGrid.tsx   # Responsive people grid
+│       ├── people/
+│       │   ├── index.ts         # Barrel export
+│       │   ├── PersonCard.tsx   # Individual person card
+│       │   └── PersonGrid.tsx   # Responsive people grid
+│       └── groups/
+│           ├── GroupCard.tsx     # Group card with member/photo counts
+│           ├── GroupMemberList.tsx # Member list with role badges + management
+│           ├── CreateGroupModal.tsx # Modal to create new group
+│           ├── InviteLinkModal.tsx  # Modal showing shareable invite link
+│           └── EmailInviteModal.tsx # Modal to send email invites
 ├── public/
 ├── .env                          # DO NOT COMMIT
 ├── .env.example
@@ -189,7 +204,9 @@ frontend/
 └── CLAUDE.md                     # This file
 ```
 
-**Note:** Uses Zustand for auth state (not Context API as originally planned). See `/.claude/context/frontend/` for detailed documentation.
+**Notes:**
+- Uses Zustand for auth + theme state (not Context API)
+- See `/.claude/context/frontend/` for detailed documentation
 
 ---
 
@@ -371,47 +388,25 @@ function PhotosPage() {
 
 ## React Router 7.9.5 Configuration
 
-### Single Package Setup
+### Routing (App.tsx)
 
-```typescript
-// src/main.tsx
-import { createBrowserRouter, RouterProvider } from 'react-router'; // Single package!
-
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <Layout />,
-    children: [
-      { index: true, element: <Dashboard /> },
-      { path: 'login', element: <Login /> },
-      { path: 'photos', element: <Photos /> },
-      { path: 'albums/:id', element: <AlbumView /> },
-    ],
-  },
-]);
-
-function App() {
-  return <RouterProvider router={router} />;
-}
+```
+/ → LandingPage (public)
+/login → LoginPage (public)
+/register → RegisterPage (public)
+/photos → PhotosPage (protected)
+/people → PeoplePage (protected)
+/people/:personId → PersonPhotosPage (protected)
+/groups → GroupsPage (protected)
+/groups/:groupId → GroupDetailPage (protected)
+/invite/:token → InvitePage (public)
+* → 404 page
 ```
 
-### Data Loading with TypeScript
-
-```typescript
-// src/routes/photos.tsx
-import { loader as photosLoader } from './photos.loader';
-
-export async function loader() {
-  const photos = await api.get('/photos');
-  return photos.data;
-}
-
-// Type-safe access
-function Photos() {
-  const photos = useLoaderData() as Awaited<ReturnType<typeof photosLoader>>;
-  return <PhotoGrid photos={photos} />;
-}
-```
+**Key patterns:**
+- `ProtectedRoute` passes `state={{ from: location }}` for post-login redirect
+- `InvitePage` is NOT wrapped in ProtectedRoute (public GET, authenticated POST)
+- `AppLayout` provides the shared header with 3-tab nav (Photos/People/Groups)
 
 ---
 
@@ -509,47 +504,22 @@ function LoginPage() {
 
 ---
 
-## Package.json for November 2025
+## Key Dependencies
 
 ```json
 {
-  "name": "picai-frontend",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "type-check": "tsc --noEmit"
-  },
   "dependencies": {
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "@tailwindcss/vite": "^4.1.17",
     "@tanstack/react-query": "^5.90.9",
-    "react-router": "^7.9.5",
+    "@tanstack/react-query-devtools": "^5.91.1",
     "axios": "^1.13.2",
+    "lucide-react": "^0.563.0",
+    "react-router-dom": "^7.9.6",
+    "sonner": "^2.0.3",
     "zod": "^4.1.12",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.5",
-    "lucide-react": "^0.460.0"
-  },
-  "devDependencies": {
-    "@types/node": "^24.10.1",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "@vitejs/plugin-react": "^5.1.0",
-    "@tanstack/react-query-devtools": "^5.90.9",
-    "@tailwindcss/vite": "^4.0.0",
-    "tailwindcss": "^4.0.0",
-    "typescript": "^5.9.3",
-    "vite": "^7.0.0",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24"
-  },
-  "engines": {
-    "node": ">=20.19.0 || >=22.12.0"
+    "zustand": "^5.0.8"
   }
 }
 ```
@@ -740,20 +710,22 @@ export function showBulkOperationToast(operation: BulkOperation, summary: BulkSu
 
 ## Important Reminders
 
-1. **Use Zustand for auth state** - Not Context API (already implemented)
+1. **Use Zustand for auth + theme state** - Not Context API
 2. **Use `import.meta.env` not `process.env`** - Vite requirement
 3. **Prefix env vars with VITE_** - or they won't be exposed
 4. **Backend uses jose for JWT** - tokens are compatible
-5. **TanStack Query 5.90** - Use for server state (photos, etc.)
+5. **TanStack Query 5.90** - Use for server state (photos, groups, etc.)
 6. **React Router DOM 7** - Use react-router-dom (not react-router)
 7. **TailwindCSS 4** - Configure in CSS with `@theme`, not JS
 8. **Vite 7** - Requires Node.js 20.19+ or 22.12+
 9. **Use @ path alias** - Configure in vite.config.ts
 10. **Blob URLs for auth-protected images** - Use useThumbnail hook
 11. **Face detection is manual** - User must click "Detect Faces" button (not automatic)
-12. **AWS Rekognition integration** - Face bounding boxes, tagging, and people management via useFaces hooks
-13. **Bulk operations use SSE** - useBulkProgress hook for real-time progress tracking
-14. **Sonner for toasts** - Use showBulkOperationToast() for bulk operation feedback
+12. **Bulk operations use SSE** - useBulkProgress hook for real-time progress tracking
+13. **Sonner for toasts** - Use showBulkOperationToast() for bulk operation feedback
+14. **Lucide React for icons** - Camera, Sun, Moon, LogOut, Upload, Users, etc.
+15. **Groups use role-based access** - owner/admin/member with permission checks
+16. **InvitePage is public** - Not wrapped in ProtectedRoute (public GET, authenticated POST)
 
 ---
 
@@ -767,7 +739,7 @@ For detailed examples and patterns, see:
 
 ---
 
-**Last Updated:** December 13, 2025
-**Status:** Phase 4.7 Complete - Bulk Operations with SSE Progress Streaming
+**Last Updated:** February 8, 2026
+**Status:** Phase 5 Complete - Groups, Invites & UI Refresh
 **Domain:** piclyai.net
-**New in Phase 4.7:** Bulk operations toolbar (BulkActionBar), SSE progress modal (BulkProgressModal), useBulkProgress hook for real-time streaming, Sonner toast notifications for operation feedback, selection mode for photo grid
+**New in Phase 5:** Group CRUD (GroupsPage, GroupDetailPage), invite links (InviteLinkModal) and email invites (EmailInviteModal), role-based member management (GroupMemberList), public landing page (LandingPage), AppLayout with 3-tab nav, light/dark theme toggle (themeStore), Lucide React icons, group-scoped photo upload and filtering
