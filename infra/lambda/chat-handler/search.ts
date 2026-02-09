@@ -84,24 +84,31 @@ async function signedRequest(
   return { statusCode: response.status, body: responseBody };
 }
 
+// Minimum absolute score (cosinesimil: 0.5 = orthogonal/no correlation)
+const MIN_SCORE = parseFloat(process.env.MIN_SEARCH_SCORE || '0.5');
+// Drop results scoring below this fraction of the top result's score
+const RELATIVE_SCORE_CUTOFF = parseFloat(process.env.RELATIVE_SCORE_CUTOFF || '0.75');
+
 /**
  * Search for photos similar to a query using k-NN vector search.
  * Embeds the query text, then performs k-NN on OpenSearch.
+ * Filters results by absolute and relative score thresholds
+ * so only genuinely relevant photos are returned.
  *
  * @param query - Natural language query from user
  * @param userId - Filter results to this user's photos
- * @param k - Number of results to return (default 5)
- * @returns Array of matched photos with similarity scores
+ * @param k - Number of candidates to fetch from OpenSearch (default 10)
+ * @returns Array of matched photos with similarity scores, filtered by relevance
  */
 export async function searchPhotos(
   query: string,
   userId: string,
-  k: number = 5
+  k: number = 10
 ): Promise<PhotoMatch[]> {
   // Step 1: Embed the query
   const queryVector = await embedQuery(query);
 
-  // Step 2: k-NN search with user filter
+  // Step 2: k-NN search with user filter (fetch extra candidates for filtering)
   const searchBody = {
     size: k,
     query: {
@@ -138,8 +145,28 @@ export async function searchPhotos(
   const parsed = JSON.parse(result.body);
   const hits = parsed.hits?.hits || [];
 
-  return hits.map((hit: { _source: Record<string, string>; _score: number }) => ({
+  const allResults: PhotoMatch[] = hits.map((hit: { _source: Record<string, string>; _score: number }) => ({
     ...hit._source,
     score: hit._score,
   }));
+
+  if (allResults.length === 0) return [];
+
+  // Step 3: Filter by score thresholds
+  const topScore = allResults[0].score;
+  const relativeThreshold = topScore * RELATIVE_SCORE_CUTOFF;
+  const threshold = Math.max(MIN_SCORE, relativeThreshold);
+
+  const filtered = allResults.filter((r) => r.score >= threshold);
+
+  console.log(
+    `Score filtering: top=${topScore.toFixed(3)}, threshold=${threshold.toFixed(3)} ` +
+    `(abs=${MIN_SCORE}, rel=${relativeThreshold.toFixed(3)}), ` +
+    `${allResults.length} candidates → ${filtered.length} passed`
+  );
+  for (const r of allResults) {
+    console.log(`  [${r.score >= threshold ? 'KEEP' : 'DROP'}] ${r.photoId} score=${r.score.toFixed(3)} tags=${r.tags || 'none'}`);
+  }
+
+  return filtered;
 }
