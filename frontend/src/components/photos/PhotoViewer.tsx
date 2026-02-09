@@ -110,7 +110,9 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
   // Prevent body scroll when modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, []);
 
   // Track image dimensions for face overlay
@@ -203,7 +205,9 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
             {'width' in photo && photo.width && photo.height && (
               <div className="flex items-center gap-2 text-xs text-white/40">
                 <Maximize2 className="h-3.5 w-3.5" />
-                <span>{photo.width} x {photo.height}</span>
+                <span>
+                  {photo.width} x {photo.height}
+                </span>
               </div>
             )}
           </div>
@@ -219,9 +223,7 @@ export function PhotoViewer({ photo: initialPhoto, onClose }: PhotoViewerProps) 
               onDetected={() => refetchFaces()}
             />
             {faces.length > 0 && (
-              <p className="mt-2 text-xs text-white/40">
-                Click on faces in the image to tag them.
-              </p>
+              <p className="mt-2 text-xs text-white/40">Click on faces in the image to tag them.</p>
             )}
           </div>
 

@@ -94,7 +94,10 @@ export function GroupsPage() {
       {isLoading ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="animate-pulse overflow-hidden rounded-lg border border-gray-200 dark:border-white/5">
+            <div
+              key={i}
+              className="animate-pulse overflow-hidden rounded-lg border border-gray-200 dark:border-white/5"
+            >
               <div className="aspect-square bg-gray-100 dark:bg-white/5" />
               <div className="space-y-2 p-3">
                 <div className="h-4 w-24 rounded bg-gray-100 dark:bg-white/5" />

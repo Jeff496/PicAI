@@ -77,8 +77,8 @@ export function LandingPage() {
             <span className="text-gray-300 dark:text-gray-600">intelligently.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-gray-500 dark:text-gray-400">
-            Upload your photos and let AI automatically tag, sort, and organize them.
-            Share albums with groups. Find any photo in seconds.
+            Upload your photos and let AI automatically tag, sort, and organize them. Share albums
+            with groups. Find any photo in seconds.
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
             <Link
@@ -124,7 +124,9 @@ export function LandingPage() {
                   <f.icon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </div>
                 <h3 className="text-base font-semibold">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{f.desc}</p>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                  {f.desc}
+                </p>
               </div>
             ))}
           </div>
@@ -139,7 +141,9 @@ export function LandingPage() {
         <div className="mx-auto max-w-xl text-center">
           <Image className="mx-auto mb-6 h-8 w-8 text-gray-300 dark:text-gray-600" />
           <h2 className="text-2xl font-bold">Ready to organize your photos?</h2>
-          <p className="mt-3 text-gray-500 dark:text-gray-400">Free to use. Self-hosted on your own hardware.</p>
+          <p className="mt-3 text-gray-500 dark:text-gray-400">
+            Free to use. Self-hosted on your own hardware.
+          </p>
           <Link
             to="/register"
             className="mt-8 inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition-all hover:bg-accent-hover"

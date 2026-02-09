@@ -55,7 +55,9 @@ export function RegisterPage() {
         <div className="text-center">
           <Link to="/" className="inline-flex items-center gap-2">
             <Camera className="h-6 w-6 text-accent" />
-            <span className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">PicAI</span>
+            <span className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              PicAI
+            </span>
           </Link>
           <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Create your account</p>
         </div>
@@ -70,35 +72,62 @@ export function RegisterPage() {
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
                 Full name
               </label>
               <input
-                id="name" name="name" type="text" autoComplete="name" required
-                value={name} onChange={(e) => setName(e.target.value)}
-                className={inputClasses} placeholder="John Doe"
+                id="name"
+                name="name"
+                type="text"
+                autoComplete="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={inputClasses}
+                placeholder="John Doe"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
                 Email address
               </label>
               <input
-                id="email" name="email" type="email" autoComplete="email" required
-                value={email} onChange={(e) => setEmail(e.target.value)}
-                className={inputClasses} placeholder="you@example.com"
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClasses}
+                placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
                 Password
               </label>
               <input
-                id="password" name="password" type="password" autoComplete="new-password" required
-                value={password} onChange={(e) => setPassword(e.target.value)}
-                className={inputClasses} placeholder="••••••••"
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClasses}
+                placeholder="••••••••"
               />
               <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                 Must contain uppercase, lowercase, number, and special character
@@ -106,13 +135,22 @@ export function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
                 Confirm password
               </label>
               <input
-                id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" required
-                value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                className={inputClasses} placeholder="••••••••"
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className={inputClasses}
+                placeholder="••••••••"
               />
             </div>
           </div>

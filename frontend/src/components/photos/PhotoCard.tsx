@@ -48,7 +48,9 @@ export function PhotoCard({
   return (
     <div
       className={`group relative aspect-square cursor-pointer overflow-hidden rounded-md bg-gray-100 dark:bg-white/5 ${
-        isSelected ? 'ring-2 ring-accent ring-offset-1 ring-offset-gray-50 dark:ring-offset-gray-950' : ''
+        isSelected
+          ? 'ring-2 ring-accent ring-offset-1 ring-offset-gray-50 dark:ring-offset-gray-950'
+          : ''
       }`}
       onClick={handleClick}
     >
@@ -83,9 +85,7 @@ export function PhotoCard({
       )}
 
       {/* Selection tint */}
-      {isSelectionMode && isSelected && (
-        <div className="absolute inset-0 bg-accent/15" />
-      )}
+      {isSelectionMode && isSelected && <div className="absolute inset-0 bg-accent/15" />}
 
       {/* Delete button (hover only, not in selection mode) */}
       {!isSelectionMode && (

@@ -25,7 +25,9 @@ export function InvitePage() {
     try {
       const result = await joinMutation.mutateAsync(token);
       setJoined(true);
-      setTimeout(() => { navigate(`/groups/${result.data.group.id}`); }, 1500);
+      setTimeout(() => {
+        navigate(`/groups/${result.data.group.id}`);
+      }, 1500);
     } catch (err) {
       const axiosError = err as AxiosError<ApiError>;
       const code = axiosError.response?.data?.code;
@@ -56,7 +58,10 @@ export function InvitePage() {
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             This invite link is invalid, expired, or has reached its maximum number of uses.
           </p>
-          <Link to="/login" className="mt-6 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover">
+          <Link
+            to="/login"
+            className="mt-6 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+          >
             Go to Login
           </Link>
         </div>
@@ -73,7 +78,9 @@ export function InvitePage() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Joined "{inviteInfo.group.name}"
           </h2>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Redirecting to the group...</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Redirecting to the group...
+          </p>
         </div>
       </div>
     );
@@ -87,7 +94,9 @@ export function InvitePage() {
         <div className="text-center">
           <Link to="/" className="inline-flex items-center gap-2">
             <Camera className="h-6 w-6 text-accent" />
-            <span className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">PicAI</span>
+            <span className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              PicAI
+            </span>
           </Link>
           <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
             You've been invited to join a group
@@ -107,7 +116,9 @@ export function InvitePage() {
               {inviteInfo.group.name}
             </h2>
             {inviteInfo.group.description && (
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{inviteInfo.group.description}</p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {inviteInfo.group.description}
+              </p>
             )}
             <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
               Invited by {inviteInfo.invitedBy.name}

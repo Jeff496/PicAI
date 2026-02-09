@@ -94,9 +94,7 @@ export function AppLayout({ children, actions }: AppLayoutProps) {
                 key={item.path}
                 to={item.path}
                 className={`flex-1 py-2 text-center text-xs font-medium transition-colors ${
-                  active
-                    ? 'text-accent'
-                    : 'text-gray-500 dark:text-gray-400'
+                  active ? 'text-accent' : 'text-gray-500 dark:text-gray-400'
                 }`}
               >
                 {item.label}
@@ -107,9 +105,7 @@ export function AppLayout({ children, actions }: AppLayoutProps) {
       </header>
 
       {/* Page content */}
-      <main className="flex-1 px-4 py-6 sm:px-6">
-        {children}
-      </main>
+      <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
     </div>
   );
 }

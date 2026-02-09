@@ -14,14 +14,25 @@ export function PhotosPage() {
   const [groupFilter, setGroupFilter] = useState<string | undefined>(undefined);
 
   const {
-    selectedPhotoIds, isSelectionMode, selectedCount,
-    toggleSelection, selectAll, deselectAll, enterSelectionMode, exitSelectionMode,
+    selectedPhotoIds,
+    isSelectionMode,
+    selectedCount,
+    toggleSelection,
+    selectAll,
+    deselectAll,
+    enterSelectionMode,
+    exitSelectionMode,
   } = usePhotoSelection();
 
   const { data: groupsResponse } = useGroups();
   const groups = groupsResponse?.data?.groups ?? [];
 
-  const { data: photosResponse, isLoading, error, refetch } = usePhotos({
+  const {
+    data: photosResponse,
+    isLoading,
+    error,
+    refetch,
+  } = usePhotos({
     tag: tagFilter || undefined,
     groupId: groupFilter,
   });
@@ -58,7 +69,7 @@ export function PhotosPage() {
       ) : (
         <>
           <button
-            onClick={() => selectedCount === photos.length ? deselectAll() : selectAll(photos)}
+            onClick={() => (selectedCount === photos.length ? deselectAll() : selectAll(photos))}
             className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5"
           >
             {selectedCount === photos.length ? 'Deselect All' : 'Select All'}
@@ -122,7 +133,9 @@ export function PhotosPage() {
                   <option value="">My Photos</option>
                   <option value="all">All Photos</option>
                   {groups.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
                   ))}
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />

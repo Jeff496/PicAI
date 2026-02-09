@@ -40,7 +40,9 @@ export function LoginPage() {
         <div className="text-center">
           <Link to="/" className="inline-flex items-center gap-2">
             <Camera className="h-6 w-6 text-accent" />
-            <span className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">PicAI</span>
+            <span className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              PicAI
+            </span>
           </Link>
           <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Sign in to your account</p>
         </div>
@@ -55,7 +57,10 @@ export function LoginPage() {
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
                 Email address
               </label>
               <input
@@ -72,7 +77,10 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
                 Password
               </label>
               <input

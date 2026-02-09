@@ -16,7 +16,12 @@ export function PersonPhotosPage() {
   const { data: personResponse, isLoading: personLoading } = usePerson(personId || '');
   const person = personResponse?.person;
 
-  const { data: photosResponse, isLoading: photosLoading, error, refetch } = usePersonPhotos(personId || '');
+  const {
+    data: photosResponse,
+    isLoading: photosLoading,
+    error,
+    refetch,
+  } = usePersonPhotos(personId || '');
   const updateMutation = useUpdatePerson();
 
   const photos = photosResponse?.photos ?? [];
