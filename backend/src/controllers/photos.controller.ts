@@ -8,6 +8,7 @@ import prisma from '../prisma/client.js';
 import { fileService, type SavePhotoResult } from '../services/fileService.js';
 import { aiService } from '../services/aiService.js';
 import { rekognitionService, type DetectedFaceWithMatch } from '../services/rekognitionService.js';
+import { ingestService } from '../services/ingestService.js';
 import logger from '../utils/logger.js';
 import type { UploadPhotoRequest, GetPhotosQuery } from '../schemas/photo.schema.js';
 
@@ -654,6 +655,9 @@ export const deletePhoto = async (req: Request, res: Response): Promise<void> =>
   // Delete files and database record
   await fileService.deletePhoto(id);
 
+  // Remove from RAG index (fire-and-forget)
+  ingestService.deletePhoto(id, req.user.id).catch(() => {});
+
   logger.info('Photo deleted', {
     photoId: id,
     userId: req.user.id,
@@ -732,6 +736,7 @@ export const bulkDeletePhotos = async (req: Request, res: Response): Promise<voi
 
     try {
       await fileService.deletePhoto(photoId);
+      ingestService.deletePhoto(photoId, req.user!.id).catch(() => {});
       results.push({ photoId, success: true });
     } catch (error) {
       results.push({

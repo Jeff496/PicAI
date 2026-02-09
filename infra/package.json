@@ -1,0 +1,33 @@
+{
+  "name": "picai-infra",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "type-check": "tsc --noEmit && tsc --noEmit -p lambda/tsconfig.json",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "diff": "cdk diff",
+    "destroy": "cdk destroy"
+  },
+  "dependencies": {
+    "@aws-crypto/sha256-js": "^5.2.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.985.0",
+    "@aws-sdk/client-dynamodb": "^3.985.0",
+    "@aws-sdk/credential-provider-node": "^3.972.6",
+    "@aws-sdk/lib-dynamodb": "^3.985.0",
+    "@smithy/protocol-http": "^5.3.8",
+    "@smithy/signature-v4": "^5.3.8",
+    "aws-cdk-lib": "^2.237.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.159",
+    "@types/node": "^22.0.0",
+    "aws-cdk": "^2.237.0",
+    "esbuild": "^0.27.3",
+    "typescript": "~5.9.0"
+  }
+}

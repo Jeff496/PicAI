@@ -117,6 +117,9 @@ const envSchema = z.object({
     ),
   MAX_FILE_SIZE: z.coerce.number().int().positive().default(26214400), // 25MB in bytes
 
+  // RAG Chatbot Ingest (Optional - Phase 6)
+  INGEST_API_URL: z.string().url().optional(),
+
   // SendGrid Email Service (Optional)
   SENDGRID_API_KEY: z.string().optional(),
   SENDGRID_FROM_EMAIL: z.string().email().optional(),

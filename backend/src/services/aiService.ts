@@ -7,6 +7,7 @@ import fs from 'fs/promises';
 import { env } from '../config/env.js';
 import prisma from '../prisma/client.js';
 import logger from '../utils/logger.js';
+import { ingestService } from './ingestService.js';
 
 /**
  * Retry configuration for exponential backoff
@@ -280,6 +281,9 @@ class AIService {
       });
       logger.info('AI tags saved', { photoId, tagCount: tags.length });
     }
+
+    // Trigger RAG ingest (fire-and-forget)
+    ingestService.indexPhoto(photoId).catch(() => {});
 
     return tags;
   }
@@ -578,6 +582,9 @@ class AIService {
 
     logger.info('Manual tag added', { photoId, tag, category });
 
+    // Re-index for RAG (fire-and-forget)
+    ingestService.indexPhoto(photoId).catch(() => {});
+
     return {
       id: newTag.id,
       tag: newTag.tag,
@@ -606,6 +613,9 @@ class AIService {
     });
 
     logger.info('Tag removed', { photoId, tagId, tag: tag.tag });
+
+    // Re-index for RAG (fire-and-forget)
+    ingestService.indexPhoto(photoId).catch(() => {});
   }
 }
 

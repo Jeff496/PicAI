@@ -45,6 +45,12 @@ prisma/migrations/*.sql
 # Claude
 .claude
 
+# CDK
+infra/dist/
+infra/cdk.out/
+infra/*.js
+infra/*.d.ts
+
 # PKI
 backend/pki/ca/ca.key
 backend/pki/certs/*.key
