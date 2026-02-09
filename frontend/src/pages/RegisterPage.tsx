@@ -1,10 +1,7 @@
-// src/pages/RegisterPage.tsx
-// Registration page with email/password/name form
-// Simple functional UI for testing API integration
-
 import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
+import { Camera } from 'lucide-react';
 import { authService } from '@/services/auth';
 import { useAuthStore } from '@/stores/authStore';
 import type { ApiError } from '@/types/api';
@@ -24,7 +21,6 @@ export function RegisterPage() {
     e.preventDefault();
     setError(null);
 
-    // Client-side validation
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -49,26 +45,32 @@ export function RegisterPage() {
     }
   };
 
+  const inputClasses =
+    'mt-1.5 block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder-gray-500';
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-gray-900">
-      <div className="w-full max-w-md space-y-8">
-        {/* Header */}
+    <div className="flex min-h-screen w-full items-center justify-center bg-gray-50 px-4 dark:bg-gray-950">
+      <div className="w-full max-w-sm space-y-8">
+        {/* Logo */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">PicAI</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">Create your account</p>
+          <Link to="/" className="inline-flex items-center gap-2">
+            <Camera className="h-6 w-6 text-accent" />
+            <span className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              PicAI
+            </span>
+          </Link>
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Create your account</p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          {/* Error message */}
+        <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 dark:bg-red-900/50 dark:text-red-300">
+            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
               {error}
             </div>
           )}
 
           <div className="space-y-4">
-            {/* Name */}
             <div>
               <label
                 htmlFor="name"
@@ -84,12 +86,11 @@ export function RegisterPage() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                className={inputClasses}
                 placeholder="John Doe"
               />
             </div>
 
-            {/* Email */}
             <div>
               <label
                 htmlFor="email"
@@ -105,12 +106,11 @@ export function RegisterPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                className={inputClasses}
                 placeholder="you@example.com"
               />
             </div>
 
-            {/* Password */}
             <div>
               <label
                 htmlFor="password"
@@ -126,15 +126,14 @@ export function RegisterPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                className={inputClasses}
                 placeholder="••••••••"
               />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                 Must contain uppercase, lowercase, number, and special character
               </p>
             </div>
 
-            {/* Confirm Password */}
             <div>
               <label
                 htmlFor="confirmPassword"
@@ -150,25 +149,23 @@ export function RegisterPage() {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                className={inputClasses}
                 placeholder="••••••••"
               />
             </div>
           </div>
 
-          {/* Submit button */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full rounded-md bg-primary px-4 py-2 text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-gray-900"
+            className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? 'Creating account...' : 'Create account'}
           </button>
 
-          {/* Login link */}
-          <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
             Already have an account?{' '}
-            <Link to="/login" className="font-medium text-primary hover:text-primary-dark">
+            <Link to="/login" className="font-medium text-accent hover:text-accent-hover">
               Sign in
             </Link>
           </p>
