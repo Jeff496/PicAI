@@ -2,7 +2,20 @@
 // RAG Chatbot page - ask questions about your photo library
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Plus, MessageSquare, Bot, User, Image, Menu, X as XIcon, ChevronLeft, ChevronRight, Trash2, RefreshCw } from 'lucide-react';
+import {
+  Send,
+  Plus,
+  MessageSquare,
+  Bot,
+  User,
+  Image,
+  Menu,
+  X as XIcon,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  RefreshCw,
+} from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useChatSessions, useSendMessage, useDeleteSession } from '@/hooks/useChat';
 import { useThumbnail } from '@/hooks/usePhotos';
@@ -62,44 +75,47 @@ export function ChatPage() {
     setDeleteTarget(null);
   };
 
-  const handleLoadSession = useCallback(async (session: ChatSessionSummary) => {
-    if (!userId) return;
-    setActiveSessionId(session.sessionId);
-    setLocalMessages([]);
-    setSidebarOpen(false);
+  const handleLoadSession = useCallback(
+    async (session: ChatSessionSummary) => {
+      if (!userId) return;
+      setActiveSessionId(session.sessionId);
+      setLocalMessages([]);
+      setSidebarOpen(false);
 
-    // Fetch full session from API
-    try {
-      const response = await chatService.getSession(userId, session.sessionId);
-      const messages = response.data.session.messages;
+      // Fetch full session from API
+      try {
+        const response = await chatService.getSession(userId, session.sessionId);
+        const messages = response.data.session.messages;
 
-      // Backward compatibility: for old sessions where assistant messages
-      // have photoIds but no photos array, create minimal photo objects
-      // so thumbnails can still load
-      const enriched = messages.map((msg) => {
-        if (msg.role === 'assistant' && msg.photoIds?.length && !msg.photos?.length) {
-          return {
-            ...msg,
-            photos: msg.photoIds.map((id) => ({
-              photoId: id,
-              tags: [],
-              people: [],
-              takenAt: null,
-              uploadedAt: '',
-              originalName: '',
-              groupName: null,
-              score: 0,
-            })),
-          };
-        }
-        return msg;
-      });
+        // Backward compatibility: for old sessions where assistant messages
+        // have photoIds but no photos array, create minimal photo objects
+        // so thumbnails can still load
+        const enriched = messages.map((msg) => {
+          if (msg.role === 'assistant' && msg.photoIds?.length && !msg.photos?.length) {
+            return {
+              ...msg,
+              photos: msg.photoIds.map((id) => ({
+                photoId: id,
+                tags: [],
+                people: [],
+                takenAt: null,
+                uploadedAt: '',
+                originalName: '',
+                groupName: null,
+                score: 0,
+              })),
+            };
+          }
+          return msg;
+        });
 
-      setLocalMessages(enriched);
-    } catch (err) {
-      console.error('Failed to load session:', err);
-    }
-  }, [userId]);
+        setLocalMessages(enriched);
+      } catch (err) {
+        console.error('Failed to load session:', err);
+      }
+    },
+    [userId]
+  );
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -241,10 +257,7 @@ export function ChatPage() {
             ) : (
               <div className="mx-auto max-w-3xl space-y-4">
                 {localMessages.map((msg, i) => (
-                  <MessageBubble
-                    key={i}
-                    message={msg}
-                  />
+                  <MessageBubble key={i} message={msg} />
                 ))}
 
                 {/* Typing indicator */}
@@ -434,13 +447,7 @@ function FormattedText({ text }: { text: string }) {
   );
 }
 
-function PhotoThumbnail({
-  photo,
-  onClick,
-}: {
-  photo: ChatPhotoMatch;
-  onClick: () => void;
-}) {
+function PhotoThumbnail({ photo, onClick }: { photo: ChatPhotoMatch; onClick: () => void }) {
   const { data: thumbnailUrl, isLoading, isError, refetch } = useThumbnail(photo.photoId);
 
   return (
@@ -453,11 +460,7 @@ function PhotoThumbnail({
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-accent" />
         </div>
       ) : thumbnailUrl ? (
-        <img
-          src={thumbnailUrl}
-          alt={photo.originalName}
-          className="h-full w-full object-cover"
-        />
+        <img src={thumbnailUrl} alt={photo.originalName} className="h-full w-full object-cover" />
       ) : isError ? (
         <div
           className="flex h-full flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500"
@@ -502,12 +505,17 @@ function PhotoLightbox({
   useEffect(() => {
     if (photo.photoId in photoCache) return;
     let cancelled = false;
-    photosService.fetchFileBlob(photo.photoId).then((url) => {
-      if (!cancelled) setPhotoCache((prev) => ({ ...prev, [photo.photoId]: url }));
-    }).catch(() => {
-      if (!cancelled) setPhotoCache((prev) => ({ ...prev, [photo.photoId]: '' }));
-    });
-    return () => { cancelled = true; };
+    photosService
+      .fetchFileBlob(photo.photoId)
+      .then((url) => {
+        if (!cancelled) setPhotoCache((prev) => ({ ...prev, [photo.photoId]: url }));
+      })
+      .catch(() => {
+        if (!cancelled) setPhotoCache((prev) => ({ ...prev, [photo.photoId]: '' }));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [photo.photoId, photoCache]);
 
   // Keyboard navigation

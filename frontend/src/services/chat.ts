@@ -29,11 +29,7 @@ async function chatFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const chatService = {
-  async sendMessage(
-    message: string,
-    userId: string,
-    sessionId?: string
-  ): Promise<ChatResponse> {
+  async sendMessage(message: string, userId: string, sessionId?: string): Promise<ChatResponse> {
     return chatFetch<ChatResponse>('/chat', {
       method: 'POST',
       body: JSON.stringify({ message, userId, sessionId }),
@@ -45,10 +41,7 @@ export const chatService = {
     return chatFetch<ChatHistorySessionsResponse>(`/chat/history?${params}`);
   },
 
-  async getSession(
-    userId: string,
-    sessionId: string
-  ): Promise<ChatHistorySessionResponse> {
+  async getSession(userId: string, sessionId: string): Promise<ChatHistorySessionResponse> {
     const params = new URLSearchParams({ userId, sessionId });
     return chatFetch<ChatHistorySessionResponse>(`/chat/history?${params}`);
   },

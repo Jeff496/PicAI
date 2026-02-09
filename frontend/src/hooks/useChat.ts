@@ -73,8 +73,7 @@ export function useDeleteSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (sessionId: string) =>
-      chatService.deleteSession(userId!, sessionId),
+    mutationFn: (sessionId: string) => chatService.deleteSession(userId!, sessionId),
     onSuccess: () => {
       if (userId) {
         queryClient.invalidateQueries({ queryKey: chatKeys.sessions(userId) });
