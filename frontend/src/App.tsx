@@ -12,15 +12,6 @@ import { GroupDetailPage } from '@/pages/GroupDetailPage';
 import { InvitePage } from '@/pages/InvitePage';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 
-// Temporary — remove after theme is finalized
-import { SampleIndex } from '@/pages/samples/SampleIndex';
-import { ModernMinimalSample } from '@/pages/samples/ModernMinimalSample';
-import { GlassFrostedSample } from '@/pages/samples/GlassFrostedSample';
-import { BoldVibrantSample } from '@/pages/samples/BoldVibrantSample';
-import { DarkPremiumSample } from '@/pages/samples/DarkPremiumSample';
-import { RefinedLandingSample } from '@/pages/samples/RefinedLandingSample';
-import { RefinedAppSample } from '@/pages/samples/RefinedAppSample';
-
 function App() {
   // Apply theme on mount and when it changes
   const theme = useThemeStore((s) => s.theme);
@@ -38,15 +29,6 @@ function App() {
         {/* Auth */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-
-        {/* Theme samples (temporary) */}
-        <Route path="/samples" element={<SampleIndex />} />
-        <Route path="/samples/modern-minimal" element={<ModernMinimalSample />} />
-        <Route path="/samples/glass-frosted" element={<GlassFrostedSample />} />
-        <Route path="/samples/bold-vibrant" element={<BoldVibrantSample />} />
-        <Route path="/samples/dark-premium" element={<DarkPremiumSample />} />
-        <Route path="/samples/refined-landing" element={<RefinedLandingSample />} />
-        <Route path="/samples/refined-app" element={<RefinedAppSample />} />
 
         {/* Protected routes */}
         <Route
