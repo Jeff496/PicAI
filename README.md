@@ -6,7 +6,7 @@ Privacy-focused photo management platform with AI-powered organization and autom
 
 ## Overview
 
-PicAI is a web application that helps you organize and share photos using AI. Photos are stored locally on your Raspberry Pi for privacy, while Azure Computer Vision automatically tags and categorizes them. AWS Rekognition provides face detection and recognition for people-based organization. The system creates smart albums based on time periods or content, and allows group photo sharing.
+PicAI is a web application that helps you organize and share photos using AI. Photos are stored locally on your Raspberry Pi for privacy, while Azure Computer Vision automatically tags and categorizes them. AWS Rekognition provides face detection and recognition for people-based organization. A RAG-powered chatbot lets you search and ask questions about your photo library using natural language. The system creates smart albums based on time periods or content, and allows group photo sharing.
 
 ### Key Features
 
@@ -19,6 +19,8 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 - **Bulk Operations** - Bulk analyze, detect faces, and delete with real-time SSE progress
 - **Groups** - Create groups, invite members (link or email), role-based access (owner/admin/member)
 - **Group Photos** - Upload photos to groups, group-scoped viewing and operations
+- **AI Chatbot** - RAG-powered chatbot to search and ask questions about your photos in natural language
+- **Smart Upload** - Two-phase upload with real-time SSE progress for AI tagging
 - **Landing Page** - Public landing page with feature showcase
 - **Theme** - Light/dark mode with persistent preference
 - **Privacy-first** - Photos stored locally on Raspberry Pi, not in the cloud
@@ -51,11 +53,21 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 - Lucide React for icons
 - Sonner 2.0.3 for toast notifications
 
+### AWS Serverless (Chat / RAG)
+- AWS CDK (TypeScript IaC)
+- AWS Lambda (chat handler + ingest handler)
+- Amazon Bedrock - Claude Haiku 4.5 (LLM responses)
+- Amazon Bedrock - Titan Embeddings V2 (text vectorization)
+- Amazon OpenSearch (k-NN vector search)
+- Amazon DynamoDB (chat session history)
+- Amazon API Gateway (REST API)
+
 ### Infrastructure
 - Raspberry Pi 5 (backend hosting)
 - Azure Static Web Apps (frontend hosting)
 - Azure Computer Vision API (image tagging)
 - AWS Rekognition (face detection/recognition with IAM Roles Anywhere)
+- AWS Bedrock + OpenSearch + DynamoDB (RAG chatbot)
 - Cloudflare Tunnel (secure connectivity)
 - PostgreSQL 18.1 (database)
 
@@ -63,22 +75,29 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 
 ```
 React Frontend (Azure) → Cloudflare Tunnel → Express API (Pi) → PostgreSQL
-                                                    ↓
-                                         Azure Computer Vision (tags)
-                                                    ↓
-                                         AWS Rekognition (faces)
+                    │                               ↓
+                    │                    Azure Computer Vision (tags)
+                    │                               ↓
+                    │                    AWS Rekognition (faces)
+                    │
+                    └──→ API Gateway → Lambda (chat-handler) → Bedrock Claude (LLM)
+                                                             → OpenSearch (vector search)
+                                                             → DynamoDB (chat history)
+                         API Gateway → Lambda (ingest-handler) → Bedrock Titan (embeddings)
+                                                               → OpenSearch (store vectors)
 ```
 
-Photos are stored locally on the Raspberry Pi. The frontend is served from Azure's CDN for fast global access. Cloudflare Tunnel provides secure HTTPS connectivity without exposing the Pi directly to the internet.
+Photos are stored locally on the Raspberry Pi. The frontend is served from Azure's CDN for fast global access. Cloudflare Tunnel provides secure HTTPS connectivity without exposing the Pi directly to the internet. The RAG chatbot runs entirely on AWS serverless infrastructure for low-latency chat without round-tripping through the Pi.
 
 ## Prerequisites
 
 - Raspberry Pi 5 (or Pi 4 with 4GB+ RAM)
-- Node.js 24.11.1 LTS
+- Node.js 24.11.1 LTS (22.12+ for frontend Vite 7)
 - PostgreSQL 18.1
 - Cloudflare account (free tier)
 - Azure account (free tier)
 - AWS account (free tier for 12 months)
+- AWS CLI configured with `picai-cdk` profile (for CDK deployments)
 - GitHub account
 
 ## Installation
@@ -150,9 +169,10 @@ Create `frontend/.env`:
 
 ```bash
 VITE_API_URL=http://localhost:3001/api
+VITE_CHAT_API_URL=https://your-api-gateway-id.execute-api.us-east-1.amazonaws.com/v1
 ```
 
-For production, configure `VITE_API_URL` in Azure Static Web Apps settings.
+For production, configure both `VITE_API_URL` and `VITE_CHAT_API_URL` in Azure Static Web Apps settings. These are baked in at build time by Vite, so a rebuild/redeploy is required after changing them.
 
 ## Database Setup
 
@@ -205,9 +225,28 @@ pm2 startup
 2. Configure build settings:
    - App location: `/frontend`
    - Output location: `dist`
-3. Add environment variable in Azure configuration:
+3. Add environment variables in Azure configuration:
    - `VITE_API_URL=https://api.yourdomain.com/api`
+   - `VITE_CHAT_API_URL=https://your-api-gateway-id.execute-api.us-east-1.amazonaws.com/v1`
 4. Push to main branch to deploy
+
+### AWS Infrastructure (CDK)
+
+```bash
+cd infra
+
+# Install dependencies
+npm install
+
+# Preview changes
+npx cdk diff --profile picai-cdk
+
+# Deploy stack (OpenSearch, Lambda, API Gateway, DynamoDB)
+npx cdk deploy --profile picai-cdk
+
+# Type-check CDK + Lambda code
+npm run type-check
+```
 
 ### Cloudflare Tunnel
 
@@ -268,6 +307,16 @@ npm run preview          # Preview production build
 npm run lint             # Lint code
 ```
 
+### CDK / Infrastructure Commands
+
+```bash
+cd infra
+npx cdk diff --profile picai-cdk      # Preview changes
+npx cdk deploy --profile picai-cdk    # Deploy to AWS
+npx cdk synth --profile picai-cdk     # Generate CloudFormation template
+npm run type-check                     # Type-check CDK + Lambda code
+```
+
 ## Project Structure
 
 ```
@@ -277,12 +326,13 @@ PicAI/
 │   │   ├── config/            # Environment configuration
 │   │   ├── routes/            # API routes
 │   │   ├── controllers/       # Request handlers
-│   │   ├── services/          # Business logic
+│   │   ├── services/          # Business logic (incl. ingestService for RAG)
 │   │   ├── middleware/        # Express middleware
 │   │   ├── schemas/           # Zod validation schemas
 │   │   ├── utils/             # Utilities
 │   │   └── prisma/            # Prisma client
 │   ├── prisma/                # Database schema & migrations
+│   ├── scripts/               # Utility scripts (backfill-ingest.ts)
 │   ├── pki/                   # PKI certificates for AWS (gitignored keys)
 │   ├── storage/               # Photo storage (gitignored)
 │   ├── tests/
@@ -295,13 +345,21 @@ PicAI/
 │   │   │   ├── faces/         # Face overlay, tagging popup
 │   │   │   ├── people/        # Person cards and grid
 │   │   │   └── groups/        # Group cards, member list, invite modals
-│   │   ├── pages/             # Landing, Login, Register, Photos, People, Groups, Invite
+│   │   ├── pages/             # Landing, Login, Register, Photos, People, Groups, Chat, Invite
 │   │   ├── stores/            # Zustand stores (auth, theme)
-│   │   ├── hooks/             # Custom hooks (photos, faces, groups, bulk progress)
-│   │   ├── services/          # API services (auth, photos, faces, groups)
+│   │   ├── hooks/             # Custom hooks (photos, faces, groups, chat, bulk progress)
+│   │   ├── services/          # API services (auth, photos, faces, groups, chat)
 │   │   ├── utils/             # Utility functions
 │   │   └── types/             # TypeScript interfaces
 │   ├── public/
+│   └── package.json
+├── infra/                     # AWS CDK infrastructure (TypeScript)
+│   ├── bin/                   # CDK app entry point
+│   ├── lib/                   # Stack definitions (ChatStack)
+│   ├── lambda/
+│   │   ├── chat-handler/      # RAG chat Lambda (Bedrock Claude + OpenSearch + DynamoDB)
+│   │   └── ingest-handler/    # Photo ingestion Lambda (Titan Embeddings + OpenSearch)
+│   ├── cdk.json
 │   └── package.json
 ├── docs/
 ├── CLAUDE.md
@@ -348,14 +406,23 @@ All services use free tiers:
 | Azure Computer Vision | F0 | $0 |
 | Azure Static Web Apps | Free | $0 |
 | AWS Rekognition | Free (12 mo) | $0 |
+| AWS OpenSearch | Free (12 mo) | $0 |
+| AWS Lambda | Free tier | $0 |
+| AWS API Gateway | Free tier | $0 |
+| AWS DynamoDB | Free tier | $0 |
+| AWS Bedrock (Claude + Titan) | Pay-per-token | ~$1 |
 | Cloudflare Tunnel | Free | $0 |
 | SendGrid | Free | $0 |
 | Raspberry Pi | Self-hosted | ~$5 (electricity) |
-| **Total** | | **~$5/month** |
+| **Total** | | **~$6/month** |
 
 **Service Limits:**
 - Azure Computer Vision: 5,000 calls/month, 20/minute
 - AWS Rekognition: 5,000 DetectFaces/month, 1,000 IndexFaces/month (first 12 months)
+- AWS OpenSearch: t3.small.search free for 12 months
+- AWS Lambda: 1M requests/month free
+- AWS API Gateway: 1M calls/month free
+- AWS DynamoDB: 25GB free
 - Azure Static Web Apps: 100GB bandwidth/month
 - SendGrid: 100 emails/day (free tier)
 
@@ -402,6 +469,7 @@ chmod -R 755 backend/storage/
 
 - [CLAUDE.md](./CLAUDE.md) - Development guide
 - [PRD.md](./PRD.md) - Product requirements
+- [infra/CLAUDE.md](./infra/CLAUDE.md) - CDK infrastructure guide
 - [docs/architecture.md](./docs/architecture.md) - Architecture details
 - [docs/azure-setup.md](./docs/azure-setup.md) - Azure configuration
 - [docs/AWS_REKOGNITION_SETUP.md](./docs/AWS_REKOGNITION_SETUP.md) - AWS Rekognition & IAM Roles Anywhere
