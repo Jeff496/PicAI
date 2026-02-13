@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { searchPhotos } from './search';
+import { searchPhotos, type SearchTiming } from './search';
 import { generateResponse } from './bedrock';
 import { getSession, saveSession, deleteSession, listSessions, generateTitle, type ChatMessage, type ChatPhotoMatch } from './history';
 import { randomUUID } from 'crypto';
@@ -52,7 +52,10 @@ async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     return respond(400, { success: false, error: 'message and userId are required' });
   }
 
+  const totalStart = Date.now();
+
   // 1. Load or create session
+  const sessionStart = Date.now();
   const sessionId = requestedSessionId || randomUUID();
   let session = await getSession(userId, sessionId);
   const isNewSession = !session;
@@ -67,18 +70,22 @@ async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
       updatedAt: new Date().toISOString(),
     };
   }
+  const sessionLoadMs = Date.now() - sessionStart;
 
   // 2. Search for relevant photos
   console.log(`Searching photos for query: "${message}"`);
-  const photos = await searchPhotos(message, userId);
+  const { results: photos, timing: searchTiming } = await searchPhotos(message, userId);
   console.log(`Found ${photos.length} matching photos`);
 
   // 3. Generate LLM response with photo context + conversation history
   console.log('Calling Bedrock Claude...');
+  const llmStart = Date.now();
   const llmResponse = await generateResponse(message, photos, session.messages);
-  console.log(`LLM response: ${llmResponse.inputTokens} input, ${llmResponse.outputTokens} output tokens`);
+  const llmMs = Date.now() - llmStart;
+  console.log(`LLM response: ${llmResponse.inputTokens} input, ${llmResponse.outputTokens} output tokens (${llmMs}ms)`);
 
   // 4. Save conversation turn
+  const saveStart = Date.now();
   const userMessage: ChatMessage = {
     role: 'user',
     content: message,
@@ -112,6 +119,20 @@ async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
 
   session.messages.push(userMessage, assistantMessage);
   await saveSession(session);
+  const saveMs = Date.now() - saveStart;
+
+  const totalMs = Date.now() - totalStart;
+
+  const latency = {
+    sessionLoadMs,
+    embedMs: searchTiming.embedMs,
+    searchMs: searchTiming.searchMs,
+    llmMs,
+    saveMs,
+    totalMs,
+  };
+
+  console.log('Latency breakdown:', JSON.stringify(latency));
 
   // 5. Return response
   return respond(200, {
@@ -125,6 +146,7 @@ async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
         inputTokens: llmResponse.inputTokens,
         outputTokens: llmResponse.outputTokens,
       },
+      latency,
     },
   });
 }
