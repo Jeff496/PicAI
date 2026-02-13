@@ -323,6 +323,15 @@ export interface SendMessageRequest {
   sessionId?: string;
 }
 
+export interface ChatLatency {
+  sessionLoadMs: number;
+  embedMs: number;
+  searchMs: number;
+  llmMs: number;
+  saveMs: number;
+  totalMs: number;
+}
+
 export interface ChatResponse {
   success: true;
   data: {
@@ -334,6 +343,7 @@ export interface ChatResponse {
       inputTokens: number;
       outputTokens: number;
     };
+    latency: ChatLatency;
   };
 }
 

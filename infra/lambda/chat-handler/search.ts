@@ -100,15 +100,25 @@ const RELATIVE_SCORE_CUTOFF = parseFloat(process.env.RELATIVE_SCORE_CUTOFF || '0
  * @param k - Number of candidates to fetch from OpenSearch (default 10)
  * @returns Array of matched photos with similarity scores, filtered by relevance
  */
+export interface SearchTiming {
+  embedMs: number;
+  searchMs: number;
+  totalMs: number;
+}
+
 export async function searchPhotos(
   query: string,
   userId: string,
   k: number = 10
-): Promise<PhotoMatch[]> {
+): Promise<{ results: PhotoMatch[]; timing: SearchTiming }> {
+  const t0 = Date.now();
+
   // Step 1: Embed the query
   const queryVector = await embedQuery(query);
+  const embedMs = Date.now() - t0;
 
   // Step 2: k-NN search with user filter (fetch extra candidates for filtering)
+  const t1 = Date.now();
   const searchBody = {
     size: k,
     query: {
@@ -137,9 +147,11 @@ export async function searchPhotos(
     JSON.stringify(searchBody)
   );
 
+  const searchMs = Date.now() - t1;
+
   if (result.statusCode !== 200) {
     console.error('OpenSearch search failed:', result.body);
-    return [];
+    return { results: [], timing: { embedMs, searchMs, totalMs: Date.now() - t0 } };
   }
 
   const parsed = JSON.parse(result.body);
@@ -150,7 +162,9 @@ export async function searchPhotos(
     score: hit._score,
   }));
 
-  if (allResults.length === 0) return [];
+  const timing: SearchTiming = { embedMs, searchMs, totalMs: Date.now() - t0 };
+
+  if (allResults.length === 0) return { results: [], timing };
 
   // Step 3: Filter by score thresholds
   const topScore = allResults[0].score;
@@ -168,5 +182,6 @@ export async function searchPhotos(
     console.log(`  [${r.score >= threshold ? 'KEEP' : 'DROP'}] ${r.photoId} score=${r.score.toFixed(3)} tags=${r.tags || 'none'}`);
   }
 
-  return filtered;
+  timing.totalMs = Date.now() - t0;
+  return { results: filtered, timing };
 }
