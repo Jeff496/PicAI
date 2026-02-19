@@ -71,7 +71,7 @@ app.use(
  */
 
 app.use((req, _res, next) => {
-  req.setTimeout(30 * 1000);
+  req.setTimeout(5 * 60 * 1000); // 5 minutes — allows large bulk uploads + AI analysis
   next();
 });
 

@@ -1,7 +1,25 @@
 import { Link } from 'react-router-dom';
-import { Camera, Users, Sparkles, Shield, ArrowRight, Image, Tag, Sun, Moon } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 import { useThemeStore, applyTheme } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
+
+const features = [
+  {
+    num: '01',
+    title: 'Intelligent Tagging',
+    body: 'Every photo is analyzed by AI the moment it\u2019s uploaded. Objects, scenes, and text are recognized and made searchable instantly.',
+  },
+  {
+    num: '02',
+    title: 'Shared Collections',
+    body: 'Create groups, invite family and friends, and build shared photo libraries together. Everyone contributes, everyone benefits.',
+  },
+  {
+    num: '03',
+    title: 'Private by Design',
+    body: 'Your photos live on your own hardware. The AI reads pixels, not people \u2014 metadata only, never stored externally.',
+  },
+];
 
 export function LandingPage() {
   const { theme, setTheme } = useThemeStore();
@@ -16,40 +34,54 @@ export function LandingPage() {
   const ThemeIcon = theme === 'dark' ? Moon : Sun;
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-      {/* Nav */}
-      <nav className="border-b border-gray-100 dark:border-white/5">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <Camera className="h-5 w-5 text-accent" />
-            <span className="text-lg font-semibold tracking-tight">PicAI</span>
+    <div className="flex min-h-screen flex-col bg-paper text-ink dark:bg-[#111110] dark:text-[#e8e4de]">
+      {/* ── Masthead ── */}
+      <nav className="border-b-2 border-ink dark:border-[#e8e4de]">
+        <div className="flex items-center justify-between px-6 py-4 sm:px-10">
+          {/* Logo + subtitle */}
+          <div>
+            <span className="font-serif text-[26px] font-bold" style={{ letterSpacing: '-0.03em' }}>
+              PicAI
+            </span>
+            <p
+              className="font-sans text-[11px] font-normal uppercase text-whisper dark:text-[#8a8478]"
+              style={{ letterSpacing: '0.12em' }}
+            >
+              A photo journal
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Right: theme toggle + auth */}
+          <div className="flex items-center gap-4 sm:gap-6">
             <button
               onClick={toggleTheme}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+              className="p-1.5 text-subtle transition-colors hover:text-ink dark:text-[#8a8478] dark:hover:text-[#e8e4de]"
               aria-label="Toggle theme"
             >
               <ThemeIcon className="h-4 w-4" />
             </button>
+
             {isAuthenticated ? (
               <Link
                 to="/photos"
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+                className="bg-ink px-6 py-2.5 text-[13px] font-semibold text-paper transition-opacity hover:opacity-80 dark:bg-[#e8e4de] dark:text-[#111110]"
+                style={{ letterSpacing: '0.02em' }}
               >
-                Go to app
+                Open gallery
               </Link>
             ) : (
               <>
                 <Link
                   to="/login"
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                  className="hidden text-[13px] font-medium text-muted transition-colors hover:text-ink dark:text-[#8a8478] dark:hover:text-[#e8e4de] sm:inline"
+                  style={{ letterSpacing: '0.02em' }}
                 >
                   Sign in
                 </Link>
                 <Link
                   to="/register"
-                  className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+                  className="bg-ink px-6 py-2.5 text-[13px] font-semibold text-paper transition-opacity hover:opacity-80 dark:bg-[#e8e4de] dark:text-[#111110]"
+                  style={{ letterSpacing: '0.02em' }}
                 >
                   Get started
                 </Link>
@@ -59,106 +91,141 @@ export function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero — gentle gradient allowed here */}
-      <section className="relative overflow-hidden px-6 pt-24 pb-20">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-indigo-50/50 via-white to-white dark:from-indigo-950/20 dark:via-gray-950 dark:to-gray-950" />
-        <div className="pointer-events-none absolute top-0 left-1/2 hidden -translate-x-1/2 dark:block">
-          <div className="h-48 w-[500px] rounded-full bg-indigo-500/8 blur-3xl" />
-        </div>
+      {/* Thin secondary rule */}
+      <div className="mx-6 border-b border-rule dark:border-[#2a2824] sm:mx-10" />
 
-        <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
-            <Sparkles className="h-3.5 w-3.5 text-accent" />
-            AI-powered photo organization
-          </div>
-          <h1 className="text-5xl leading-tight font-bold tracking-tight">
-            Your photos, organized
-            <br />
-            <span className="text-gray-300 dark:text-gray-600">intelligently.</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-gray-500 dark:text-gray-400">
-            Upload your photos and let AI automatically tag, sort, and organize them. Share albums
-            with groups. Find any photo in seconds.
-          </p>
-          <div className="mt-10 flex items-center justify-center gap-4">
-            <Link
-              to="/register"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition-all hover:bg-accent-hover"
+      {/* ── Hero ── */}
+      <section className="mx-6 sm:mx-10">
+        {/* Desktop: asymmetric two-column grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr]">
+          {/* Left column — text */}
+          <div className="py-12 pr-0 sm:py-16 lg:py-20 lg:pr-16">
+            <h1
+              className="font-serif text-[40px] font-normal sm:text-[48px] lg:text-[52px]"
+              style={{ letterSpacing: '-0.02em', lineHeight: '1.08' }}
             >
-              Start organizing
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              to="/login"
-              className="rounded-lg border border-gray-200 px-6 py-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-900 dark:border-white/10 dark:text-gray-400 dark:hover:border-white/20 dark:hover:text-white"
-            >
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </section>
+              Every photo
+              <br />
+              finds its <em className="italic">place</em>
+            </h1>
 
-      {/* Features — flat, no gradients */}
-      <section className="px-6 py-24">
-        <div className="mx-auto max-w-5xl">
-          <div className="grid gap-10 md:grid-cols-3">
-            {[
-              {
-                icon: Tag,
-                title: 'AI Auto-Tagging',
-                desc: 'Azure Computer Vision analyzes every photo and generates searchable tags automatically.',
-              },
-              {
-                icon: Users,
-                title: 'Group Sharing',
-                desc: 'Create groups, invite members, and build shared photo libraries together.',
-              },
-              {
-                icon: Shield,
-                title: 'Privacy First',
-                desc: 'Your photos stay on your hardware. AI processes metadata only — never stores images.',
-              },
-            ].map((f) => (
-              <div key={f.title}>
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/5">
-                  <f.icon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                </div>
-                <h3 className="text-base font-semibold">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                  {f.desc}
-                </p>
+            {/* Decorative rule */}
+            <div className="mt-6 w-16 border-b border-rule dark:border-[#2a2824]" />
+
+            <p className="mt-6 max-w-[400px] text-[16px] font-light leading-[1.75] text-muted dark:text-[#8a8478]">
+              Upload your photos and let AI organize them into meaningful collections. Share
+              memories with the people who matter most.
+            </p>
+
+            <div className="mt-10 flex flex-wrap items-center gap-4">
+              <Link
+                to="/register"
+                className="bg-ink px-9 py-3 text-[14px] font-semibold text-paper transition-opacity hover:opacity-80 dark:bg-[#e8e4de] dark:text-[#111110]"
+                style={{ letterSpacing: '0.02em' }}
+              >
+                Start organizing
+              </Link>
+              <Link
+                to="/login"
+                className="border border-rule px-9 py-3 text-[14px] font-semibold text-muted transition-colors hover:border-ink hover:text-ink dark:border-[#2a2824] dark:text-[#8a8478] dark:hover:border-[#e8e4de] dark:hover:text-[#e8e4de]"
+                style={{ letterSpacing: '0.02em' }}
+              >
+                Sign in
+              </Link>
+            </div>
+          </div>
+
+          {/* Right column — photo mosaic */}
+          <div className="border-t border-rule pb-12 pt-8 dark:border-[#2a2824] lg:border-t-0 lg:border-l lg:py-8 lg:pl-8 lg:pb-8">
+            <div className="flex flex-col gap-1.5">
+              {/* Large hero photo */}
+              <div className="relative h-[220px] overflow-hidden bg-[#d4cec4] sm:h-[280px] dark:bg-[#2a2824]">
+                <img
+                  src="https://picsum.photos/id/1015/800/600"
+                  alt="River winding through mountains"
+                  className="h-full w-full object-cover"
+                  loading="eager"
+                />
               </div>
-            ))}
+              {/* Two smaller photos */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="relative h-[140px] overflow-hidden bg-[#d4cec4] sm:h-[180px] dark:bg-[#2a2824]">
+                  <img
+                    src="https://picsum.photos/id/1018/600/400"
+                    alt="Foggy forest landscape"
+                    className="h-full w-full object-cover"
+                    loading="eager"
+                  />
+                </div>
+                <div className="relative h-[140px] overflow-hidden bg-[#d4cec4] sm:h-[180px] dark:bg-[#2a2824]">
+                  <img
+                    src="https://picsum.photos/id/1039/600/400"
+                    alt="Bridge over autumn creek"
+                    className="h-full w-full object-cover"
+                    loading="eager"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Divider */}
-      <div className="mx-auto max-w-5xl border-t border-gray-100 dark:border-white/5" />
+      {/* Rule before features */}
+      <div className="mx-6 border-b border-rule dark:border-[#2a2824] sm:mx-10" />
 
-      {/* CTA */}
-      <section className="px-6 py-20">
-        <div className="mx-auto max-w-xl text-center">
-          <Image className="mx-auto mb-6 h-8 w-8 text-gray-300 dark:text-gray-600" />
-          <h2 className="text-2xl font-bold">Ready to organize your photos?</h2>
-          <p className="mt-3 text-gray-500 dark:text-gray-400">
-            Free to use. Self-hosted on your own hardware.
-          </p>
-          <Link
-            to="/register"
-            className="mt-8 inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition-all hover:bg-accent-hover"
-          >
-            Get started free
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+      {/* ── Features — ruled columns ── */}
+      <section className="mx-6 sm:mx-10">
+        <div className="grid grid-cols-1 gap-10 py-14 sm:py-16 md:grid-cols-3 md:gap-0">
+          {features.map((f, i) => (
+            <div
+              key={f.num}
+              className={
+                i > 0
+                  ? 'border-t border-rule pt-10 dark:border-[#2a2824] md:border-t-0 md:border-l md:pl-10 md:pt-0'
+                  : 'md:pr-10'
+              }
+            >
+              {/* Number label */}
+              <span
+                className="font-sans text-[11px] font-medium uppercase text-whisper dark:text-[#8a8478]"
+                style={{ letterSpacing: '0.1em' }}
+              >
+                {f.num}
+              </span>
+
+              {/* Title */}
+              <h3
+                className="mt-3 font-serif text-[22px] font-normal"
+                style={{ letterSpacing: '-0.01em' }}
+              >
+                {f.title}
+              </h3>
+
+              {/* Body */}
+              <p className="mt-3 text-[14px] font-light leading-[1.7] text-subtle dark:text-[#8a8478]">
+                {f.body}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-100 px-6 py-8 dark:border-white/5">
-        <div className="flex items-center justify-between px-6 text-sm text-gray-400 dark:text-gray-600">
-          <span>PicAI</span>
-          <span>Self-hosted photo management</span>
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* ── Footer ── */}
+      <footer className="border-t border-rule px-6 py-8 dark:border-[#2a2824] sm:px-10">
+        <div className="flex items-center justify-between">
+          <span className="font-serif text-[15px] font-normal text-subtle dark:text-[#8a8478]">
+            PicAI
+          </span>
+          <span
+            className="text-[11px] font-normal uppercase text-whisper dark:text-[#8a8478]"
+            style={{ letterSpacing: '0.1em' }}
+          >
+            Self-hosted photo management
+          </span>
         </div>
       </footer>
     </div>

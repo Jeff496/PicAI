@@ -28,16 +28,18 @@ export function PhotosPage() {
   const groups = groupsResponse?.data?.groups ?? [];
 
   const {
-    data: photosResponse,
+    photos,
+    total,
     isLoading,
     error,
     refetch,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
   } = usePhotos({
     tag: tagFilter || undefined,
     groupId: groupFilter,
   });
-
-  const photos = photosResponse?.photos ?? [];
   const selectedPhotoIdsArray = Array.from(selectedPhotoIds);
 
   const handleUploadComplete = () => {
@@ -45,7 +47,7 @@ export function PhotosPage() {
     refetch();
   };
 
-  // Header actions
+  // Header actions — editorial sharp-rectangle buttons
   const actions = (
     <>
       {!isSelectionMode ? (
@@ -53,16 +55,18 @@ export function PhotosPage() {
           <button
             onClick={enterSelectionMode}
             disabled={photos.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5"
+            className="inline-flex items-center gap-1.5 border border-rule px-3 py-1.5 text-[12px] font-medium uppercase text-muted transition-colors hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#2a2824] dark:text-[#8a8478] dark:hover:border-[#e8e4de] dark:hover:text-[#e8e4de]"
+            style={{ letterSpacing: '0.04em' }}
           >
-            <CheckSquare className="h-4 w-4" />
+            <CheckSquare className="h-3.5 w-3.5" />
             Select
           </button>
           <button
             onClick={() => setShowUpload(!showUpload)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+            className="inline-flex items-center gap-1.5 bg-ink px-3 py-1.5 text-[12px] font-semibold uppercase text-paper transition-opacity hover:opacity-80 dark:bg-[#e8e4de] dark:text-[#111110]"
+            style={{ letterSpacing: '0.04em' }}
           >
-            <Upload className="h-4 w-4" />
+            <Upload className="h-3.5 w-3.5" />
             Upload
           </button>
         </>
@@ -70,13 +74,14 @@ export function PhotosPage() {
         <>
           <button
             onClick={() => (selectedCount === photos.length ? deselectAll() : selectAll(photos))}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5"
+            className="border border-rule px-3 py-1.5 text-[12px] font-medium uppercase text-muted transition-colors hover:border-ink hover:text-ink dark:border-[#2a2824] dark:text-[#8a8478] dark:hover:border-[#e8e4de] dark:hover:text-[#e8e4de]"
+            style={{ letterSpacing: '0.04em' }}
           >
             {selectedCount === photos.length ? 'Deselect All' : 'Select All'}
           </button>
           <button
             onClick={exitSelectionMode}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+            className="p-1.5 text-subtle transition-colors hover:text-ink dark:text-[#8a8478] dark:hover:text-[#e8e4de]"
             aria-label="Cancel selection"
           >
             <X className="h-4 w-4" />
@@ -91,12 +96,14 @@ export function PhotosPage() {
       <div className={isSelectionMode ? 'pb-24' : ''}>
         {/* Upload form (collapsible) */}
         {showUpload && !isSelectionMode && (
-          <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 dark:border-white/5 dark:bg-white/[0.02]">
+          <div className="mb-8 border border-rule p-6 dark:border-[#2a2824]">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-medium text-gray-900 dark:text-white">Upload Photos</h2>
+              <h2 className="font-serif text-[18px] font-normal text-ink dark:text-[#e8e4de]">
+                Upload Photos
+              </h2>
               <button
                 onClick={() => setShowUpload(false)}
-                className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                className="text-subtle hover:text-ink dark:text-[#8a8478] dark:hover:text-[#e8e4de]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -107,13 +114,13 @@ export function PhotosPage() {
 
         {/* Error state */}
         {error && (
-          <div className="mb-6 rounded-lg bg-red-50 p-4 dark:bg-red-900/10">
-            <p className="text-sm text-red-700 dark:text-red-400">
+          <div className="mb-6 border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/10">
+            <p className="text-[13px] text-red-700 dark:text-red-400">
               {error instanceof Error ? error.message : 'Error loading photos'}
             </p>
             <button
               onClick={() => refetch()}
-              className="mt-1 text-sm font-medium text-red-800 underline hover:text-red-900 dark:text-red-300"
+              className="mt-1 text-[13px] font-medium text-red-800 underline hover:text-red-900 dark:text-red-300"
             >
               Try again
             </button>
@@ -128,7 +135,7 @@ export function PhotosPage() {
                 <select
                   value={groupFilter ?? ''}
                   onChange={(e) => setGroupFilter(e.target.value || undefined)}
-                  className="appearance-none rounded-lg border border-gray-200 bg-white py-2 pl-3 pr-8 text-sm text-gray-700 transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent dark:border-white/10 dark:bg-white/5 dark:text-gray-300"
+                  className="appearance-none border border-rule bg-transparent py-2 pl-3 pr-8 font-sans text-[13px] text-ink transition-colors focus:border-ink focus:outline-none dark:border-[#2a2824] dark:text-[#e8e4de] dark:focus:border-[#e8e4de]"
                 >
                   <option value="">My Photos</option>
                   <option value="all">All Photos</option>
@@ -138,19 +145,24 @@ export function PhotosPage() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-subtle dark:text-[#8a8478]" />
               </div>
             )}
-            <TagFilter value={tagFilter} onChange={setTagFilter} placeholder="Filter by tag..." />
+            <div className="w-full sm:w-56">
+              <TagFilter value={tagFilter} onChange={setTagFilter} placeholder="Filter by tag..." />
+            </div>
           </div>
         )}
 
         {/* Photo count */}
         {!isLoading && !error && photos.length > 0 && (
-          <p className="mb-4 text-sm text-gray-400 dark:text-gray-500">
+          <p
+            className="mb-5 font-sans text-[12px] font-normal uppercase text-whisper dark:text-[#8a8478]"
+            style={{ letterSpacing: '0.06em' }}
+          >
             {isSelectionMode
               ? `${selectedCount} of ${photos.length} selected`
-              : `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}${tagFilter ? ` matching "${tagFilter}"` : ''}`}
+              : `${photos.length}${total > photos.length ? ` of ${total}` : ''} ${total === 1 ? 'photo' : 'photos'}${tagFilter ? ` matching \u201c${tagFilter}\u201d` : ''}`}
           </p>
         )}
 
@@ -163,6 +175,20 @@ export function PhotosPage() {
           onToggleSelection={toggleSelection}
           onViewPhoto={setSelectedPhoto}
         />
+
+        {/* Load more */}
+        {hasNextPage && (
+          <div className="mt-8 flex justify-center">
+            <button
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="border border-rule px-6 py-2.5 text-[13px] font-semibold text-muted transition-colors hover:border-ink hover:text-ink disabled:opacity-50 dark:border-[#2a2824] dark:text-[#8a8478] dark:hover:border-[#e8e4de] dark:hover:text-[#e8e4de]"
+              style={{ letterSpacing: '0.02em' }}
+            >
+              {isFetchingNextPage ? 'Loading...' : 'Load More'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Photo viewer modal */}

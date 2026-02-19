@@ -46,17 +46,19 @@ export function GroupDetailPage() {
   const isAdmin = membership?.role === 'admin';
 
   const {
-    data: photosResponse,
+    photos,
+    total: photosTotal,
     isLoading: photosLoading,
     error: photosError,
     refetch: refetchPhotos,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
   } = usePhotos({ groupId, tag: tagFilter || undefined });
 
   const updateGroupMutation = useUpdateGroup();
   const deleteGroupMutation = useDeleteGroup();
   const leaveGroupMutation = useLeaveGroup();
-
-  const photos = photosResponse?.photos ?? [];
   const selectedPhotoIdsArray = Array.from(selectedPhotoIds);
 
   const handleUploadComplete = () => {
@@ -334,7 +336,7 @@ export function GroupDetailPage() {
               <p className="mb-4 text-sm text-gray-400 dark:text-gray-500">
                 {isSelectionMode
                   ? `${selectedCount} of ${photos.length} selected`
-                  : `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}${tagFilter ? ` matching "${tagFilter}"` : ''}`}
+                  : `${photos.length}${photosTotal > photos.length ? ` of ${photosTotal}` : ''} ${photosTotal === 1 ? 'photo' : 'photos'}${tagFilter ? ` matching "${tagFilter}"` : ''}`}
               </p>
             )}
 
@@ -346,6 +348,18 @@ export function GroupDetailPage() {
               onToggleSelection={toggleSelection}
               onViewPhoto={setSelectedPhoto}
             />
+
+            {hasNextPage && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5"
+                >
+                  {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                </button>
+              </div>
+            )}
 
             {!photosLoading && !photosError && photos.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 text-center">

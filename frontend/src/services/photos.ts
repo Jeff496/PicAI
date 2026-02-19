@@ -87,6 +87,32 @@ export const photosService = {
   },
 
   /**
+   * Get all photos by fetching every page sequentially.
+   * Used by non-paginated consumers that need the full list.
+   */
+  async getAllPhotos(params?: Omit<GetPhotosParams, 'limit' | 'offset'>): Promise<PhotosResponse> {
+    const pageSize = 50;
+    let offset = 0;
+    let allPhotos: PhotosResponse['photos'] = [];
+    let total = 0;
+
+    while (true) {
+      const page = await this.getPhotos({ ...params, limit: pageSize, offset });
+      allPhotos = allPhotos.concat(page.photos);
+      total = page.pagination.total;
+
+      if (offset + pageSize >= total) break;
+      offset += pageSize;
+    }
+
+    return {
+      success: true,
+      photos: allPhotos,
+      pagination: { total, limit: total, offset: 0 },
+    };
+  },
+
+  /**
    * Get single photo by ID with AI tags
    */
   async getPhoto(id: string): Promise<PhotoResponse> {

@@ -1,15 +1,19 @@
 // src/hooks/usePhotos.ts
 // TanStack Query hooks for photo operations
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { photosService, type GetPhotosParams } from '@/services/photos';
-import type { UploadResponse } from '@/types/api';
+import type { UploadResponse, PhotosResponse } from '@/types/api';
+import { useMemo } from 'react';
+
+const PAGE_SIZE = 50;
 
 // Query keys for caching
 export const photoKeys = {
   all: ['photos'] as const,
   lists: () => [...photoKeys.all, 'list'] as const,
-  list: (params?: GetPhotosParams) => [...photoKeys.lists(), params] as const,
+  list: (params?: Omit<GetPhotosParams, 'limit' | 'offset'>) =>
+    [...photoKeys.lists(), params] as const,
   details: () => [...photoKeys.all, 'detail'] as const,
   detail: (id: string) => [...photoKeys.details(), id] as const,
   thumbnails: () => [...photoKeys.all, 'thumbnail'] as const,
@@ -17,14 +21,35 @@ export const photoKeys = {
 };
 
 /**
- * Hook to fetch list of photos with pagination
+ * Hook to fetch photos with infinite scrolling pagination.
+ * Returns a flat array of all loaded photos plus hasNextPage / fetchNextPage controls.
  */
-export function usePhotos(params?: GetPhotosParams) {
-  return useQuery({
+export function usePhotos(params?: Omit<GetPhotosParams, 'limit' | 'offset'>) {
+  const query = useInfiniteQuery<PhotosResponse>({
     queryKey: photoKeys.list(params),
-    queryFn: () => photosService.getPhotos(params),
+    queryFn: ({ pageParam = 0 }) =>
+      photosService.getPhotos({ ...params, limit: PAGE_SIZE, offset: pageParam as number }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const nextOffset = lastPage.pagination.offset + lastPage.pagination.limit;
+      return nextOffset < lastPage.pagination.total ? nextOffset : undefined;
+    },
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
+
+  // Flatten all pages into a single photo array
+  const photos = useMemo(
+    () => query.data?.pages.flatMap((page) => page.photos) ?? [],
+    [query.data]
+  );
+
+  const total = query.data?.pages[0]?.pagination.total ?? 0;
+
+  return {
+    ...query,
+    photos,
+    total,
+  };
 }
 
 /**
@@ -93,20 +118,6 @@ export function useDeletePhoto() {
       queryClient.invalidateQueries({ queryKey: photoKeys.lists() });
     },
   });
-}
-
-/**
- * Hook to prefetch the next page of photos
- */
-export function usePrefetchPhotos() {
-  const queryClient = useQueryClient();
-
-  return (params: GetPhotosParams) => {
-    queryClient.prefetchQuery({
-      queryKey: photoKeys.list(params),
-      queryFn: () => photosService.getPhotos(params),
-    });
-  };
 }
 
 /**

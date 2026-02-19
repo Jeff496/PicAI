@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Camera, Sun, Moon, LogOut } from 'lucide-react';
+import { Sun, Moon, LogOut } from 'lucide-react';
 import { authService } from '@/services/auth';
 import { useThemeStore, applyTheme } from '@/stores/themeStore';
 
@@ -12,7 +12,6 @@ const navItems = [
 
 interface AppLayoutProps {
   children: React.ReactNode;
-  /** Extra elements rendered on the right side of the header (upload btn, select btn, etc.) */
   actions?: React.ReactNode;
 }
 
@@ -35,29 +34,37 @@ export function AppLayout({ children, actions }: AppLayoutProps) {
   const ThemeIcon = theme === 'dark' ? Moon : Sun;
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-gray-200/80 bg-white/80 backdrop-blur-sm dark:border-white/5 dark:bg-gray-950/80">
-        <div className="flex items-center justify-between px-4 py-3 sm:px-6">
-          {/* Left: logo + nav */}
-          <div className="flex items-center gap-6">
-            <Link to="/photos" className="flex items-center gap-2">
-              <Camera className="h-5 w-5 text-accent" />
-              <span className="text-base font-semibold tracking-tight">PicAI</span>
+    <div className="flex min-h-screen w-full flex-col bg-paper text-ink dark:bg-[#111110] dark:text-[#e8e4de]">
+      {/* Masthead */}
+      <header className="sticky top-0 z-10 border-b-2 border-ink bg-paper dark:border-[#e8e4de] dark:bg-[#111110]">
+        <div className="flex items-center justify-between px-6 py-2.5 sm:px-10">
+          {/* Left: logo + tabs */}
+          <div className="flex items-center gap-8">
+            <Link
+              to="/photos"
+              className="font-serif text-[26px] font-bold leading-none"
+              style={{ letterSpacing: '-0.03em' }}
+            >
+              PicAI
             </Link>
 
-            <nav className="hidden items-center gap-1 sm:flex">
+            <nav className="hidden items-center gap-6 sm:flex">
               {navItems.map((item) => {
                 const active = location.pathname.startsWith(item.path);
-                return (
+                return active ? (
+                  <span
+                    key={item.path}
+                    className="border-b-2 border-ink pb-2 font-sans text-[12px] font-semibold uppercase text-ink dark:border-[#e8e4de] dark:text-[#e8e4de]"
+                    style={{ letterSpacing: '0.06em' }}
+                  >
+                    {item.label}
+                  </span>
+                ) : (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                      active
-                        ? 'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white'
-                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                    }`}
+                    className="pb-2 font-sans text-[12px] font-normal uppercase text-subtle transition-colors hover:text-ink dark:text-[#8a8478] dark:hover:text-[#e8e4de]"
+                    style={{ letterSpacing: '0.06em' }}
                   >
                     {item.label}
                   </Link>
@@ -67,18 +74,18 @@ export function AppLayout({ children, actions }: AppLayoutProps) {
           </div>
 
           {/* Right: page actions + theme + logout */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {actions}
             <button
               onClick={toggleTheme}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+              className="p-1.5 text-subtle transition-colors hover:text-ink dark:text-[#8a8478] dark:hover:text-[#e8e4de]"
               aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
               <ThemeIcon className="h-4 w-4" />
             </button>
             <button
               onClick={handleLogout}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+              className="p-1.5 text-subtle transition-colors hover:text-ink dark:text-[#8a8478] dark:hover:text-[#e8e4de]"
               aria-label="Logout"
             >
               <LogOut className="h-4 w-4" />
@@ -87,16 +94,23 @@ export function AppLayout({ children, actions }: AppLayoutProps) {
         </div>
 
         {/* Mobile nav */}
-        <nav className="flex border-t border-gray-100 sm:hidden dark:border-white/5">
+        <nav className="flex border-t border-rule sm:hidden dark:border-[#2a2824]">
           {navItems.map((item) => {
             const active = location.pathname.startsWith(item.path);
-            return (
+            return active ? (
+              <span
+                key={item.path}
+                className="flex-1 border-b-2 border-ink py-2 text-center font-sans text-[11px] font-semibold uppercase text-ink dark:border-[#e8e4de] dark:text-[#e8e4de]"
+                style={{ letterSpacing: '0.06em' }}
+              >
+                {item.label}
+              </span>
+            ) : (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex-1 py-2 text-center text-xs font-medium transition-colors ${
-                  active ? 'text-accent' : 'text-gray-500 dark:text-gray-400'
-                }`}
+                className="flex-1 py-2 text-center font-sans text-[11px] font-normal uppercase text-subtle dark:text-[#8a8478]"
+                style={{ letterSpacing: '0.06em' }}
               >
                 {item.label}
               </Link>
@@ -105,8 +119,11 @@ export function AppLayout({ children, actions }: AppLayoutProps) {
         </nav>
       </header>
 
+      {/* Thin secondary rule */}
+      <div className="mx-6 border-b border-rule dark:border-[#2a2824] sm:mx-10" />
+
       {/* Page content */}
-      <main className="flex-1 px-4 py-6 sm:px-6">{children}</main>
+      <main className="flex-1 px-6 py-8 sm:px-10">{children}</main>
     </div>
   );
 }
