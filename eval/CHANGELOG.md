@@ -104,6 +104,126 @@ Measures whether the RAG pipeline returns the correct photos for a query.
 
 ---
 
+## Phase 3 — Tagging Benchmark (Feb 19, 2026)
+
+### 3a — Azure CV Tag Quality Baseline
+
+**Dataset:** 63 hand-labeled photos from `tagging_ground_truth.jsonl`
+
+**Overall Azure CV Tag Metrics:**
+
+| Metric | Value |
+|--------|-------|
+| Tag Precision | **0.860** |
+| Tag Recall | **0.850** |
+| Tag F1 | **0.850** |
+| Micro-Precision | 0.880 |
+| Micro-Recall | 0.860 |
+| Micro-F1 | 0.870 |
+
+**Per-Category Breakdown:**
+
+| Category | Tag Count | Precision |
+|----------|-----------|-----------|
+| tag | 651 | 0.956 |
+| object | 21 | 0.714 |
+| people | 52 | **0.000** |
+
+**Critical Finding — People Count Tags:**
+Azure Computer Vision's people-count feature (`"14 people"`, `"9 people"`, etc.) has **0% precision**. Every single people-count tag in the ground truth was marked incorrect by human labelers. The most common incorrect tags are all people counts:
+- `"1 person"` (11x wrong), `"4 people"` (7x), `"2 people"` (6x), `"5 people"` (5x)
+
+**Confidence Threshold Analysis:**
+
+| Threshold | Precision | Recall | F1 |
+|-----------|-----------|--------|-----|
+| 0.3 | 0.860 | 0.850 | 0.850 |
+| 0.5 (current) | 0.860 | 0.850 | 0.850 |
+| 0.6 | 0.860 | 0.790 | 0.816 |
+| 0.7 | 0.860 | 0.742 | 0.787 |
+| 0.8 | 0.845 | 0.657 | 0.726 |
+
+Threshold 0.5 is already near-optimal. Lowering below 0.5 has no effect (tags are stored at >=0.5). Raising above 0.5 only hurts recall.
+
+**Top Missing Tags (Azure doesn't detect):**
+`"1 person"` (correct count, 5x), `"dog toy"` (4x), `"dog"` (4x), `"stuffed animal"` (3x), `"smile"` (3x), `"ocean"` (3x)
+
+---
+
+### 3b — Alternative Model Comparison
+
+**Providers tested:** Azure CV (existing tags), AWS Rekognition DetectLabels, Claude Haiku 4.5 Vision (Bedrock)
+**Matching mode:** Fuzzy (substring + synonym matching) for fairer cross-provider comparison
+
+| Provider | Precision | Recall | F1 | Errors | Cost (63 photos) |
+|----------|-----------|--------|-----|--------|-------------------|
+| **Azure CV** | **0.779** | **0.856** | **0.806** | 0 | $0.063 |
+| AWS Rekognition | 0.265 | 0.500 | 0.331 | 6 | $0.063 |
+| Claude Haiku 4.5 | 0.166 | 0.335 | 0.216 | 24 | $0.133 |
+
+**Caveats:**
+- Ground truth was labeled against Azure's tag vocabulary, inherently favoring Azure
+- Many photos >5MB caused Rekognition (6 errors) and Claude (24 errors) to fail
+- Claude produces natural-language tags ("small dog", "indoor setting") that don't match Azure-style labels
+- Even with fuzzy matching, vocabulary mismatch is the dominant factor
+
+**Conclusion:** Azure CV is clearly the best provider for our use case. Neither Rekognition nor Claude warrants adoption as a primary tagger.
+
+### 3b+ — LLM-as-Judge Semantic Matching
+
+**Motivation:** Ground truth was labeled against Azure's vocabulary, inherently penalizing alternatives. An LLM judge (Claude Haiku) evaluates semantic equivalence per photo — e.g., "indoor setting" ≈ "indoor", "small dog" ≈ "dog" — to remove vocabulary bias.
+
+**Full run (63 photos, LLM judge):**
+
+| Provider | Precision | Recall | F1 | Errors |
+|----------|-----------|--------|-----|--------|
+| **Azure CV** | **0.778** | **0.855** | **0.806** | 0 |
+| AWS Rekognition | 0.278 | 0.512 | 0.344 | 6 |
+| Claude Sonnet 4.5 | 0.157 | 0.402 | 0.221 | 24 |
+
+**Filtered to 38 photos where all providers succeeded (no errors):**
+
+| Provider | Precision | Recall | F1 |
+|----------|-----------|--------|-----|
+| **Azure CV** | **0.786** | **0.890** | **0.825** |
+| AWS Rekognition | 0.308 | 0.597 | 0.386 |
+| Claude Sonnet 4.5 | 0.260 | 0.667 | 0.366 |
+
+**Observations:**
+- LLM judge improved Rekognition F1 from 0.331 → 0.344 (+0.013) and Claude from 0.216 → 0.221 (+0.005) — modest gains, doesn't change the ranking
+- On the 38-photo subset, Claude Sonnet has the **highest recall (0.667)** — it finds more relevant tags than Rekognition — but suffers from low precision (0.260) due to many subjective/atmospheric tags ("cozy atmosphere", "warm tones")
+- Azure's dominance persists even after removing vocabulary bias
+- **5MB image limit** blocked Claude from processing ~40% of photos (24/63 errors) — using thumbnails instead of originals would fix this but may reduce tag quality
+
+---
+
+### 3c — Hybrid Strategy Analysis
+
+**Question:** Can combining providers or adjusting thresholds improve quality?
+
+| Strategy | Precision | Recall | F1 | Delta vs Baseline |
+|----------|-----------|--------|-----|-------------------|
+| Azure only (baseline) | 0.779 | 0.856 | 0.806 | — |
+| **Azure (no people)** | **0.840** | **0.855** | **0.837** | **+0.031** |
+| **Azure (optimized thresholds)** | **0.844** | **0.851** | **0.837** | **+0.031** |
+| Azure + Rekognition | 0.378 | 0.895 | 0.510 | -0.296 |
+| Azure + Claude | 0.501 | 0.896 | 0.597 | -0.209 |
+| Azure + Rek + Claude | 0.304 | 0.918 | 0.427 | -0.379 |
+
+**Key Insight:** Simply disabling people-count tags yields the biggest F1 improvement (+0.031) at zero cost. Adding alternative providers tanks precision because of vocabulary mismatch noise.
+
+**Recommended Production Thresholds:**
+
+| Category | Current | Recommended | Rationale |
+|----------|---------|-------------|-----------|
+| tag | 0.5 | 0.5 (no change) | 95.6% precision, no action needed |
+| object | 0.5 | 0.6 | Reduces false positives ("Teddy bear" on dog photos) |
+| people | 0.5 | **DISABLE** | 0% precision — systematic Azure CV failure |
+| text | 0.5 | 0.5 (no change) | OCR is reliable |
+| manual | always keep | always keep | User-added, 100% precision by definition |
+
+---
+
 ## Improvement Log
 
 *Future entries go here. Each entry should include:*

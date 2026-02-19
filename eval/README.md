@@ -101,7 +101,7 @@ Each line is a JSON object with:
 
 20-30 labeled photos is sufficient for meaningful evaluation.
 
-## Running the Eval Harness
+## Running the Eval Harnesses
 
 ### Prerequisites
 
@@ -111,7 +111,7 @@ source venv/bin/activate
 pip install ragas boto3 datasets litellm
 ```
 
-### Run baseline evaluation
+### RAG Baseline (Phase 2)
 
 ```bash
 # Custom metrics only (Photo Display Accuracy) — no AWS creds needed
@@ -121,15 +121,50 @@ python run_baseline.py --skip-ragas
 AWS_PROFILE=picai-cdk AWS_DEFAULT_REGION=us-east-1 python run_baseline.py
 ```
 
-Results are saved to `eval/results/baseline.json`. See `eval/CHANGELOG.md` for metric history and analysis.
+Results: `eval/results/baseline.json`
 
-### What it measures
+### Tagging Benchmark (Phase 3a)
 
-| Metric | Source | Description |
-|--------|--------|-------------|
-| **Photo Display Accuracy** | Custom | Precision/Recall/F1 of returned photo IDs vs expected |
-| **Faithfulness** | RAGAS | Is the LLM response grounded in the retrieved context? |
-| **Response Relevancy** | RAGAS | Does the response address the user's question? |
+```bash
+python run_tagging_benchmark.py
+python run_tagging_benchmark.py --threshold 0.6   # simulate a different threshold
+```
+
+Results: `eval/results/tagging_baseline.json`
+
+### Alternative Model Testing (Phase 3b)
+
+```bash
+# Run all providers (Rekognition + Claude Haiku Vision)
+AWS_PROFILE=picai-cdk AWS_DEFAULT_REGION=us-east-1 python run_alt_tagging.py --fuzzy
+
+# Run one provider only
+AWS_PROFILE=picai-cdk AWS_DEFAULT_REGION=us-east-1 python run_alt_tagging.py --provider rekognition --fuzzy
+
+# Dry run (check file paths)
+python run_alt_tagging.py --dry-run
+```
+
+Results: `eval/results/alt_tagging_results.json`
+
+### Hybrid Strategy Analysis (Phase 3c)
+
+```bash
+python run_hybrid_analysis.py
+```
+
+Results: `eval/results/hybrid_analysis.json`
+
+Requires `alt_tagging_results.json` and `tagging_baseline.json` from previous phases.
+
+### What each harness measures
+
+| Harness | Metrics | Description |
+|---------|---------|-------------|
+| `run_baseline.py` | Photo Display Accuracy (P/R/F1) + RAGAS | RAG query quality |
+| `run_tagging_benchmark.py` | Tag P/R/F1, per-category, threshold analysis | Azure CV tag quality |
+| `run_alt_tagging.py` | Tag P/R/F1 per provider (strict + fuzzy) | Cross-provider comparison |
+| `run_hybrid_analysis.py` | 7 strategies evaluated by F1 | Optimal tag configuration |
 
 ## File Summary
 
@@ -137,14 +172,21 @@ Results are saved to `eval/results/baseline.json`. See `eval/CHANGELOG.md` for m
 eval/
 ├── README.md
 ├── CHANGELOG.md                    # Metric history, observations, tuning log
-├── run_baseline.py                 # Eval harness (Photo Display Accuracy + RAGAS)
+├── run_baseline.py                 # Phase 2: RAG eval (Photo Display Accuracy + RAGAS)
+├── run_tagging_benchmark.py        # Phase 3a: Azure CV tag quality benchmark
+├── run_alt_tagging.py              # Phase 3b: Rekognition + Claude Haiku comparison
+├── run_hybrid_analysis.py          # Phase 3c: Hybrid strategy evaluation
 ├── datasets/
 │   ├── photo_catalog.json          # Full photo metadata (generated)
+│   ├── photo_paths.json            # PhotoId -> file path mapping (generated)
 │   ├── tagging_export.jsonl        # Raw AI tags per photo (generated)
 │   ├── rag_golden.jsonl            # Golden RAG queries (hand-labeled)
 │   └── tagging_ground_truth.jsonl  # Corrected tag labels (hand-labeled)
 ├── results/                        # Eval output (gitignored)
-│   └── baseline.json               # Latest baseline results
+│   ├── baseline.json               # RAG baseline results
+│   ├── tagging_baseline.json       # Azure CV tag quality results
+│   ├── alt_tagging_results.json    # Cross-provider comparison results
+│   └── hybrid_analysis.json        # Hybrid strategy results
 └── tools/
     ├── serve.mjs                   # Local proxy server for labelers
     ├── tagging-labeler.html        # Visual tagging label tool

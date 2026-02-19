@@ -1,0 +1,841 @@
+"""
+Phase 3b — Alternative Model Tagging Benchmark
+
+Compares Azure Computer Vision (baseline), AWS Rekognition DetectLabels,
+and Claude Haiku 4.5 Vision (Bedrock) for photo tagging quality.
+
+For each ground truth photo, sends the image to each provider, collects tags,
+and computes precision/recall/F1 against the hand-labeled ground truth.
+
+Usage:
+    # Run all providers
+    AWS_PROFILE=picai-cdk AWS_DEFAULT_REGION=us-east-1 python run_alt_tagging.py
+
+    # Run only Rekognition
+    AWS_PROFILE=picai-cdk AWS_DEFAULT_REGION=us-east-1 python run_alt_tagging.py --provider rekognition
+
+    # Run only Claude Haiku
+    AWS_PROFILE=picai-cdk AWS_DEFAULT_REGION=us-east-1 python run_alt_tagging.py --provider claude
+
+    # Dry run (show what would be processed)
+    python run_alt_tagging.py --dry-run
+"""
+
+import argparse
+import base64
+import json
+import os
+import sys
+import time
+from collections import defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
+
+import boto3
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+DATASETS_DIR = Path(__file__).parent / "datasets"
+RESULTS_DIR = Path(__file__).parent / "results"
+
+GROUND_TRUTH_FILE = "tagging_ground_truth.jsonl"
+PHOTO_PATHS_FILE = "photo_paths.json"
+
+# Rekognition
+REKOGNITION_MIN_CONFIDENCE = 50.0  # Match Azure's 0.5 threshold (Rekognition uses 0-100 scale)
+REKOGNITION_MAX_LABELS = 25
+
+# Claude Vision via Bedrock (default: Haiku, override with --model)
+CLAUDE_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+CLAUDE_MODEL_ALIASES = {
+    "haiku": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "sonnet": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "sonnet4": "anthropic.claude-sonnet-4-20250514-v1:0",
+}
+CLAUDE_MAX_TOKENS = 1024
+
+# Rate limiting
+REKOGNITION_DELAY_SEC = 0.5   # ~2 req/sec (well within 50/sec limit)
+CLAUDE_DELAY_SEC = 1.0        # conservative for Bedrock
+
+# Max image size for Bedrock (5MB for base64-encoded images)
+MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+
+# ---------------------------------------------------------------------------
+# Data loading
+# ---------------------------------------------------------------------------
+
+
+def load_ground_truth() -> list[dict]:
+    """Load the hand-labeled tagging ground truth dataset."""
+    path = DATASETS_DIR / GROUND_TRUTH_FILE
+    entries = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                entries.append(json.loads(line))
+    print(f"Loaded {len(entries)} labeled photos from {path.name}")
+    return entries
+
+
+def load_photo_paths() -> dict:
+    """Load the photoId -> filePath mapping."""
+    path = DATASETS_DIR / PHOTO_PATHS_FILE
+    with open(path) as f:
+        return json.load(f)
+
+
+def read_photo_bytes(file_path: str) -> bytes | None:
+    """Read photo bytes from disk. Returns None if file doesn't exist."""
+    if not os.path.exists(file_path):
+        return None
+    with open(file_path, "rb") as f:
+        return f.read()
+
+
+# ---------------------------------------------------------------------------
+# Tag normalization
+# ---------------------------------------------------------------------------
+
+
+def normalize_tag(tag: str) -> str:
+    """Normalize a tag for comparison (lowercase, strip whitespace)."""
+    return tag.lower().strip()
+
+
+def normalize_tag_set(tags: list[str]) -> set[str]:
+    """Normalize a list of tags into a set for comparison."""
+    return {normalize_tag(t) for t in tags}
+
+
+# Common synonym pairs for fuzzy matching across providers
+SYNONYM_MAP: dict[str, set[str]] = {
+    "indoor": {"indoor", "indoor setting", "indoors", "inside"},
+    "outdoor": {"outdoor", "outdoor setting", "outdoors", "outside"},
+    "pet": {"pet", "domestic animal", "companion animal"},
+    "dog breed": {"dog breed", "breed", "purebred"},
+    "human face": {"human face", "face", "human head"},
+    "person": {"person", "human", "people", "adult", "man", "woman"},
+    "clothing": {"clothing", "clothes", "apparel", "outfit", "attire"},
+    "puppy": {"puppy", "young dog", "baby dog"},
+    "companion dog": {"companion dog", "small dog", "lap dog"},
+    "laying": {"laying", "lying", "lying down", "reclining"},
+    "sitting": {"sitting", "seated"},
+    "mammal": {"mammal", "mammals"},
+    "animal": {"animal", "animals", "creature"},
+    "sky": {"sky", "blue sky", "clear sky"},
+    "tree": {"tree", "trees"},
+    "building": {"building", "buildings", "structure"},
+    "food": {"food", "meal", "dish", "cuisine"},
+    "smile": {"smile", "smiling", "happy"},
+    "beach": {"beach", "seaside", "shore", "sandy beach"},
+    "mountain": {"mountain", "mountains", "hill", "hills"},
+    "water": {"water", "lake", "river", "ocean", "sea"},
+    "sleeping": {"sleeping", "sleep", "asleep", "nap", "napping"},
+    "wearing": {"wearing", "dressed"},
+    "walking": {"walking", "strolling"},
+    "standing": {"standing", "upright"},
+}
+
+# Build reverse lookup: synonym -> canonical
+_SYNONYM_REVERSE: dict[str, str] = {}
+for canonical, synonyms in SYNONYM_MAP.items():
+    for syn in synonyms:
+        _SYNONYM_REVERSE[syn] = canonical
+
+
+def fuzzy_match(tag_a: str, tag_b: str) -> bool:
+    """Check if two tags match using fuzzy rules.
+
+    Rules:
+    1. Exact match (case-insensitive)
+    2. One tag contains the other as a substring (e.g., "indoor setting" contains "indoor")
+    3. Both tags map to the same synonym group
+    """
+    a = tag_a.lower().strip()
+    b = tag_b.lower().strip()
+
+    # Rule 1: exact
+    if a == b:
+        return True
+
+    # Rule 2: substring containment (at word boundary)
+    # "indoor setting" contains "indoor", "dog bed" contains "dog"
+    if len(a) >= 3 and len(b) >= 3:  # avoid matching very short strings
+        if a in b or b in a:
+            return True
+
+    # Rule 3: synonym map
+    canon_a = _SYNONYM_REVERSE.get(a)
+    canon_b = _SYNONYM_REVERSE.get(b)
+    if canon_a and canon_b and canon_a == canon_b:
+        return True
+
+    return False
+
+
+def fuzzy_match_sets(provider_tags: set[str], expected_tags: set[str]) -> tuple[set[str], set[str]]:
+    """Find matches between provider tags and expected tags using fuzzy matching.
+
+    Returns (matched_provider, matched_expected) — the provider tags that matched
+    and the expected tags that were matched.
+    """
+    matched_provider = set()
+    matched_expected = set()
+
+    for ptag in provider_tags:
+        for etag in expected_tags:
+            if etag not in matched_expected and fuzzy_match(ptag, etag):
+                matched_provider.add(ptag)
+                matched_expected.add(etag)
+                break  # one provider tag matches at most one expected tag
+
+    return matched_provider, matched_expected
+
+
+# ---------------------------------------------------------------------------
+# LLM Judge Matching
+# ---------------------------------------------------------------------------
+
+JUDGE_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+JUDGE_PROMPT = """You are evaluating a photo tagging system. Given two lists of tags describing the same photo, determine which tags are semantically equivalent (describe the same concept).
+
+PROVIDER TAGS (from the system being evaluated):
+{provider_tags}
+
+EXPECTED TAGS (ground truth — what should be present):
+{expected_tags}
+
+For each EXPECTED tag, find the best matching PROVIDER tag that describes the same concept, even if worded differently. Examples of matches:
+- "companion dog" ≈ "small dog" (same concept)
+- "shih-poo" ≈ "shih tzu mix" (same breed)
+- "indoor" ≈ "indoor setting" (same concept)
+- "puppy" ≈ "young dog" (same concept)
+- "clothing" ≈ "outfit" (same concept)
+
+Rules:
+- Each provider tag can match AT MOST one expected tag
+- Each expected tag can match AT MOST one provider tag
+- Only match tags that genuinely describe the same concept
+- "dog" and "cat" are NOT a match
+- A provider tag that has no matching expected tag means it's an extra/incorrect tag
+
+Also identify provider tags that describe genuine features of the photo but don't match any expected tag. These are "extra but relevant" — not wrong, just not in the expected set.
+
+Respond with ONLY a JSON object:
+{{
+  "matches": [
+    {{"provider": "small dog", "expected": "companion dog"}},
+    {{"provider": "indoor", "expected": "indoor"}}
+  ],
+  "unmatched_provider": ["white background", "fluffy"],
+  "unmatched_expected": ["mammal", "animal"]
+}}"""
+
+
+def llm_judge_match(
+    bedrock_client,
+    provider_tags: list[str],
+    expected_tags: list[str],
+) -> dict:
+    """Use Claude Haiku as a judge to match provider tags to expected tags.
+
+    Returns {
+        "matches": [{"provider": str, "expected": str}, ...],
+        "unmatched_provider": [str, ...],
+        "unmatched_expected": [str, ...],
+        "usage": {"input_tokens": int, "output_tokens": int},
+    }
+    """
+    prompt = JUDGE_PROMPT.format(
+        provider_tags=json.dumps(provider_tags),
+        expected_tags=json.dumps(expected_tags),
+    )
+
+    body = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 2048,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+
+    response = bedrock_client.invoke_model(
+        modelId=JUDGE_MODEL_ID,
+        contentType="application/json",
+        accept="application/json",
+        body=json.dumps(body),
+    )
+
+    result = json.loads(response["body"].read())
+    text = result["content"][0]["text"].strip()
+    usage = result.get("usage", {})
+
+    # Parse JSON from response
+    if text.startswith("```"):
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1]) if len(lines) > 2 else text
+    if text.startswith("```json"):
+        text = text[7:]
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
+
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        print(f"    WARNING: Judge returned invalid JSON: {text[:200]}")
+        return {
+            "matches": [],
+            "unmatched_provider": provider_tags,
+            "unmatched_expected": expected_tags,
+            "usage": usage,
+        }
+
+    parsed["usage"] = usage
+    return parsed
+
+
+def llm_judge_match_sets(
+    bedrock_client,
+    provider_tags: set[str],
+    expected_tags: set[str],
+) -> tuple[set[str], set[str], dict]:
+    """LLM judge wrapper returning the same format as fuzzy_match_sets.
+
+    Returns (matched_provider, matched_expected, judge_result).
+    """
+    result = llm_judge_match(
+        bedrock_client,
+        sorted(provider_tags),
+        sorted(expected_tags),
+    )
+
+    matched_provider = set()
+    matched_expected = set()
+    for m in result.get("matches", []):
+        p = (m.get("provider") or "").lower().strip()
+        e = (m.get("expected") or "").lower().strip()
+        if p and e and p in provider_tags and e in expected_tags:
+            matched_provider.add(p)
+            matched_expected.add(e)
+
+    return matched_provider, matched_expected, result
+
+
+# ---------------------------------------------------------------------------
+# Rekognition DetectLabels
+# ---------------------------------------------------------------------------
+
+
+def rekognition_detect_labels(client, image_bytes: bytes) -> list[dict]:
+    """Call Rekognition DetectLabels and return normalized tags.
+
+    Returns list of {tag, confidence, category} matching our schema.
+    """
+    response = client.detect_labels(
+        Image={"Bytes": image_bytes},
+        MaxLabels=REKOGNITION_MAX_LABELS,
+        MinConfidence=REKOGNITION_MIN_CONFIDENCE,
+    )
+
+    tags = []
+    seen = set()
+    for label in response.get("Labels", []):
+        tag_name = label["Name"]
+        confidence = label["Confidence"] / 100.0  # Normalize to 0-1
+        tag_lower = tag_name.lower()
+
+        if tag_lower in seen:
+            continue
+        seen.add(tag_lower)
+
+        # Rekognition provides parent-child hierarchy; use "Parents" to infer category
+        # Top-level labels with no parents are broader categories
+        category = "tag"  # default
+        parents = [p["Name"] for p in label.get("Parents", [])]
+
+        # Heuristic: if label has bounding box instances, treat as "object"
+        if label.get("Instances"):
+            category = "object"
+
+        tags.append({
+            "tag": tag_name,
+            "confidence": round(confidence, 4),
+            "category": category,
+        })
+
+        # Also add alias tags from categories for broader matching
+        for alias in label.get("Aliases", []):
+            alias_lower = alias["Name"].lower()
+            if alias_lower not in seen:
+                seen.add(alias_lower)
+                tags.append({
+                    "tag": alias["Name"],
+                    "confidence": round(confidence, 4),
+                    "category": category,
+                })
+
+    return tags
+
+
+# ---------------------------------------------------------------------------
+# Claude Haiku Vision via Bedrock
+# ---------------------------------------------------------------------------
+
+CLAUDE_TAGGING_PROMPT = """Analyze this photo and provide a comprehensive list of tags describing what you see.
+
+For each tag, provide:
+- The tag name (a short phrase or word)
+- Your confidence (0.0 to 1.0)
+- Category: "tag" (scene/attribute), "object" (specific detected object), "text" (any visible text), or "people" (person count like "1 person" or "3 people")
+
+Be thorough but accurate. Include:
+- Objects and animals visible
+- Scene description (indoor/outdoor, location type)
+- Activities and actions
+- Attributes (colors, textures, moods)
+- Text visible in the image (OCR)
+- People count if people are visible
+
+Respond ONLY with a JSON array. Example:
+[
+  {"tag": "dog", "confidence": 0.95, "category": "tag"},
+  {"tag": "indoor", "confidence": 0.9, "category": "tag"},
+  {"tag": "Golden Retriever", "confidence": 0.8, "category": "object"}
+]"""
+
+
+def claude_vision_tags(client, image_bytes: bytes, mime_type: str) -> list[dict]:
+    """Call Claude Haiku Vision via Bedrock and return normalized tags."""
+    # Encode image to base64
+    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+    # Map MIME type
+    media_type = mime_type
+    if media_type not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+        media_type = "image/jpeg"  # fallback
+
+    body = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": CLAUDE_MAX_TOKENS,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": image_b64,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": CLAUDE_TAGGING_PROMPT,
+                    },
+                ],
+            }
+        ],
+    }
+
+    response = client.invoke_model(
+        modelId=CLAUDE_MODEL_ID,
+        contentType="application/json",
+        accept="application/json",
+        body=json.dumps(body),
+    )
+
+    result = json.loads(response["body"].read())
+    text = result["content"][0]["text"]
+
+    # Parse JSON from response (handle markdown code blocks)
+    text = text.strip()
+    if text.startswith("```"):
+        # Remove markdown code fences
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1]) if len(lines) > 2 else text
+    if text.startswith("```json"):
+        text = text[7:]
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
+
+    try:
+        tags = json.loads(text)
+    except json.JSONDecodeError:
+        print(f"    WARNING: Could not parse Claude response as JSON: {text[:200]}")
+        return []
+
+    if not isinstance(tags, list):
+        return []
+
+    # Normalize and deduplicate
+    seen = set()
+    normalized = []
+    for item in tags:
+        if not isinstance(item, dict) or "tag" not in item:
+            continue
+        tag_lower = item["tag"].lower().strip()
+        if tag_lower in seen:
+            continue
+        seen.add(tag_lower)
+        normalized.append({
+            "tag": item["tag"],
+            "confidence": round(float(item.get("confidence", 0.5)), 4),
+            "category": item.get("category", "tag"),
+        })
+
+    # Extract token usage
+    usage = result.get("usage", {})
+    return normalized, usage
+
+
+# ---------------------------------------------------------------------------
+# Metrics computation (reused from run_tagging_benchmark.py)
+# ---------------------------------------------------------------------------
+
+
+def compute_tag_metrics(
+    provider_tags: list[str],
+    correct_tags: list[str],
+    missing_tags: list[str],
+    incorrect_tags: list[str],
+    use_fuzzy: bool = False,
+    judge_matches: tuple[set[str], set[str]] | None = None,
+) -> dict:
+    """Compute how well a provider's tags match the ground truth.
+
+    We need to re-evaluate against the ground truth labels:
+    - A provider tag is "correct" if it matches any ground truth correct tag OR missing tag
+      (missing tags are tags the human says should exist — if the provider found them, that's good!)
+    - A provider tag is "incorrect" if it doesn't match any expected tag
+
+    Precision = |provider tags matching ground truth| / |provider tags|
+    Recall = |ground truth tags found by provider| / |all ground truth tags|
+
+    If judge_matches is provided, it's (matched_provider, matched_expected) from the LLM judge.
+    """
+    provider_set = normalize_tag_set(provider_tags)
+
+    # All tags that SHOULD exist for this photo
+    all_expected = normalize_tag_set(correct_tags) | normalize_tag_set(missing_tags)
+
+    if not provider_set and not all_expected:
+        return {"precision": 1.0, "recall": 1.0, "f1": 1.0, "matched": 0, "total_provider": 0, "total_expected": 0}
+    if not provider_set:
+        return {"precision": 1.0, "recall": 0.0, "f1": 0.0, "matched": 0, "total_provider": 0, "total_expected": len(all_expected)}
+    if not all_expected:
+        return {"precision": 0.0, "recall": 1.0, "f1": 0.0, "matched": 0, "total_provider": len(provider_set), "total_expected": 0}
+
+    if judge_matches is not None:
+        matched_provider, matched_expected = judge_matches
+        n_matched_prec = len(matched_provider)
+        n_matched_rec = len(matched_expected)
+    elif use_fuzzy:
+        matched_provider, matched_expected = fuzzy_match_sets(provider_set, all_expected)
+        n_matched_prec = len(matched_provider)
+        n_matched_rec = len(matched_expected)
+    else:
+        matched = provider_set & all_expected
+        n_matched_prec = len(matched)
+        n_matched_rec = len(matched)
+
+    precision = n_matched_prec / len(provider_set)
+    recall = n_matched_rec / len(all_expected)
+    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
+
+    return {
+        "precision": round(precision, 4),
+        "recall": round(recall, 4),
+        "f1": round(f1, 4),
+        "matched": n_matched_prec,
+        "total_provider": len(provider_set),
+        "total_expected": len(all_expected),
+    }
+
+
+def compute_azure_metrics(entry: dict, use_fuzzy: bool = False) -> dict:
+    """Compute metrics for Azure's existing tags against the ground truth."""
+    azure_tags = [t["tag"] for t in entry["ai_tags"]]
+    return compute_tag_metrics(
+        azure_tags,
+        entry.get("correct_tags", []),
+        entry.get("missing_tags", []),
+        entry.get("incorrect_tags", []),
+        use_fuzzy=use_fuzzy,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+def mean_of(values: list[float]) -> float:
+    return round(sum(values) / len(values), 4) if values else 0.0
+
+
+def print_comparison(azure_metrics: list[dict], rek_metrics: list[dict] | None, claude_metrics: list[dict] | None):
+    """Print side-by-side comparison of providers."""
+    print("\n" + "=" * 70)
+    print("ALTERNATIVE MODEL TAGGING COMPARISON")
+    print("=" * 70)
+
+    headers = ["Provider", "Precision", "Recall", "F1"]
+    print(f"\n{'Provider':<25} {'Precision':>10} {'Recall':>10} {'F1':>10}")
+    print("-" * 57)
+
+    azure_p = mean_of([m["precision"] for m in azure_metrics])
+    azure_r = mean_of([m["recall"] for m in azure_metrics])
+    azure_f = mean_of([m["f1"] for m in azure_metrics])
+    print(f"{'Azure Computer Vision':<25} {azure_p:>10.3f} {azure_r:>10.3f} {azure_f:>10.3f}")
+
+    if rek_metrics:
+        rek_p = mean_of([m["precision"] for m in rek_metrics])
+        rek_r = mean_of([m["recall"] for m in rek_metrics])
+        rek_f = mean_of([m["f1"] for m in rek_metrics])
+        print(f"{'AWS Rekognition':<25} {rek_p:>10.3f} {rek_r:>10.3f} {rek_f:>10.3f}")
+
+    if claude_metrics:
+        claude_p = mean_of([m["precision"] for m in claude_metrics])
+        claude_r = mean_of([m["recall"] for m in claude_metrics])
+        claude_f = mean_of([m["f1"] for m in claude_metrics])
+        print(f"{'Claude Haiku 4.5 Vision':<25} {claude_p:>10.3f} {claude_r:>10.3f} {claude_f:>10.3f}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Phase 3b — Alternative Model Tagging")
+    parser.add_argument("--provider", choices=["rekognition", "claude", "all"], default="all",
+                        help="Which provider(s) to test (default: all)")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="Limit number of photos to process (for testing)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Show what would be processed without calling APIs")
+    parser.add_argument("--fuzzy", action="store_true",
+                        help="Use fuzzy matching (substring + synonyms) for fairer cross-provider comparison")
+    parser.add_argument("--model", type=str, default=None,
+                        help="Claude model alias (haiku, sonnet, sonnet4) or full Bedrock model ID")
+    parser.add_argument("--judge", action="store_true",
+                        help="Use LLM judge (Claude Haiku) for semantic tag matching instead of string/fuzzy")
+    args = parser.parse_args()
+
+    ground_truth = load_ground_truth()
+    photo_paths = load_photo_paths()
+
+    if args.limit:
+        ground_truth = ground_truth[:args.limit]
+        print(f"Limited to {args.limit} photos")
+
+    # Verify all ground truth photos have file paths
+    missing = [e["photoId"] for e in ground_truth if e["photoId"] not in photo_paths]
+    if missing:
+        print(f"WARNING: {len(missing)} photos not found in photo_paths.json")
+        ground_truth = [e for e in ground_truth if e["photoId"] in photo_paths]
+
+    if args.dry_run:
+        print(f"\nDry run: would process {len(ground_truth)} photos")
+        for e in ground_truth:
+            p = photo_paths.get(e["photoId"], {})
+            exists = os.path.exists(p.get("filePath", "")) if p else False
+            print(f"  {e['originalName']:<30} {'OK' if exists else 'MISSING'}")
+        return
+
+    run_rek = args.provider in ("rekognition", "all")
+    run_claude = args.provider in ("claude", "all")
+
+    # Resolve Claude model ID
+    global CLAUDE_MODEL_ID
+    if args.model:
+        CLAUDE_MODEL_ID = CLAUDE_MODEL_ALIASES.get(args.model, args.model)
+    if run_claude:
+        print(f"Claude model: {CLAUDE_MODEL_ID}")
+
+    # Initialize AWS clients
+    session = boto3.Session()
+    rek_client = session.client("rekognition", region_name="us-east-1") if run_rek else None
+    bedrock_client = session.client("bedrock-runtime", region_name="us-east-1") if (run_claude or args.judge) else None
+    judge_client = bedrock_client if args.judge else None  # reuse same client for judge
+
+    # Collect results
+    azure_results = []
+    rek_results = [] if run_rek else None
+    claude_results = [] if run_claude else None
+    per_photo_details = []
+
+    total_claude_input_tokens = 0
+    total_claude_output_tokens = 0
+
+    if args.judge:
+        matching_mode = "LLM judge (Claude Haiku semantic matching)"
+    elif args.fuzzy:
+        matching_mode = "fuzzy (substring + synonyms)"
+    else:
+        matching_mode = "strict (exact)"
+    print(f"\nProcessing {len(ground_truth)} photos (matching: {matching_mode})...")
+    for i, entry in enumerate(ground_truth):
+        photo_id = entry["photoId"]
+        original_name = entry["originalName"]
+        paths = photo_paths[photo_id]
+        file_path = paths["filePath"]
+        mime_type = paths.get("mimeType", "image/jpeg")
+
+        print(f"  [{i+1}/{len(ground_truth)}] {original_name}...", end="", flush=True)
+
+        # Read photo bytes
+        image_bytes = read_photo_bytes(file_path)
+        if image_bytes is None:
+            print(f" SKIP (file not found: {file_path})")
+            continue
+
+        detail = {
+            "photoId": photo_id,
+            "originalName": original_name,
+        }
+
+        # Helper: compute metrics for a provider's tags using the active matching mode
+        expected_correct = entry.get("correct_tags", [])
+        expected_missing = entry.get("missing_tags", [])
+        expected_incorrect = entry.get("incorrect_tags", [])
+        all_expected = normalize_tag_set(expected_correct) | normalize_tag_set(expected_missing)
+
+        def score_provider(tag_names: list[str], label: str) -> dict:
+            """Score a provider's tags against ground truth using the active matching mode."""
+            if args.judge and judge_client:
+                provider_set = normalize_tag_set(tag_names)
+                try:
+                    mp, me, jr = llm_judge_match_sets(judge_client, provider_set, all_expected)
+                    m = compute_tag_metrics(tag_names, expected_correct, expected_missing, expected_incorrect, judge_matches=(mp, me))
+                    m["judge_detail"] = {"matches": jr.get("matches", []), "usage": jr.get("usage", {})}
+                    return m
+                except Exception as e:
+                    print(f" {label}_judge=ERR({e})", end="")
+                    return compute_tag_metrics(tag_names, expected_correct, expected_missing, expected_incorrect, use_fuzzy=args.fuzzy)
+            else:
+                return compute_tag_metrics(tag_names, expected_correct, expected_missing, expected_incorrect, use_fuzzy=args.fuzzy)
+
+        # -- Azure metrics (from existing tags in ground truth) --
+        azure_tag_names = [t["tag"] for t in entry["ai_tags"]]
+        azure_m = score_provider(azure_tag_names, "azure")
+        azure_results.append(azure_m)
+        detail["azure"] = {
+            "metrics": azure_m,
+            "tags": azure_tag_names,
+        }
+
+        # -- Rekognition --
+        if run_rek and rek_client:
+            try:
+                rek_tags = rekognition_detect_labels(rek_client, image_bytes)
+                rek_tag_names = [t["tag"] for t in rek_tags]
+                rek_m = score_provider(rek_tag_names, "rek")
+                rek_results.append(rek_m)
+                detail["rekognition"] = {
+                    "metrics": rek_m,
+                    "tags": rek_tag_names,
+                    "raw_tags": rek_tags,
+                }
+                print(f" rek={rek_m['f1']:.2f}", end="")
+                time.sleep(REKOGNITION_DELAY_SEC)
+            except Exception as e:
+                print(f" rek=ERR({e})", end="")
+                rek_results.append({"precision": 0, "recall": 0, "f1": 0, "error": str(e)})
+
+        # -- Claude Vision --
+        if run_claude and bedrock_client:
+            # Check file size (Bedrock has limits)
+            if len(image_bytes) > MAX_IMAGE_SIZE_BYTES:
+                print(f" claude=SKIP(too large: {len(image_bytes)//1024}KB)", end="")
+                claude_results.append({"precision": 0, "recall": 0, "f1": 0, "error": "too_large"})
+            else:
+                try:
+                    claude_tags, usage = claude_vision_tags(bedrock_client, image_bytes, mime_type)
+                    claude_tag_names = [t["tag"] for t in claude_tags]
+                    claude_m = score_provider(claude_tag_names, "claude")
+                    claude_results.append(claude_m)
+                    detail["claude"] = {
+                        "metrics": claude_m,
+                        "tags": claude_tag_names,
+                        "raw_tags": claude_tags,
+                        "usage": usage,
+                    }
+                    total_claude_input_tokens += usage.get("input_tokens", 0)
+                    total_claude_output_tokens += usage.get("output_tokens", 0)
+                    print(f" claude={claude_m['f1']:.2f}", end="")
+                    time.sleep(CLAUDE_DELAY_SEC)
+                except Exception as e:
+                    print(f" claude=ERR({e})", end="")
+                    claude_results.append({"precision": 0, "recall": 0, "f1": 0, "error": str(e)})
+
+        per_photo_details.append(detail)
+        print()  # newline
+
+    # -- Print comparison --
+    print_comparison(azure_results, rek_results, claude_results)
+
+    # -- Cost estimates --
+    print(f"\n--- Cost Estimates ---")
+    n = len(ground_truth)
+    print(f"Azure CV:     ~${n * 0.001:.3f} ({n} calls x $1.00/1000)")
+    if run_rek:
+        print(f"Rekognition:  ~${n * 0.001:.3f} ({n} calls x $1.00/1000)")
+    if run_claude:
+        cost = (total_claude_input_tokens * 0.80 + total_claude_output_tokens * 4.00) / 1_000_000
+        print(f"Claude Haiku: ~${cost:.4f} ({total_claude_input_tokens} input + {total_claude_output_tokens} output tokens)")
+
+    # -- Save results --
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    output = {
+        "metadata": {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "ground_truth_file": GROUND_TRUTH_FILE,
+            "total_photos": len(per_photo_details),
+            "matching_mode": "fuzzy" if args.fuzzy else "strict",
+            "providers_tested": [],
+        },
+        "summary": {},
+        "per_photo": per_photo_details,
+    }
+
+    output["summary"]["azure"] = {
+        "precision": mean_of([m["precision"] for m in azure_results]),
+        "recall": mean_of([m["recall"] for m in azure_results]),
+        "f1": mean_of([m["f1"] for m in azure_results]),
+    }
+    output["metadata"]["providers_tested"].append("azure")
+
+    if rek_results:
+        valid_rek = [m for m in rek_results if "error" not in m]
+        output["summary"]["rekognition"] = {
+            "precision": mean_of([m["precision"] for m in valid_rek]),
+            "recall": mean_of([m["recall"] for m in valid_rek]),
+            "f1": mean_of([m["f1"] for m in valid_rek]),
+            "errors": len(rek_results) - len(valid_rek),
+        }
+        output["metadata"]["providers_tested"].append("rekognition")
+
+    if claude_results:
+        valid_claude = [m for m in claude_results if "error" not in m]
+        output["summary"]["claude_haiku"] = {
+            "precision": mean_of([m["precision"] for m in valid_claude]),
+            "recall": mean_of([m["recall"] for m in valid_claude]),
+            "f1": mean_of([m["f1"] for m in valid_claude]),
+            "errors": len(claude_results) - len(valid_claude),
+            "total_input_tokens": total_claude_input_tokens,
+            "total_output_tokens": total_claude_output_tokens,
+        }
+        output["metadata"]["providers_tested"].append("claude_haiku")
+
+    output_path = RESULTS_DIR / "alt_tagging_results.json"
+    with open(output_path, "w") as f:
+        json.dump(output, f, indent=2)
+
+    print(f"\nResults saved to {output_path}")
+
+
+if __name__ == "__main__":
+    main()
