@@ -1,12 +1,8 @@
-// src/components/photos/PhotoCard.tsx
-// Individual photo card — minimal chrome, photo-focused
-
 import { useState } from 'react';
 import { Trash2, ImageIcon } from 'lucide-react';
 import { useThumbnail, useDeletePhoto } from '@/hooks/usePhotos';
 import type { Photo, PhotoListItem } from '@/types/api';
 
-// Accept either full Photo or simplified PhotoListItem
 type PhotoItem = Photo | PhotoListItem;
 
 interface PhotoCardProps {
@@ -47,12 +43,25 @@ export function PhotoCard({
 
   return (
     <div
-      className={`group relative aspect-square cursor-pointer overflow-hidden rounded-md bg-gray-100 dark:bg-white/5 ${
+      className={`group relative h-full w-full cursor-pointer overflow-hidden bg-[#d8d0c4] dark:bg-[#2a2824] ${
         isSelected
-          ? 'ring-2 ring-accent ring-offset-1 ring-offset-gray-50 dark:ring-offset-gray-950'
+          ? 'ring-2 ring-ink ring-offset-1 ring-offset-paper dark:ring-[#e8e4de] dark:ring-offset-[#111110]'
           : ''
       }`}
+      style={{ transition: 'transform 0.25s ease, box-shadow 0.25s ease' }}
       onClick={handleClick}
+      onMouseEnter={(e) => {
+        if (!isSelectionMode) {
+          e.currentTarget.style.transform = 'scale(1.02)';
+          e.currentTarget.style.boxShadow = '0 8px 32px rgba(26,23,20,0.12)';
+          e.currentTarget.style.zIndex = '5';
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = '';
+        e.currentTarget.style.boxShadow = '';
+        e.currentTarget.style.zIndex = '';
+      }}
     >
       {/* Selection checkbox */}
       {isSelectionMode && (
@@ -62,7 +71,7 @@ export function PhotoCard({
             checked={isSelected}
             onChange={onToggleSelection}
             onClick={(e) => e.stopPropagation()}
-            className="h-4 w-4 cursor-pointer rounded border-white/80 bg-white/80 text-accent shadow-sm focus:ring-1 focus:ring-accent focus:ring-offset-0"
+            className="h-4 w-4 cursor-pointer border-white/80 bg-white/80 shadow-sm accent-[#1a1714]"
           />
         </div>
       )}
@@ -70,22 +79,22 @@ export function PhotoCard({
       {/* Thumbnail */}
       {thumbnailLoading ? (
         <div className="flex h-full items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-accent dark:border-white/10 dark:border-t-accent" />
+          <div className="h-5 w-5 animate-spin border-2 border-rule border-t-ink dark:border-[#2a2824] dark:border-t-[#e8e4de]" />
         </div>
       ) : thumbnailUrl ? (
         <img
           src={thumbnailUrl}
           alt={photo.originalName}
-          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+          className="h-full w-full object-cover"
         />
       ) : (
-        <div className="flex h-full items-center justify-center text-gray-300 dark:text-gray-600">
+        <div className="flex h-full items-center justify-center text-whisper dark:text-[#8a8478]">
           <ImageIcon className="h-8 w-8" />
         </div>
       )}
 
       {/* Selection tint */}
-      {isSelectionMode && isSelected && <div className="absolute inset-0 bg-accent/15" />}
+      {isSelectionMode && isSelected && <div className="absolute inset-0 bg-ink/15 dark:bg-[#e8e4de]/15" />}
 
       {/* Delete button (hover only, not in selection mode) */}
       {!isSelectionMode && (
@@ -95,7 +104,7 @@ export function PhotoCard({
             e.stopPropagation();
             setShowConfirm(true);
           }}
-          className="absolute right-1.5 top-1.5 rounded-full bg-black/40 p-1.5 text-white/80 opacity-0 transition-opacity hover:bg-black/60 hover:text-white group-hover:opacity-100"
+          className="absolute right-1.5 top-1.5 bg-black/40 p-1.5 text-white/80 opacity-0 transition-opacity hover:bg-black/60 hover:text-white group-hover:opacity-100"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -111,21 +120,21 @@ export function PhotoCard({
           }}
         >
           <div
-            className="mx-4 w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-gray-900"
+            className="mx-4 w-full max-w-sm border border-rule bg-paper p-6 shadow-xl dark:border-[#2a2824] dark:bg-[#111110]"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-medium text-gray-900 dark:text-white">Delete Photo</h3>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            <h3 className="font-serif text-[18px] font-normal text-ink dark:text-[#e8e4de]">Delete Photo</h3>
+            <p className="mt-2 text-[14px] font-light text-muted dark:text-[#8a8478]">
               Are you sure you want to delete this photo? This action cannot be undone.
             </p>
-            <div className="mt-4 flex justify-end gap-3">
+            <div className="mt-5 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowConfirm(false);
                 }}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5"
+                className="border border-rule px-4 py-2 text-[13px] font-medium text-muted transition-colors hover:border-ink hover:text-ink dark:border-[#2a2824] dark:text-[#8a8478] dark:hover:border-[#e8e4de] dark:hover:text-[#e8e4de]"
               >
                 Cancel
               </button>
@@ -136,7 +145,7 @@ export function PhotoCard({
                   handleDelete();
                 }}
                 disabled={deleteMutation.isPending}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                className="bg-red-700 px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-50 dark:bg-red-600"
               >
                 {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
               </button>

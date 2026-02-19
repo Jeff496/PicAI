@@ -1,8 +1,5 @@
-// src/components/photos/TagFilter.tsx
-// Tag filter input component for filtering photos by tag
-
 import { useState, useEffect } from 'react';
-import { Tag, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface TagFilterProps {
   value: string;
@@ -13,7 +10,6 @@ interface TagFilterProps {
 export function TagFilter({ value, onChange, placeholder = 'Filter by tag...' }: TagFilterProps) {
   const [localValue, setLocalValue] = useState(value);
 
-  // Debounce input to avoid excessive API calls
   useEffect(() => {
     const timer = setTimeout(() => {
       if (localValue !== value) {
@@ -23,7 +19,6 @@ export function TagFilter({ value, onChange, placeholder = 'Filter by tag...' }:
     return () => clearTimeout(timer);
   }, [localValue, value, onChange]);
 
-  // Sync with external value changes
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
@@ -40,22 +35,25 @@ export function TagFilter({ value, onChange, placeholder = 'Filter by tag...' }:
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-3 pr-9 text-sm text-gray-700 placeholder-gray-400 transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:placeholder-gray-500"
+        className="w-full border border-rule bg-transparent py-2 pl-3 pr-9 font-sans text-[13px] text-ink placeholder-whisper transition-colors focus:border-ink focus:outline-none dark:border-[#2a2824] dark:text-[#e8e4de] dark:placeholder-[#8a8478] dark:focus:border-[#e8e4de]"
       />
-
-      {/* Search icon or clear button */}
       <div className="absolute inset-y-0 right-0 flex items-center pr-2.5">
         {localValue ? (
           <button
             type="button"
             onClick={handleClear}
-            className="text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+            className="text-subtle transition-colors hover:text-ink dark:text-[#8a8478] dark:hover:text-[#e8e4de]"
             aria-label="Clear filter"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         ) : (
-          <Tag className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+          <span
+            className="font-sans text-[10px] font-medium uppercase text-whisper dark:text-[#8a8478]"
+            style={{ letterSpacing: '0.08em' }}
+          >
+            Tag
+          </span>
         )}
       </div>
     </div>
