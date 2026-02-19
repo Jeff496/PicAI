@@ -34,9 +34,9 @@ export class ChatStack extends cdk.Stack {
       // IAM-based access only (no fine-grained access control master user)
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       logging: {
-        slowSearchLogEnabled: true,
-        slowIndexLogEnabled: true,
-        appLogEnabled: true,
+        slowSearchLogEnabled: false,
+        slowIndexLogEnabled: false,
+        appLogEnabled: false,
       },
     });
 
@@ -183,6 +183,7 @@ export class ChatStack extends cdk.Stack {
         CHAT_HISTORY_TABLE: chatHistoryTable.tableName,
         EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
         LLM_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+        OTEL_EXPORTER_OTLP_ENDPOINT: 'http://44.208.136.228:4318',
       },
       logGroup: chatLogGroup,
       bundling: {
