@@ -56,7 +56,7 @@ async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     return respond(400, { success: false, error: 'message and userId are required' });
   }
 
-  const rootSpan = tracer.startSpan('chat.request');
+  return tracer.startActiveSpan('chat.request', async (rootSpan) => {
   rootSpan.setAttributes({
     'user.id': userId,
     'chat.query': message.substring(0, 200),
@@ -248,6 +248,7 @@ async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     rootSpan.end();
     await forceFlush();
   }
+  }); // end startActiveSpan
 }
 
 /**
