@@ -12,7 +12,8 @@ const PAGE_SIZE = 50;
 export const photoKeys = {
   all: ['photos'] as const,
   lists: () => [...photoKeys.all, 'list'] as const,
-  list: (params?: Omit<GetPhotosParams, 'limit' | 'offset'>) => [...photoKeys.lists(), params] as const,
+  list: (params?: Omit<GetPhotosParams, 'limit' | 'offset'>) =>
+    [...photoKeys.lists(), params] as const,
   details: () => [...photoKeys.all, 'detail'] as const,
   detail: (id: string) => [...photoKeys.details(), id] as const,
   thumbnails: () => [...photoKeys.all, 'thumbnail'] as const,

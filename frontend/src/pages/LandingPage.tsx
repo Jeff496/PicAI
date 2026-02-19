@@ -40,10 +40,7 @@ export function LandingPage() {
         <div className="flex items-center justify-between px-6 py-4 sm:px-10">
           {/* Logo + subtitle */}
           <div>
-            <span
-              className="font-serif text-[26px] font-bold"
-              style={{ letterSpacing: '-0.03em' }}
-            >
+            <span className="font-serif text-[26px] font-bold" style={{ letterSpacing: '-0.03em' }}>
               PicAI
             </span>
             <p
@@ -116,8 +113,8 @@ export function LandingPage() {
             <div className="mt-6 w-16 border-b border-rule dark:border-[#2a2824]" />
 
             <p className="mt-6 max-w-[400px] text-[16px] font-light leading-[1.75] text-muted dark:text-[#8a8478]">
-              Upload your photos and let AI organize them into meaningful
-              collections. Share memories with the people who matter most.
+              Upload your photos and let AI organize them into meaningful collections. Share
+              memories with the people who matter most.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-4">
@@ -220,9 +217,7 @@ export function LandingPage() {
       {/* ── Footer ── */}
       <footer className="border-t border-rule px-6 py-8 dark:border-[#2a2824] sm:px-10">
         <div className="flex items-center justify-between">
-          <span
-            className="font-serif text-[15px] font-normal text-subtle dark:text-[#8a8478]"
-          >
+          <span className="font-serif text-[15px] font-normal text-subtle dark:text-[#8a8478]">
             PicAI
           </span>
           <span

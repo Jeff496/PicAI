@@ -96,7 +96,6 @@ export const photosService = {
     let allPhotos: PhotosResponse['photos'] = [];
     let total = 0;
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const page = await this.getPhotos({ ...params, limit: pageSize, offset });
       allPhotos = allPhotos.concat(page.photos);

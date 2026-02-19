@@ -57,13 +57,13 @@ export function PhotoGrid({
     return (
       <div
         className="grid gap-1"
-        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gridAutoRows: '160px' }}
+        style={{
+          gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+          gridAutoRows: '160px',
+        }}
       >
         {Array.from({ length: 18 }).map((_, i) => (
-          <div
-            key={i}
-            className="animate-pulse bg-rule/60 dark:bg-[#2a2824]"
-          />
+          <div key={i} className="animate-pulse bg-rule/60 dark:bg-[#2a2824]" />
         ))}
       </div>
     );
@@ -100,7 +100,10 @@ export function PhotoGrid({
           {/* Stable CSS grid — fixed row height, auto-fill columns */}
           <div
             className="grid gap-1"
-            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gridAutoRows: '160px' }}
+            style={{
+              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+              gridAutoRows: '160px',
+            }}
           >
             {group.photos.map((photo) => (
               <PhotoCard

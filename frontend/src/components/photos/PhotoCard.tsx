@@ -82,11 +82,7 @@ export function PhotoCard({
           <div className="h-5 w-5 animate-spin border-2 border-rule border-t-ink dark:border-[#2a2824] dark:border-t-[#e8e4de]" />
         </div>
       ) : thumbnailUrl ? (
-        <img
-          src={thumbnailUrl}
-          alt={photo.originalName}
-          className="h-full w-full object-cover"
-        />
+        <img src={thumbnailUrl} alt={photo.originalName} className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full items-center justify-center text-whisper dark:text-[#8a8478]">
           <ImageIcon className="h-8 w-8" />
@@ -94,7 +90,9 @@ export function PhotoCard({
       )}
 
       {/* Selection tint */}
-      {isSelectionMode && isSelected && <div className="absolute inset-0 bg-ink/15 dark:bg-[#e8e4de]/15" />}
+      {isSelectionMode && isSelected && (
+        <div className="absolute inset-0 bg-ink/15 dark:bg-[#e8e4de]/15" />
+      )}
 
       {/* Delete button (hover only, not in selection mode) */}
       {!isSelectionMode && (
@@ -123,7 +121,9 @@ export function PhotoCard({
             className="mx-4 w-full max-w-sm border border-rule bg-paper p-6 shadow-xl dark:border-[#2a2824] dark:bg-[#111110]"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-serif text-[18px] font-normal text-ink dark:text-[#e8e4de]">Delete Photo</h3>
+            <h3 className="font-serif text-[18px] font-normal text-ink dark:text-[#e8e4de]">
+              Delete Photo
+            </h3>
             <p className="mt-2 text-[14px] font-light text-muted dark:text-[#8a8478]">
               Are you sure you want to delete this photo? This action cannot be undone.
             </p>
