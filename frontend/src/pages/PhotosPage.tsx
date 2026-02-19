@@ -28,16 +28,18 @@ export function PhotosPage() {
   const groups = groupsResponse?.data?.groups ?? [];
 
   const {
-    data: photosResponse,
+    photos,
+    total,
     isLoading,
     error,
     refetch,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
   } = usePhotos({
     tag: tagFilter || undefined,
     groupId: groupFilter,
   });
-
-  const photos = photosResponse?.photos ?? [];
   const selectedPhotoIdsArray = Array.from(selectedPhotoIds);
 
   const handleUploadComplete = () => {
@@ -150,7 +152,7 @@ export function PhotosPage() {
           <p className="mb-4 text-sm text-gray-400 dark:text-gray-500">
             {isSelectionMode
               ? `${selectedCount} of ${photos.length} selected`
-              : `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}${tagFilter ? ` matching "${tagFilter}"` : ''}`}
+              : `${photos.length}${total > photos.length ? ` of ${total}` : ''} ${total === 1 ? 'photo' : 'photos'}${tagFilter ? ` matching "${tagFilter}"` : ''}`}
           </p>
         )}
 
@@ -163,6 +165,19 @@ export function PhotosPage() {
           onToggleSelection={toggleSelection}
           onViewPhoto={setSelectedPhoto}
         />
+
+        {/* Load more */}
+        {hasNextPage && (
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5"
+            >
+              {isFetchingNextPage ? 'Loading...' : 'Load More'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Photo viewer modal */}
