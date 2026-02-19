@@ -4,6 +4,7 @@
 
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { ApiError, RefreshResponse } from '@/types/api';
+import { queryClient } from '@/lib/queryClient';
 
 // API base URL - used for both axios instance and manual requests (e.g., token refresh)
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -135,6 +136,7 @@ api.interceptors.response.use(
           // Refresh failed, logout user
           processQueue(refreshError as Error, null);
           logout();
+          queryClient.clear();
           window.location.href = '/login';
           return Promise.reject(refreshError);
         } finally {
@@ -149,6 +151,7 @@ api.interceptors.response.use(
         errorCode === 'REFRESH_TOKEN_EXPIRED'
       ) {
         logout();
+        queryClient.clear();
         window.location.href = '/login';
       }
     }

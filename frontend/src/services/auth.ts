@@ -4,6 +4,7 @@
 
 import api from './api';
 import { useAuthStore } from '@/stores/authStore';
+import { queryClient } from '@/lib/queryClient';
 import type {
   LoginRequest,
   RegisterRequest,
@@ -89,8 +90,9 @@ export const authService = {
     } catch {
       // Ignore errors - we're logging out anyway
     } finally {
-      // Always clear local state
+      // Always clear local state and query cache
       useAuthStore.getState().logout();
+      queryClient.clear();
     }
   },
 
