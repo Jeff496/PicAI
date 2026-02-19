@@ -29,10 +29,10 @@ async function chatFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const chatService = {
-  async sendMessage(message: string, userId: string, sessionId?: string): Promise<ChatResponse> {
+  async sendMessage(message: string, userId: string, sessionId?: string, groupIds?: string[]): Promise<ChatResponse> {
     return chatFetch<ChatResponse>('/chat', {
       method: 'POST',
-      body: JSON.stringify({ message, userId, sessionId }),
+      body: JSON.stringify({ message, userId, sessionId, groupIds }),
     });
   },
 

@@ -46,7 +46,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
  */
 async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const body = JSON.parse(event.body || '{}');
-  const { message, userId, sessionId: requestedSessionId } = body;
+  const { message, userId, sessionId: requestedSessionId, groupIds } = body;
 
   if (!message || !userId) {
     return respond(400, { success: false, error: 'message and userId are required' });
@@ -72,9 +72,10 @@ async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
   }
   const sessionLoadMs = Date.now() - sessionStart;
 
-  // 2. Search for relevant photos
-  console.log(`Searching photos for query: "${message}"`);
-  const { results: photos, timing: searchTiming } = await searchPhotos(message, userId);
+  // 2. Search for relevant photos (user's own + group photos)
+  const validGroupIds = Array.isArray(groupIds) ? groupIds.filter((id: unknown) => typeof id === 'string') : [];
+  console.log(`Searching photos for query: "${message}" (user=${userId}, groups=${validGroupIds.length})`);
+  const { results: photos, timing: searchTiming } = await searchPhotos(message, userId, validGroupIds.length > 0 ? validGroupIds : undefined);
   console.log(`Found ${photos.length} matching photos`);
 
   // 3. Generate LLM response with photo context + conversation history

@@ -97,6 +97,7 @@ const RELATIVE_SCORE_CUTOFF = parseFloat(process.env.RELATIVE_SCORE_CUTOFF || '0
  *
  * @param query - Natural language query from user
  * @param userId - Filter results to this user's photos
+ * @param groupIds - Optional group IDs to also include group photos
  * @param k - Number of candidates to fetch from OpenSearch (default 10)
  * @returns Array of matched photos with similarity scores, filtered by relevance
  */
@@ -109,6 +110,7 @@ export interface SearchTiming {
 export async function searchPhotos(
   query: string,
   userId: string,
+  groupIds?: string[],
   k: number = 10
 ): Promise<{ results: PhotoMatch[]; timing: SearchTiming }> {
   const t0 = Date.now();
@@ -117,8 +119,20 @@ export async function searchPhotos(
   const queryVector = await embedQuery(query);
   const embedMs = Date.now() - t0;
 
-  // Step 2: k-NN search with user filter (fetch extra candidates for filtering)
+  // Step 2: k-NN search with user + group filter
+  // Include photos owned by the user OR belonging to any of their groups
   const t1 = Date.now();
+
+  const filterClauses: object[] = [{ term: { userId } }];
+  if (groupIds && groupIds.length > 0) {
+    filterClauses.push({ terms: { groupId: groupIds } });
+  }
+
+  const filter =
+    filterClauses.length === 1
+      ? filterClauses[0]
+      : { bool: { should: filterClauses, minimum_should_match: 1 } };
+
   const searchBody = {
     size: k,
     query: {
@@ -131,9 +145,7 @@ export async function searchPhotos(
             },
           },
         },
-        filter: {
-          term: { userId },
-        },
+        filter,
       },
     },
     _source: {

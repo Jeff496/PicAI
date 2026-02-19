@@ -44,11 +44,6 @@ interface AzureObject {
   };
 }
 
-interface AzureCaption {
-  text: string;
-  confidence: number;
-}
-
 interface AzurePerson {
   boundingBox?: {
     x: number;
@@ -66,7 +61,6 @@ interface AzureReadResult {
 interface AzureAnalysisResult {
   tagsResult?: { values: AzureTag[] };
   objectsResult?: { values: AzureObject[] };
-  captionResult?: AzureCaption;
   readResult?: AzureReadResult;
   peopleResult?: { values: AzurePerson[] };
 }
@@ -443,15 +437,6 @@ class AIService {
       }
     }
 
-    // Extract caption (scene description)
-    if (result.captionResult && result.captionResult.confidence >= this.CONFIDENCE_THRESHOLD) {
-      tags.push({
-        tag: result.captionResult.text,
-        confidence: result.captionResult.confidence,
-        category: 'caption',
-      });
-    }
-
     // Extract OCR text (if any)
     if (result.readResult?.content && result.readResult.content.trim().length > 0) {
       // Truncate to 200 chars and clean up
@@ -568,6 +553,24 @@ class AIService {
 
     if (!photo) {
       throw new Error('Photo not found');
+    }
+
+    // Check for duplicate tag (same tag text + photo)
+    const existing = await prisma.aiTag.findFirst({
+      where: {
+        photoId,
+        tag: { equals: tag, mode: 'insensitive' },
+      },
+    });
+
+    if (existing) {
+      logger.debug('Duplicate manual tag skipped', { photoId, tag });
+      return {
+        id: existing.id,
+        tag: existing.tag,
+        confidence: existing.confidence,
+        category: existing.category,
+      };
     }
 
     // Create tag
