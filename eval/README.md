@@ -101,16 +101,50 @@ Each line is a JSON object with:
 
 20-30 labeled photos is sufficient for meaningful evaluation.
 
+## Running the Eval Harness
+
+### Prerequisites
+
+```bash
+cd ~/PicAI/eval
+source venv/bin/activate
+pip install ragas boto3 datasets litellm
+```
+
+### Run baseline evaluation
+
+```bash
+# Custom metrics only (Photo Display Accuracy) — no AWS creds needed
+python run_baseline.py --skip-ragas
+
+# Full run with RAGAS (requires Bedrock access — see CHANGELOG.md for known issues)
+AWS_PROFILE=picai-cdk AWS_DEFAULT_REGION=us-east-1 python run_baseline.py
+```
+
+Results are saved to `eval/results/baseline.json`. See `eval/CHANGELOG.md` for metric history and analysis.
+
+### What it measures
+
+| Metric | Source | Description |
+|--------|--------|-------------|
+| **Photo Display Accuracy** | Custom | Precision/Recall/F1 of returned photo IDs vs expected |
+| **Faithfulness** | RAGAS | Is the LLM response grounded in the retrieved context? |
+| **Response Relevancy** | RAGAS | Does the response address the user's question? |
+
 ## File Summary
 
 ```
 eval/
 ├── README.md
+├── CHANGELOG.md                    # Metric history, observations, tuning log
+├── run_baseline.py                 # Eval harness (Photo Display Accuracy + RAGAS)
 ├── datasets/
 │   ├── photo_catalog.json          # Full photo metadata (generated)
 │   ├── tagging_export.jsonl        # Raw AI tags per photo (generated)
 │   ├── rag_golden.jsonl            # Golden RAG queries (hand-labeled)
 │   └── tagging_ground_truth.jsonl  # Corrected tag labels (hand-labeled)
+├── results/                        # Eval output (gitignored)
+│   └── baseline.json               # Latest baseline results
 └── tools/
     ├── serve.mjs                   # Local proxy server for labelers
     ├── tagging-labeler.html        # Visual tagging label tool
