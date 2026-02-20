@@ -48,8 +48,15 @@ export function useSendMessage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ message, sessionId, groupIds }: { message: string; sessionId?: string; groupIds?: string[] }) =>
-      chatService.sendMessage(message, userId!, sessionId, groupIds),
+    mutationFn: ({
+      message,
+      sessionId,
+      groupIds,
+    }: {
+      message: string;
+      sessionId?: string;
+      groupIds?: string[];
+    }) => chatService.sendMessage(message, userId!, sessionId, groupIds),
     onSuccess: (data) => {
       // Invalidate sessions list (new session may have been created, or title updated)
       if (userId) {
