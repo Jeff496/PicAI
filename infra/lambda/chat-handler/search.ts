@@ -1,3 +1,5 @@
+import { tracer } from './tracing';
+import { SpanStatusCode } from '@opentelemetry/api';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { SignatureV4 } from '@smithy/signature-v4';
@@ -35,20 +37,36 @@ export interface PhotoMatch {
  * Embed a query string using Titan Embeddings V2.
  */
 async function embedQuery(text: string): Promise<number[]> {
-  const command = new InvokeModelCommand({
-    modelId: EMBEDDING_MODEL_ID,
-    contentType: 'application/json',
-    accept: 'application/json',
-    body: JSON.stringify({
-      inputText: text,
-      dimensions: 1024,
-      normalize: true,
-    }),
-  });
+  return tracer.startActiveSpan('chat.search.embed', async (span) => {
+    try {
+      span.setAttributes({
+        'embed.model': EMBEDDING_MODEL_ID,
+        'embed.dimensions': 1024,
+      });
+      const start = Date.now();
 
-  const response = await bedrockClient.send(command);
-  const result = JSON.parse(new TextDecoder().decode(response.body));
-  return result.embedding;
+      const command = new InvokeModelCommand({
+        modelId: EMBEDDING_MODEL_ID,
+        contentType: 'application/json',
+        accept: 'application/json',
+        body: JSON.stringify({
+          inputText: text,
+          dimensions: 1024,
+          normalize: true,
+        }),
+      });
+
+      const response = await bedrockClient.send(command);
+      const result = JSON.parse(new TextDecoder().decode(response.body));
+      span.setAttribute('embed.latency_ms', Date.now() - start);
+      return result.embedding;
+    } catch (err) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : 'embed failed' });
+      throw err;
+    } finally {
+      span.end();
+    }
+  });
 }
 
 /**
@@ -59,66 +77,113 @@ async function signedRequest(
   path: string,
   body?: string
 ): Promise<{ statusCode: number; body: string }> {
-  const url = new URL(`https://${OPENSEARCH_ENDPOINT}${path}`);
+  return tracer.startActiveSpan('chat.search.opensearch', async (span) => {
+    try {
+      span.setAttributes({
+        'opensearch.method': method,
+        'opensearch.path': path,
+        'opensearch.index': INDEX_NAME,
+      });
 
-  const request = new HttpRequest({
-    method,
-    hostname: url.hostname,
-    path: url.pathname,
-    headers: {
-      host: url.hostname,
-      'Content-Type': 'application/json',
-    },
-    body,
+      const url = new URL(`https://${OPENSEARCH_ENDPOINT}${path}`);
+
+      const request = new HttpRequest({
+        method,
+        hostname: url.hostname,
+        path: url.pathname,
+        headers: {
+          host: url.hostname,
+          'Content-Type': 'application/json',
+        },
+        body,
+      });
+
+      const signedReq = await signer.sign(request);
+
+      const response = await fetch(`https://${url.hostname}${url.pathname}`, {
+        method: signedReq.method,
+        headers: signedReq.headers as Record<string, string>,
+        body: signedReq.body,
+      });
+
+      const responseBody = await response.text();
+      span.setAttribute('opensearch.status_code', response.status);
+
+      if (response.status === 200) {
+        const parsed = JSON.parse(responseBody);
+        const hits = parsed.hits?.hits || [];
+        span.setAttributes({
+          'opensearch.candidate_count': hits.length,
+          'opensearch.top_score': hits.length > 0 ? hits[0]._score : 0,
+        });
+      }
+
+      return { statusCode: response.status, body: responseBody };
+    } catch (err) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : 'opensearch failed' });
+      throw err;
+    } finally {
+      span.end();
+    }
   });
-
-  const signedReq = await signer.sign(request);
-
-  const response = await fetch(`https://${url.hostname}${url.pathname}`, {
-    method: signedReq.method,
-    headers: signedReq.headers as Record<string, string>,
-    body: signedReq.body,
-  });
-
-  const responseBody = await response.text();
-  return { statusCode: response.status, body: responseBody };
 }
 
-// Minimum absolute score (cosinesimil: 0.5 = orthogonal/no correlation)
-const MIN_SCORE = parseFloat(process.env.MIN_SEARCH_SCORE || '0.5');
-// Drop results scoring below this fraction of the top result's score
-const RELATIVE_SCORE_CUTOFF = parseFloat(process.env.RELATIVE_SCORE_CUTOFF || '0.75');
+// Default thresholds — overridable via env vars and per-request searchParams
+const DEFAULT_MIN_SCORE = parseFloat(process.env.MIN_SEARCH_SCORE || '0.5');
+const DEFAULT_RELATIVE_CUTOFF = parseFloat(process.env.RELATIVE_SCORE_CUTOFF || '0.75');
+const DEFAULT_K = parseInt(process.env.SEARCH_K || '10', 10);
 
 /**
- * Search for photos similar to a query using k-NN vector search.
- * Embeds the query text, then performs k-NN on OpenSearch.
- * Filters results by absolute and relative score thresholds
- * so only genuinely relevant photos are returned.
- *
- * @param query - Natural language query from user
- * @param userId - Filter results to this user's photos
- * @param k - Number of candidates to fetch from OpenSearch (default 10)
- * @returns Array of matched photos with similarity scores, filtered by relevance
+ * Optional per-request search parameter overrides for hyperparameter tuning.
+ * If omitted, falls back to env vars then hardcoded defaults.
  */
+export interface SearchParams {
+  k?: number;
+  minScore?: number;
+  relativeCutoff?: number;
+}
+
 export interface SearchTiming {
   embedMs: number;
   searchMs: number;
   totalMs: number;
 }
 
+/**
+ * Search for photos similar to a query using k-NN vector search.
+ * Embeds the query text, then performs k-NN on OpenSearch.
+ * Filters results by absolute and relative score thresholds
+ * so only genuinely relevant photos are returned.
+ */
 export async function searchPhotos(
   query: string,
   userId: string,
-  k: number = 10
+  groupIds?: string[],
+  searchParams?: SearchParams
 ): Promise<{ results: PhotoMatch[]; timing: SearchTiming }> {
+  const k = searchParams?.k ?? DEFAULT_K;
+  const minScore = searchParams?.minScore ?? DEFAULT_MIN_SCORE;
+  const relativeCutoff = searchParams?.relativeCutoff ?? DEFAULT_RELATIVE_CUTOFF;
   const t0 = Date.now();
 
   // Step 1: Embed the query
   const queryVector = await embedQuery(query);
   const embedMs = Date.now() - t0;
 
-  // Step 2: k-NN search with user filter (fetch extra candidates for filtering)
+  // Step 2: k-NN search with user + group filter
+  // Include photos owned by the user OR belonging to any of their groups
   const t1 = Date.now();
+
+  const filterClauses: object[] = [{ term: { userId } }];
+  if (groupIds && groupIds.length > 0) {
+    filterClauses.push({ terms: { groupId: groupIds } });
+  }
+
+  const filter =
+    filterClauses.length === 1
+      ? filterClauses[0]
+      : { bool: { should: filterClauses, minimum_should_match: 1 } };
+
   const searchBody = {
     size: k,
     query: {
@@ -131,9 +196,7 @@ export async function searchPhotos(
             },
           },
         },
-        filter: {
-          term: { userId },
-        },
+        filter,
       },
     },
     _source: {
@@ -168,14 +231,14 @@ export async function searchPhotos(
 
   // Step 3: Filter by score thresholds
   const topScore = allResults[0].score;
-  const relativeThreshold = topScore * RELATIVE_SCORE_CUTOFF;
-  const threshold = Math.max(MIN_SCORE, relativeThreshold);
+  const relativeThreshold = topScore * relativeCutoff;
+  const threshold = Math.max(minScore, relativeThreshold);
 
   const filtered = allResults.filter((r) => r.score >= threshold);
 
   console.log(
     `Score filtering: top=${topScore.toFixed(3)}, threshold=${threshold.toFixed(3)} ` +
-    `(abs=${MIN_SCORE}, rel=${relativeThreshold.toFixed(3)}), ` +
+    `(abs=${minScore}, rel=${relativeThreshold.toFixed(3)}, k=${k}), ` +
     `${allResults.length} candidates → ${filtered.length} passed`
   );
   for (const r of allResults) {

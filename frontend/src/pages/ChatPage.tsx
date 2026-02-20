@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useChatSessions, useSendMessage, useDeleteSession } from '@/hooks/useChat';
+import { useGroups } from '@/hooks/useGroups';
 import { useThumbnail } from '@/hooks/usePhotos';
 import { useAuthStore } from '@/stores/authStore';
 import { chatService } from '@/services/chat';
@@ -36,8 +37,12 @@ export function ChatPage() {
 
   const userId = useAuthStore((s) => s.user?.id);
   const { data: sessionsData, isLoading: sessionsLoading } = useChatSessions();
+  const { data: groupsData } = useGroups();
   const sendMessage = useSendMessage();
   const deleteSessionMutation = useDeleteSession();
+
+  // Extract group IDs for search scope (user's own photos + all group photos)
+  const groupIds = groupsData?.data?.groups?.map((g) => g.id);
 
   const sessions = sessionsData?.data?.sessions ?? [];
 
@@ -138,6 +143,7 @@ export function ChatPage() {
       const response = await sendMessage.mutateAsync({
         message: trimmed,
         sessionId: activeSessionId ?? undefined,
+        groupIds,
       });
 
       const { sessionId, response: text, photos } = response.data;

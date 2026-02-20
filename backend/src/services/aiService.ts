@@ -44,11 +44,6 @@ interface AzureObject {
   };
 }
 
-interface AzureCaption {
-  text: string;
-  confidence: number;
-}
-
 interface AzurePerson {
   boundingBox?: {
     x: number;
@@ -66,7 +61,6 @@ interface AzureReadResult {
 interface AzureAnalysisResult {
   tagsResult?: { values: AzureTag[] };
   objectsResult?: { values: AzureObject[] };
-  captionResult?: AzureCaption;
   readResult?: AzureReadResult;
   peopleResult?: { values: AzurePerson[] };
 }
@@ -210,6 +204,7 @@ class RateLimiter {
 class AIService {
   private rateLimiter = new RateLimiter();
   private readonly CONFIDENCE_THRESHOLD = 0.5;
+  private readonly OBJECT_CONFIDENCE_THRESHOLD = 0.6; // Higher threshold for object detection (reduces false positives)
   private readonly API_VERSION = '2023-10-01';
   // Note: 'caption' and 'denseCaptions' features are only available in specific regions
   // (East US, France Central, Korea Central, North Europe, Southeast Asia, West Europe, West US)
@@ -422,13 +417,13 @@ class AIService {
       }
     }
 
-    // Extract object tags
+    // Extract object tags (higher threshold to reduce false positives like "Teddy bear" on dog photos)
     if (result.objectsResult?.values) {
       for (const obj of result.objectsResult.values) {
         if (obj.tags) {
           for (const tag of obj.tags) {
             if (
-              tag.confidence >= this.CONFIDENCE_THRESHOLD &&
+              tag.confidence >= this.OBJECT_CONFIDENCE_THRESHOLD &&
               !seenTags.has(tag.name.toLowerCase())
             ) {
               tags.push({
@@ -443,15 +438,6 @@ class AIService {
       }
     }
 
-    // Extract caption (scene description)
-    if (result.captionResult && result.captionResult.confidence >= this.CONFIDENCE_THRESHOLD) {
-      tags.push({
-        tag: result.captionResult.text,
-        confidence: result.captionResult.confidence,
-        category: 'caption',
-      });
-    }
-
     // Extract OCR text (if any)
     if (result.readResult?.content && result.readResult.content.trim().length > 0) {
       // Truncate to 200 chars and clean up
@@ -463,15 +449,10 @@ class AIService {
       });
     }
 
-    // Extract people count
-    if (result.peopleResult?.values && result.peopleResult.values.length > 0) {
-      const peopleCount = result.peopleResult.values.length;
-      tags.push({
-        tag: peopleCount === 1 ? '1 person' : `${peopleCount} people`,
-        confidence: 0.9,
-        category: 'people',
-      });
-    }
+    // People count tags DISABLED — Phase 3 eval showed 0% precision across 63 labeled photos.
+    // Azure CV systematically overcounts people (e.g., reports "14 people" for 3 people).
+    // The peopleResult bounding boxes are still requested from the API (used by face detection)
+    // but the count is no longer stored as a tag.
 
     return tags;
   }
@@ -568,6 +549,24 @@ class AIService {
 
     if (!photo) {
       throw new Error('Photo not found');
+    }
+
+    // Check for duplicate tag (same tag text + photo)
+    const existing = await prisma.aiTag.findFirst({
+      where: {
+        photoId,
+        tag: { equals: tag, mode: 'insensitive' },
+      },
+    });
+
+    if (existing) {
+      logger.debug('Duplicate manual tag skipped', { photoId, tag });
+      return {
+        id: existing.id,
+        tag: existing.tag,
+        confidence: existing.confidence,
+        category: existing.category,
+      };
     }
 
     // Create tag

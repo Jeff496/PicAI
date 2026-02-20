@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PicAI RAG Golden Dataset Labeler</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  /* Setup */
+  .setup { max-width: 480px; margin: 80px auto; text-align: center; }
+  .setup h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .setup p { color: #94a3b8; margin-bottom: 1.5rem; font-size: 0.9rem; }
+  .setup input[type="text"] { width: 100%; padding: 0.6rem 0.8rem; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 0.85rem; margin-bottom: 0.75rem; }
+  .setup label { display: inline-block; padding: 0.6rem 1.2rem; background: #3b82f6; color: #fff; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+  .setup label:hover { background: #2563eb; }
+  .setup input[type="file"] { display: none; }
+  .setup .hint { margin-top: 1rem; color: #64748b; font-size: 0.8rem; }
+
+  /* Layout */
+  .app { display: flex; height: 100vh; }
+  .sidebar { width: 380px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; flex-shrink: 0; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Sidebar: saved entries */
+  .sidebar-header { padding: 0.75rem 1rem; border-bottom: 1px solid #334155; display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-header h2 { font-size: 0.95rem; }
+  .sidebar-header button { padding: 0.35rem 0.8rem; border-radius: 6px; border: none; background: #22c55e; color: #000; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
+  .sidebar-header button:hover { background: #16a34a; }
+  .entries-list { flex: 1; overflow-y: auto; }
+  .entry-card { padding: 0.75rem 1rem; border-bottom: 1px solid #334155; cursor: pointer; }
+  .entry-card:hover { background: #334155; }
+  .entry-card.active { background: #1e3a5f; border-left: 3px solid #3b82f6; }
+  .entry-card .query { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem; }
+  .entry-card .meta { font-size: 0.75rem; color: #64748b; }
+  .entry-card .meta .cat { background: #334155; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; }
+  .empty-state { padding: 2rem; text-align: center; color: #64748b; font-size: 0.85rem; }
+
+  /* Main header: query builder */
+  .query-builder { padding: 1rem 1.5rem; border-bottom: 1px solid #334155; background: #1e293b; }
+  .query-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .query-row input { flex: 1; padding: 0.5rem 0.8rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 0.9rem; }
+  .query-row select { padding: 0.5rem 0.6rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 0.85rem; }
+  .query-row button { padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+  .query-row button.add { background: #3b82f6; color: #fff; }
+  .query-row button.add:hover { background: #2563eb; }
+  .query-row button.add:disabled { opacity: 0.4; cursor: not-allowed; }
+  .answer-row { display: flex; gap: 0.5rem; }
+  .answer-row input { flex: 1; padding: 0.5rem 0.8rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 0.85rem; }
+  .selected-count { font-size: 0.8rem; color: #94a3b8; margin-left: 0.5rem; line-height: 2.2; white-space: nowrap; }
+  .selected-count strong { color: #22c55e; }
+
+  /* Filter bar */
+  .filter-bar { padding: 0.6rem 1.5rem; border-bottom: 1px solid #334155; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .filter-bar input { flex: 1; min-width: 150px; padding: 0.4rem 0.7rem; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 0.8rem; }
+  .filter-bar select { padding: 0.4rem 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 0.8rem; }
+  .filter-bar .count { font-size: 0.8rem; color: #64748b; }
+
+  /* Photo grid */
+  .photo-grid { flex: 1 1 0; overflow-y: auto; padding: 1rem 1.5rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); grid-auto-rows: min-content; gap: 0.75rem; align-content: start; }
+  .photo-card { background: #1e293b; border: 2px solid #334155; border-radius: 8px; overflow: hidden; cursor: pointer; transition: all 0.15s; }
+  .photo-card:hover { border-color: #64748b; }
+  .photo-card.selected { border-color: #22c55e; box-shadow: 0 0 0 1px #22c55e; }
+  .photo-card { min-height: 220px; }
+  .photo-card .thumb-wrap { position: relative; width: 100%; height: 180px; min-height: 180px; background: #0f172a; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .photo-card .thumb { width: 100%; height: 100%; object-fit: cover; }
+  .photo-card .info { padding: 0.5rem 0.6rem; }
+  .photo-card .name { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.25rem; }
+  .photo-card .tags { font-size: 0.7rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .photo-card .group-badge { font-size: 0.65rem; background: #3b2f7e; color: #a78bfa; padding: 0.1rem 0.35rem; border-radius: 3px; margin-bottom: 0.2rem; display: inline-block; }
+  .photo-card .check { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; background: #22c55e; color: #000; display: none; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; }
+  .photo-card.selected .check { display: flex; }
+  .no-thumb { color: #475569; font-size: 0.75rem; }
+</style>
+</head>
+<body>
+
+<div class="setup" id="setup">
+  <h1>RAG Golden Dataset Labeler</h1>
+  <p>Browse your photo catalog, select expected results, and write natural language queries to build the evaluation dataset.</p>
+  <input type="text" id="authToken" placeholder="Auth token (paste your JWT access token)">
+  <div style="margin: 1rem 0">
+    <label for="fileInput">Load photo_catalog.json</label>
+    <input type="file" id="fileInput" accept=".json">
+  </div>
+  <div class="hint">
+    Serve with: <code>node eval/serve.mjs</code><br>
+    Get your token: open DevTools on PicAI, run <code>JSON.parse(localStorage.getItem('auth-storage')).state.accessToken</code>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none">
+  <!-- Sidebar: saved golden entries -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>Golden Queries (<span id="entryCount">0</span>)</h2>
+      <button onclick="saveFile()">Save JSONL</button>
+    </div>
+    <div class="entries-list" id="entriesList">
+      <div class="empty-state">No queries yet. Select photos and write a query above.</div>
+    </div>
+  </div>
+
+  <!-- Main area -->
+  <div class="main">
+    <!-- Query builder -->
+    <div class="query-builder">
+      <div class="query-row">
+        <input type="text" id="queryInput" placeholder='Write a natural language query (e.g. "show me beach photos")' onkeydown="if(event.key==='Enter'&&!event.shiftKey)addEntry()">
+        <select id="categorySelect">
+          <option value="tag-based">tag-based</option>
+          <option value="people-based">people-based</option>
+          <option value="temporal">temporal</option>
+          <option value="group-based">group-based</option>
+          <option value="negative">negative</option>
+        </select>
+        <button class="add" id="addBtn" onclick="addEntry()">Add Entry</button>
+        <span class="selected-count"><strong id="selectedCount">0</strong> photos selected</span>
+      </div>
+      <div class="answer-row">
+        <input type="text" id="answerInput" placeholder="Expected answer summary (e.g. Here are your beach photos)" onkeydown="if(event.key==='Enter'&&!event.shiftKey)addEntry()">
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="Filter by tag, name, person..." oninput="renderGrid()">
+      <select id="groupFilter" onchange="renderGrid()">
+        <option value="">All groups</option>
+      </select>
+      <select id="taggedFilter" onchange="renderGrid()">
+        <option value="">All photos</option>
+        <option value="tagged">Has AI tags</option>
+        <option value="untagged">No AI tags</option>
+        <option value="people">Has people</option>
+      </select>
+      <span class="count" id="gridCount"></span>
+    </div>
+
+    <!-- Photo grid -->
+    <div class="photo-grid" id="photoGrid"></div>
+  </div>
+</div>
+
+<script>
+let catalog = [];
+let selectedIds = new Set();
+let entries = [];
+let editingIndex = -1;
+let apiUrl = '';
+let authToken = '';
+let thumbCache = {};
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  apiUrl = '';  // Use relative URLs — proxied by eval/serve.mjs
+  authToken = document.getElementById('authToken').value.trim();
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    catalog = JSON.parse(ev.target.result);
+    document.getElementById('setup').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+
+    // Populate group filter
+    const groups = [...new Set(catalog.filter(p => p.groupName).map(p => p.groupName))];
+    const groupSelect = document.getElementById('groupFilter');
+    groups.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g;
+      opt.textContent = g;
+      groupSelect.appendChild(opt);
+    });
+
+    renderGrid();
+    renderEntries();
+  };
+  reader.readAsText(file);
+});
+
+function getFilteredPhotos() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const group = document.getElementById('groupFilter').value;
+  const tagged = document.getElementById('taggedFilter').value;
+
+  return catalog.filter(p => {
+    if (group && p.groupName !== group) return false;
+    if (tagged === 'tagged' && p.aiTags.length === 0) return false;
+    if (tagged === 'untagged' && p.aiTags.length > 0) return false;
+    if (tagged === 'people' && p.people.length === 0) return false;
+    if (search) {
+      const haystack = [
+        p.originalName,
+        ...p.aiTags.map(t => t.tag),
+        ...p.people,
+        p.groupName || '',
+      ].join(' ').toLowerCase();
+      return haystack.includes(search);
+    }
+    return true;
+  });
+}
+
+function loadThumb(photoId, imgEl) {
+  if (!authToken) {
+    imgEl.style.display = 'none';
+    imgEl.nextElementSibling.style.display = 'flex';
+    imgEl.nextElementSibling.textContent = 'No auth token';
+    return;
+  }
+  if (thumbCache[photoId]) {
+    imgEl.src = thumbCache[photoId];
+    imgEl.style.display = 'block';
+    imgEl.nextElementSibling.style.display = 'none';
+    return;
+  }
+  fetch(`/api/photos/${photoId}/thumbnail`, {
+    headers: { 'Authorization': `Bearer ${authToken}` }
+  }).then(r => r.ok ? r.blob() : Promise.reject()).then(blob => {
+    const url = URL.createObjectURL(blob);
+    thumbCache[photoId] = url;
+    imgEl.src = url;
+    imgEl.style.display = 'block';
+    imgEl.nextElementSibling.style.display = 'none';
+  }).catch(() => {
+    imgEl.style.display = 'none';
+    imgEl.nextElementSibling.style.display = 'flex';
+  });
+}
+
+function renderGrid() {
+  const grid = document.getElementById('photoGrid');
+  const filtered = getFilteredPhotos();
+  document.getElementById('gridCount').textContent = `${filtered.length} photos`;
+
+  grid.innerHTML = '';
+  filtered.forEach(p => {
+    const card = document.createElement('div');
+    card.className = `photo-card${selectedIds.has(p.photoId) ? ' selected' : ''}`;
+    const topTags = p.aiTags.slice(0, 3).map(t => t.tag).join(', ') || 'no tags';
+    const peopleStr = p.people.length > 0 ? `| ${p.people.join(', ')}` : '';
+    const groupBadge = p.groupName ? `<span class="group-badge">${p.groupName}</span><br>` : '';
+
+    card.innerHTML = `
+      <div class="thumb-wrap">
+        <img class="thumb" alt="" style="display:none">
+        <div class="no-thumb">loading...</div>
+        <div class="check">&#10003;</div>
+      </div>
+      <div class="info">
+        ${groupBadge}
+        <div class="name">${p.originalName}</div>
+        <div class="tags">${topTags} ${peopleStr}</div>
+      </div>
+    `;
+
+    card.onclick = () => {
+      if (selectedIds.has(p.photoId)) selectedIds.delete(p.photoId);
+      else selectedIds.add(p.photoId);
+      card.classList.toggle('selected');
+      card.querySelector('.check').style.display = selectedIds.has(p.photoId) ? 'flex' : 'none';
+      document.getElementById('selectedCount').textContent = selectedIds.size;
+    };
+
+    grid.appendChild(card);
+
+    // Load thumbnail
+    const img = card.querySelector('.thumb');
+    loadThumb(p.photoId, img);
+  });
+}
+
+function addEntry() {
+  const query = document.getElementById('queryInput').value.trim();
+  const answer = document.getElementById('answerInput').value.trim();
+  const category = document.getElementById('categorySelect').value;
+
+  if (!query) return;
+
+  const entry = {
+    question: query,
+    ground_truth_answer: answer || '',
+    expected_photo_ids: [...selectedIds],
+    category,
+  };
+
+  if (editingIndex >= 0) {
+    entries[editingIndex] = entry;
+    editingIndex = -1;
+  } else {
+    entries.push(entry);
+  }
+
+  // Reset
+  document.getElementById('queryInput').value = '';
+  document.getElementById('answerInput').value = '';
+  selectedIds.clear();
+  document.getElementById('selectedCount').textContent = '0';
+  renderGrid();
+  renderEntries();
+}
+
+function editEntry(i) {
+  const entry = entries[i];
+  document.getElementById('queryInput').value = entry.question;
+  document.getElementById('answerInput').value = entry.ground_truth_answer;
+  document.getElementById('categorySelect').value = entry.category;
+  selectedIds = new Set(entry.expected_photo_ids);
+  document.getElementById('selectedCount').textContent = selectedIds.size;
+  editingIndex = i;
+  renderGrid();
+  renderEntries();
+}
+
+function deleteEntry(i) {
+  entries.splice(i, 1);
+  if (editingIndex === i) editingIndex = -1;
+  renderEntries();
+}
+
+function renderEntries() {
+  const list = document.getElementById('entriesList');
+  document.getElementById('entryCount').textContent = entries.length;
+
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="empty-state">No queries yet. Select photos and write a query above.</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  entries.forEach((entry, i) => {
+    const card = document.createElement('div');
+    card.className = `entry-card${editingIndex === i ? ' active' : ''}`;
+    card.innerHTML = `
+      <div class="query">${entry.question}</div>
+      <div class="meta">
+        <span class="cat">${entry.category}</span>
+        ${entry.expected_photo_ids.length} photos
+        &nbsp;
+        <span style="cursor:pointer;opacity:0.6" onclick="event.stopPropagation();deleteEntry(${i})">&times; delete</span>
+      </div>
+    `;
+    card.onclick = () => editEntry(i);
+    list.appendChild(card);
+  });
+}
+
+function saveFile() {
+  if (entries.length === 0) return;
+  const lines = entries.map(e => JSON.stringify(e));
+  const blob = new Blob([lines.join('\n') + '\n'], { type: 'application/jsonl' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'rag_golden.jsonl';
+  a.click();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 's' || e.key === 'S') saveFile();
+});
+</script>
+</body>
+</html>

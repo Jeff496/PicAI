@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PicAI Tagging Ground Truth Labeler</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  /* Setup screen */
+  .setup { max-width: 480px; margin: 80px auto; text-align: center; }
+  .setup h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+  .setup p { color: #94a3b8; margin-bottom: 1.5rem; font-size: 0.9rem; }
+  .setup input[type="text"] { width: 100%; padding: 0.6rem 0.8rem; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 0.85rem; margin-bottom: 0.75rem; }
+  .setup label { display: inline-block; padding: 0.6rem 1.2rem; background: #3b82f6; color: #fff; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+  .setup label:hover { background: #2563eb; }
+  .setup input[type="file"] { display: none; }
+  .setup .hint { margin-top: 1rem; color: #64748b; font-size: 0.8rem; }
+
+  /* Header */
+  header { background: #1e293b; border-bottom: 1px solid #334155; padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 1rem; }
+  .progress { color: #94a3b8; font-size: 0.85rem; }
+  .progress .labeled { color: #22c55e; font-weight: 600; }
+  .nav-buttons { display: flex; gap: 0.5rem; }
+  .nav-buttons button { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; cursor: pointer; font-size: 0.85rem; }
+  .nav-buttons button:hover { background: #334155; }
+  .nav-buttons button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .nav-buttons button.save { background: #22c55e; border-color: #22c55e; color: #000; font-weight: 600; }
+  .nav-buttons button.save:hover { background: #16a34a; }
+
+  /* Main layout */
+  .labeler { max-width: 900px; margin: 1.5rem auto; padding: 0 1.5rem; }
+  .photo-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+  .photo-header h2 { font-size: 1.1rem; font-weight: 500; }
+  .photo-header .photo-id { color: #64748b; font-size: 0.75rem; font-family: monospace; }
+  .content { display: flex; flex-direction: column; gap: 1.5rem; }
+  .thumbnail { width: 100%; max-width: 500px; border-radius: 8px; overflow: hidden; background: #1e293b; border: 1px solid #334155; display: flex; align-items: center; justify-content: center; }
+  .thumbnail img { width: 100%; height: auto; display: block; object-fit: contain; }
+  .thumbnail .no-img { color: #64748b; font-size: 0.8rem; padding: 3rem; }
+  .tags-panel { flex: 1; }
+
+  /* Tag sections */
+  .tag-section { margin-bottom: 1.25rem; }
+  .tag-section h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 0.5rem; }
+  .tag-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .tag-chip { padding: 0.35rem 0.7rem; border-radius: 9999px; font-size: 0.8rem; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; user-select: none; }
+  .tag-chip.unlabeled { background: #334155; color: #cbd5e1; border-color: #475569; }
+  .tag-chip.correct { background: #14532d; color: #4ade80; border-color: #22c55e; }
+  .tag-chip.incorrect { background: #450a0a; color: #f87171; border-color: #ef4444; text-decoration: line-through; }
+  .tag-chip .conf { font-size: 0.7rem; color: #64748b; margin-left: 0.3rem; }
+  .tag-chip.correct .conf { color: #4ade80; }
+  .tag-chip.incorrect .conf { color: #f87171; }
+
+  /* Missing tags input */
+  .missing-input { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+  .missing-input input { flex: 1; padding: 0.4rem 0.7rem; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 0.85rem; }
+  .missing-input button { padding: 0.4rem 0.8rem; border-radius: 6px; border: none; background: #3b82f6; color: #fff; cursor: pointer; font-size: 0.85rem; }
+  .missing-tag { background: #1e3a5f; color: #60a5fa; border-color: #3b82f6; }
+  .missing-tag .remove { margin-left: 0.4rem; cursor: pointer; opacity: 0.7; }
+  .missing-tag .remove:hover { opacity: 1; }
+
+  /* Keyboard hints */
+  .shortcuts { margin-top: 1.5rem; padding: 1rem; background: #1e293b; border-radius: 8px; border: 1px solid #334155; }
+  .shortcuts h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 0.5rem; }
+  .shortcuts p { font-size: 0.8rem; color: #64748b; }
+  kbd { background: #334155; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.75rem; font-family: monospace; }
+</style>
+</head>
+<body>
+
+<!-- Setup screen -->
+<div class="setup" id="setup">
+  <h1>Tagging Ground Truth Labeler</h1>
+  <p>Load your tagging export, connect to PicAI for thumbnails, and label each tag as correct or incorrect.</p>
+  <input type="text" id="authToken" placeholder="Auth token (paste your JWT access token)">
+  <div style="margin: 1rem 0">
+    <label for="fileInput">Load tagging_export.jsonl</label>
+    <input type="file" id="fileInput" accept=".jsonl,.json">
+  </div>
+  <div class="hint">
+    Serve with: <code>node eval/serve.mjs</code><br>
+    Get your token: open DevTools on PicAI, run <code>JSON.parse(localStorage.getItem('auth-storage')).state.accessToken</code>
+  </div>
+</div>
+
+<!-- Labeler screen (hidden initially) -->
+<div id="app" style="display:none">
+  <header>
+    <h1>Tagging Labeler</h1>
+    <div class="progress">
+      <span id="currentIdx">1</span> / <span id="totalCount">0</span>
+      &nbsp;&mdash;&nbsp;
+      <span class="labeled"><span id="labeledCount">0</span> labeled</span>
+    </div>
+    <div class="nav-buttons">
+      <button id="prevBtn" onclick="navigate(-1)">&larr; Prev</button>
+      <button id="nextBtn" onclick="navigate(1)">Next &rarr;</button>
+      <button class="save" onclick="saveFile()">Save JSONL</button>
+    </div>
+  </header>
+
+  <div class="labeler">
+    <div class="photo-header">
+      <h2 id="photoName"></h2>
+      <span class="photo-id" id="photoId"></span>
+    </div>
+    <div class="content">
+      <div class="thumbnail">
+        <img id="thumbImg" alt="thumbnail" style="display:none">
+        <span class="no-img" id="noImg">Loading...</span>
+      </div>
+      <div class="tags-panel">
+        <div class="tag-section">
+          <h3>AI Tags (click to toggle: correct / incorrect)</h3>
+          <div class="tag-chips" id="tagChips"></div>
+        </div>
+        <div class="tag-section">
+          <h3>Missing Tags</h3>
+          <div class="tag-chips" id="missingChips"></div>
+          <div class="missing-input">
+            <input type="text" id="missingInput" placeholder="Add missing tag..." onkeydown="if(event.key==='Enter')addMissing()">
+            <button onclick="addMissing()">Add</button>
+          </div>
+        </div>
+        <div class="shortcuts">
+          <h3>Keyboard Shortcuts</h3>
+          <p><kbd>&larr;</kbd> / <kbd>&rarr;</kbd> Navigate &nbsp; <kbd>A</kbd> Mark all correct &nbsp; <kbd>S</kbd> Save</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let photos = [];
+let labels = {}; // photoId -> { tags: { tagName: 'correct'|'incorrect' }, missing: string[] }
+let currentIndex = 0;
+let apiUrl = '';
+let authToken = '';
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  apiUrl = '';  // Use relative URLs — proxied by eval/serve.mjs
+  authToken = document.getElementById('authToken').value.trim();
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const lines = ev.target.result.trim().split('\n');
+    photos = lines.map(line => JSON.parse(line));
+
+    // Initialize labels for each photo
+    photos.forEach(p => {
+      if (!labels[p.photoId]) {
+        labels[p.photoId] = { tags: {}, missing: [] };
+      }
+    });
+
+    document.getElementById('setup').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('totalCount').textContent = photos.length;
+    render();
+  };
+  reader.readAsText(file);
+});
+
+function render() {
+  const photo = photos[currentIndex];
+  const label = labels[photo.photoId];
+
+  document.getElementById('currentIdx').textContent = currentIndex + 1;
+  document.getElementById('photoName').textContent = photo.originalName;
+  document.getElementById('photoId').textContent = photo.photoId;
+  document.getElementById('prevBtn').disabled = currentIndex === 0;
+  document.getElementById('nextBtn').disabled = currentIndex === photos.length - 1;
+
+  // Thumbnail
+  const img = document.getElementById('thumbImg');
+  const noImg = document.getElementById('noImg');
+  if (authToken) {
+    fetch(`/api/photos/${photo.photoId}/thumbnail`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    }).then(r => r.ok ? r.blob() : Promise.reject()).then(blob => {
+      img.src = URL.createObjectURL(blob);
+      img.style.display = 'block';
+      noImg.style.display = 'none';
+    }).catch(() => {
+      img.style.display = 'none';
+      noImg.style.display = 'block';
+      noImg.textContent = 'No thumbnail';
+    });
+  } else {
+    img.style.display = 'none';
+    noImg.style.display = 'block';
+    noImg.textContent = 'No auth token';
+  }
+
+  // AI tag chips
+  const chipsEl = document.getElementById('tagChips');
+  chipsEl.innerHTML = '';
+  photo.ai_tags.forEach(t => {
+    const state = label.tags[t.tag] || 'unlabeled';
+    const chip = document.createElement('span');
+    chip.className = `tag-chip ${state}`;
+    chip.innerHTML = `${t.tag}<span class="conf">${(t.confidence * 100).toFixed(0)}%</span>`;
+    chip.onclick = () => {
+      // Cycle: unlabeled -> correct -> incorrect -> unlabeled
+      const current = label.tags[t.tag] || 'unlabeled';
+      const next = current === 'unlabeled' ? 'correct' : current === 'correct' ? 'incorrect' : 'unlabeled';
+      if (next === 'unlabeled') delete label.tags[t.tag];
+      else label.tags[t.tag] = next;
+      render();
+    };
+    chipsEl.appendChild(chip);
+  });
+
+  // Missing tag chips
+  const missingEl = document.getElementById('missingChips');
+  missingEl.innerHTML = '';
+  label.missing.forEach((tag, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip missing-tag';
+    chip.innerHTML = `${tag}<span class="remove" onclick="removeMissing(${i})">&times;</span>`;
+    missingEl.appendChild(chip);
+  });
+
+  // Labeled count
+  const labeledCount = photos.filter(p => {
+    const l = labels[p.photoId];
+    return Object.keys(l.tags).length > 0 || l.missing.length > 0;
+  }).length;
+  document.getElementById('labeledCount').textContent = labeledCount;
+}
+
+function navigate(dir) {
+  currentIndex = Math.max(0, Math.min(photos.length - 1, currentIndex + dir));
+  document.getElementById('missingInput').value = '';
+  render();
+}
+
+function addMissing() {
+  const input = document.getElementById('missingInput');
+  const tag = input.value.trim().toLowerCase();
+  if (!tag) return;
+  const label = labels[photos[currentIndex].photoId];
+  if (!label.missing.includes(tag)) {
+    label.missing.push(tag);
+  }
+  input.value = '';
+  render();
+}
+
+function removeMissing(i) {
+  labels[photos[currentIndex].photoId].missing.splice(i, 1);
+  render();
+}
+
+function markAllCorrect() {
+  const photo = photos[currentIndex];
+  const label = labels[photo.photoId];
+  photo.ai_tags.forEach(t => {
+    if (!label.tags[t.tag]) label.tags[t.tag] = 'correct';
+  });
+  render();
+}
+
+function saveFile() {
+  const lines = photos
+    .filter(p => {
+      const l = labels[p.photoId];
+      return Object.keys(l.tags).length > 0 || l.missing.length > 0;
+    })
+    .map(p => {
+      const l = labels[p.photoId];
+      return JSON.stringify({
+        photoId: p.photoId,
+        originalName: p.originalName,
+        ai_tags: p.ai_tags,
+        correct_tags: Object.entries(l.tags).filter(([, v]) => v === 'correct').map(([k]) => k),
+        missing_tags: l.missing,
+        incorrect_tags: Object.entries(l.tags).filter(([, v]) => v === 'incorrect').map(([k]) => k),
+      });
+    });
+
+  const blob = new Blob([lines.join('\n') + '\n'], { type: 'application/jsonl' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tagging_ground_truth.jsonl';
+  a.click();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft') navigate(-1);
+  if (e.key === 'ArrowRight') navigate(1);
+  if (e.key === 'a' || e.key === 'A') markAllCorrect();
+  if (e.key === 's' || e.key === 'S') saveFile();
+});
+</script>
+</body>
+</html>
