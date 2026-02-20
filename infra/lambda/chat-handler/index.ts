@@ -3,7 +3,7 @@ import { tracer, forceFlush } from './tracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { searchPhotos, type SearchTiming } from './search';
+import { searchPhotos, type SearchTiming, type SearchParams } from './search';
 import { generateResponse } from './bedrock';
 import { getSession, saveSession, deleteSession, listSessions, generateTitle, type ChatMessage, type ChatPhotoMatch } from './history';
 import { randomUUID } from 'crypto';
@@ -50,11 +50,18 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
  */
 async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const body = JSON.parse(event.body || '{}');
-  const { message, userId, sessionId: requestedSessionId, groupIds } = body;
+  const { message, userId, sessionId: requestedSessionId, groupIds, searchParams: rawSearchParams } = body;
 
   if (!message || !userId) {
     return respond(400, { success: false, error: 'message and userId are required' });
   }
+
+  // Optional per-request search parameter overrides (for hyperparameter tuning)
+  const searchParams: SearchParams | undefined = rawSearchParams ? {
+    k: typeof rawSearchParams.k === 'number' ? rawSearchParams.k : undefined,
+    minScore: typeof rawSearchParams.minScore === 'number' ? rawSearchParams.minScore : undefined,
+    relativeCutoff: typeof rawSearchParams.relativeCutoff === 'number' ? rawSearchParams.relativeCutoff : undefined,
+  } : undefined;
 
   return tracer.startActiveSpan('chat.request', async (rootSpan) => {
   rootSpan.setAttributes({
@@ -104,8 +111,11 @@ async function handleChat(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
         span.setAttributes({
           'search.query': message.substring(0, 200),
           'search.group_count': validGroupIds.length,
+          ...(searchParams?.k != null && { 'search.override_k': searchParams.k }),
+          ...(searchParams?.minScore != null && { 'search.override_min_score': searchParams.minScore }),
+          ...(searchParams?.relativeCutoff != null && { 'search.override_relative_cutoff': searchParams.relativeCutoff }),
         });
-        const result = await searchPhotos(message, userId, validGroupIds.length > 0 ? validGroupIds : undefined);
+        const result = await searchPhotos(message, userId, validGroupIds.length > 0 ? validGroupIds : undefined, searchParams);
         span.setAttributes({
           'search.result_count': result.results.length,
           'search.embed_ms': result.timing.embedMs,

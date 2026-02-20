@@ -1,0 +1,1845 @@
+{
+  "1 person": [],
+  "10 people": [],
+  "12 people": [],
+  "14 people": [],
+  "15 people": [],
+  "16 people": [],
+  "19 people": [],
+  "2 people": [],
+  "21 people": [],
+  "25 people": [],
+  "3 people": [],
+  "4 people": [],
+  "46 people": [],
+  "5 people": [],
+  "6 people": [],
+  "7 people": [],
+  "77 people": [],
+  "9 people": [],
+  "91 people": [],
+  "92 people": [],
+  "aerial": [
+    "overhead",
+    "top-down",
+    "bird's-eye",
+    "aerial view"
+  ],
+  "aerial photography": [
+    "aerial photo",
+    "overhead photography",
+    "drone photography",
+    "bird's-eye photography"
+  ],
+  "afterglow": [
+    "sunset glow",
+    "evening glow",
+    "golden hour afterglow",
+    "dusk light"
+  ],
+  "algae": [
+    "seaweed",
+    "aquatic plants",
+    "algal bloom"
+  ],
+  "alps": [
+    "alpine mountains",
+    "alpine region",
+    "mountain range",
+    "alpine peaks"
+  ],
+  "american food": [
+    "american cuisine",
+    "american dishes",
+    "usa food"
+  ],
+  "animal": [
+    "creature",
+    "wildlife",
+    "fauna",
+    "beast"
+  ],
+  "animal shelter": [
+    "shelter",
+    "rescue center",
+    "animal rescue",
+    "animal sanctuary"
+  ],
+  "animals": [
+    "creature",
+    "wildlife",
+    "fauna",
+    "beasts"
+  ],
+  "appliance": [
+    "kitchen appliance",
+    "home appliance",
+    "device",
+    "equipment"
+  ],
+  "arch": [
+    "archway",
+    "arched structure",
+    "arc",
+    "architectural arch"
+  ],
+  "art": [
+    "artwork",
+    "artistic work",
+    "creative work",
+    "visual art"
+  ],
+  "art paper": [
+    "paper",
+    "art canvas",
+    "drawing paper",
+    "art medium"
+  ],
+  "baby": [
+    "infant",
+    "newborn",
+    "toddler",
+    "young child"
+  ],
+  "badlands": [
+    "badland formation",
+    "eroded terrain",
+    "desert landscape"
+  ],
+  "bags": [
+    "bag",
+    "luggage",
+    "baggage",
+    "purses"
+  ],
+  "baked goods": [
+    "baked items",
+    "pastries",
+    "breads",
+    "baked products"
+  ],
+  "bakery": [
+    "bakery shop",
+    "bread shop",
+    "pastry shop"
+  ],
+  "baking": [
+    "baked",
+    "baking process",
+    "cooking"
+  ],
+  "balloons": [
+    "balloon",
+    "inflatable",
+    "air balloons"
+  ],
+  "banana": [
+    "bananas",
+    "yellow fruit"
+  ],
+  "bathroom": [
+    "restroom",
+    "washroom",
+    "toilet",
+    "lavatory",
+    "bath room"
+  ],
+  "bathtub": [
+    "tub",
+    "bath",
+    "bathing tub"
+  ],
+  "beach": [
+    "sandy beach",
+    "shore",
+    "coastline",
+    "seaside",
+    "seashore"
+  ],
+  "bed": [
+    "bedroom furniture",
+    "sleeping surface",
+    "cot"
+  ],
+  "bird": [
+    "avian",
+    "fowl",
+    "bird species",
+    "birds"
+  ],
+  "bird's-eye view": [
+    "aerial view",
+    "overhead view",
+    "top-down view",
+    "bird's eye"
+  ],
+  "birithday cake": [
+    "birthday cake",
+    "celebratory cake",
+    "cake"
+  ],
+  "blanket": [
+    "bedding",
+    "throw blanket",
+    "cover"
+  ],
+  "body of water": [
+    "water",
+    "lake",
+    "river",
+    "pond",
+    "waterway",
+    "water body"
+  ],
+  "bowl": [
+    "bowls",
+    "dish",
+    "container",
+    "serving bowl",
+    "mixing bowl"
+  ],
+  "boxes": [
+    "box",
+    "carton",
+    "container",
+    "packaging",
+    "crate"
+  ],
+  "boy": [
+    "male child",
+    "young boy",
+    "lad",
+    "kid",
+    "child"
+  ],
+  "bread": [
+    "loaf",
+    "baked bread",
+    "whole grain bread",
+    "sliced bread",
+    "bread product"
+  ],
+  "breakfast": [
+    "morning meal",
+    "breakfast meal",
+    "AM meal"
+  ],
+  "breakfast sandwich": [
+    "sandwich",
+    "breakfast panini",
+    "morning sandwich",
+    "egg sandwich"
+  ],
+  "broccoli": [
+    "broccoli florets",
+    "green broccoli",
+    "cruciferous vegetable"
+  ],
+  "brunch": [
+    "breakfast-lunch",
+    "late breakfast",
+    "early lunch"
+  ],
+  "building": [
+    "structure",
+    "edifice",
+    "construction",
+    "architectural structure"
+  ],
+  "buildings": [
+    "building",
+    "structures",
+    "edifices",
+    "constructions"
+  ],
+  "bun": [
+    "bread roll",
+    "roll",
+    "baked bun",
+    "hamburger bun"
+  ],
+  "burger": [
+    "hamburger",
+    "beef burger",
+    "sandwich",
+    "patty"
+  ],
+  "cactus": [
+    "cacti",
+    "succulent plant",
+    "desert plant"
+  ],
+  "cage": [
+    "enclosure",
+    "pen",
+    "crate",
+    "confined space"
+  ],
+  "cake": [
+    "cakes",
+    "baked cake",
+    "dessert",
+    "pastry"
+  ],
+  "cakes": [
+    "cake",
+    "baked goods",
+    "pastries",
+    "desserts"
+  ],
+  "calm": [
+    "peaceful",
+    "serene",
+    "tranquil",
+    "still",
+    "undisturbed"
+  ],
+  "car": [
+    "automobile",
+    "vehicle",
+    "motor vehicle",
+    "sedan",
+    "cars"
+  ],
+  "cart": [
+    "wagon",
+    "pushcart",
+    "trolley",
+    "vehicle"
+  ],
+  "catering": [
+    "catered meal",
+    "food service",
+    "food catering",
+    "catering service"
+  ],
+  "chair": [
+    "chairs",
+    "seating",
+    "seat",
+    "furniture"
+  ],
+  "cheesecake": [
+    "cheese cake",
+    "dessert",
+    "baked cheesecake"
+  ],
+  "chickens": [
+    "chicken",
+    "poultry",
+    "fowl",
+    "hens",
+    "roosters"
+  ],
+  "chocolate cake": [
+    "cake",
+    "chocolate dessert",
+    "chocolate layer cake",
+    "chocolate pastry"
+  ],
+  "city": [
+    "urban",
+    "metropolis",
+    "municipal area",
+    "urban area",
+    "cityscape"
+  ],
+  "clothing": [
+    "garment",
+    "apparel",
+    "clothes",
+    "outfit",
+    "wearable"
+  ],
+  "cloud": [
+    "clouds",
+    "cloud formation",
+    "cumulus cloud"
+  ],
+  "cloudy": [
+    "overcast",
+    "clouds",
+    "cloud cover",
+    "partly cloudy"
+  ],
+  "coast": [
+    "coastline",
+    "shore",
+    "beach",
+    "seaside",
+    "waterfront"
+  ],
+  "coastal and oceanic landforms": [
+    "coast",
+    "coastline",
+    "shore",
+    "beach",
+    "marine landscape"
+  ],
+  "colorful": [
+    "vibrant",
+    "multi-colored",
+    "bright",
+    "varied colors",
+    "vivid"
+  ],
+  "column": [
+    "columns",
+    "pillar",
+    "architectural column",
+    "support structure"
+  ],
+  "comfort": [
+    "comfortable",
+    "cozy",
+    "relaxed",
+    "ease"
+  ],
+  "companion dog": [
+    "dog",
+    "pet dog",
+    "lap dog",
+    "domestic dog"
+  ],
+  "construction paper": [
+    "paper",
+    "colored paper",
+    "craft paper"
+  ],
+  "container": [
+    "containers",
+    "vessel",
+    "receptacle",
+    "holder"
+  ],
+  "cooking": [
+    "preparing food",
+    "culinary preparation",
+    "food preparation",
+    "cook"
+  ],
+  "cookware and bakeware": [
+    "cookware",
+    "bakeware",
+    "cooking utensils",
+    "kitchen equipment"
+  ],
+  "cool": [
+    "cold",
+    "cool temperature",
+    "chilled",
+    "refreshing"
+  ],
+  "couch": [
+    "sofa",
+    "settee",
+    "furniture",
+    "seating"
+  ],
+  "courtyard": [
+    "court",
+    "outdoor courtyard",
+    "central court",
+    "patio"
+  ],
+  "cream": [
+    "creamy",
+    "dairy cream",
+    "whipped cream",
+    "cream colored"
+  ],
+  "creative arts": [
+    "art",
+    "artistic",
+    "creative work",
+    "artwork"
+  ],
+  "cuddling": [
+    "cuddle",
+    "embrace",
+    "hugging",
+    "snuggling"
+  ],
+  "cuisine": [
+    "culinary",
+    "food",
+    "cooking style",
+    "culinary tradition"
+  ],
+  "culinary art": [
+    "cooking",
+    "culinary",
+    "food preparation",
+    "gastronomy"
+  ],
+  "cup": [
+    "cups",
+    "mug",
+    "drinking cup",
+    "beverage cup",
+    "container"
+  ],
+  "dairy": [
+    "milk product",
+    "dairy product",
+    "dairy items",
+    "milk"
+  ],
+  "darkness": [
+    "dark",
+    "dim",
+    "shadowy",
+    "low light"
+  ],
+  "decoration": [
+    "decorative",
+    "ornament",
+    "decorations",
+    "embellishment",
+    "adornment"
+  ],
+  "delicacy": [
+    "delicacies",
+    "delicate food",
+    "specialty food",
+    "gourmet dish",
+    "treat",
+    "delectable"
+  ],
+  "delicious": [
+    "appetizing",
+    "tasty",
+    "flavorful",
+    "scrumptious",
+    "mouth-watering",
+    "savory",
+    "yummy"
+  ],
+  "desert": [
+    "arid landscape",
+    "sandy terrain",
+    "wasteland",
+    "dunes",
+    "barren land",
+    "deserts"
+  ],
+  "dessert": [
+    "sweet",
+    "sweet course",
+    "sweet treat",
+    "desserts",
+    "pudding",
+    "cake",
+    "pastry"
+  ],
+  "dining table": [
+    "dinner table",
+    "table",
+    "eating table",
+    "dining furniture",
+    "table setting"
+  ],
+  "dinner": [
+    "supper",
+    "evening meal",
+    "main meal",
+    "dinners"
+  ],
+  "dinner spread": [
+    "meal spread",
+    "food spread",
+    "table spread",
+    "dinner display",
+    "dishes"
+  ],
+  "dish": [
+    "plate",
+    "food dish",
+    "cuisine",
+    "prepared food",
+    "dishes",
+    "meal"
+  ],
+  "dishware": [
+    "dishes",
+    "dinnerware",
+    "tableware",
+    "plates",
+    "crockery",
+    "dinner set"
+  ],
+  "display": [
+    "showcase",
+    "exhibited",
+    "presentation",
+    "shown",
+    "arrangement",
+    "displayed"
+  ],
+  "display case": [
+    "showcase",
+    "display cabinet",
+    "vitrine",
+    "cabinet",
+    "case",
+    "exhibition case"
+  ],
+  "displayed": [
+    "displayed",
+    "shown",
+    "exhibited",
+    "arranged",
+    "placed",
+    "showcased"
+  ],
+  "document": [
+    "paper",
+    "paperwork",
+    "written document",
+    "text",
+    "page",
+    "printed page",
+    "certificate"
+  ],
+  "dog": [
+    "canine",
+    "puppy",
+    "pup",
+    "dogs",
+    "pooch",
+    "doggy",
+    "animal"
+  ],
+  "dog bed": [
+    "pet bed",
+    "dog mat",
+    "bed for dog",
+    "dog sleeping area"
+  ],
+  "dog breed": [
+    "breed",
+    "type of dog",
+    "dog type",
+    "canine breed",
+    "pedigree"
+  ],
+  "dog clothes": [
+    "dog clothing",
+    "dog outfit",
+    "pet clothes",
+    "dog garment",
+    "dog apparel"
+  ],
+  "dog costume": [
+    "costume for dog",
+    "pet costume",
+    "dog outfit",
+    "dressed dog",
+    "dog disguise"
+  ],
+  "dog leash": [
+    "leash",
+    "dog lead",
+    "lead",
+    "pet leash",
+    "restraint"
+  ],
+  "dog toy": [
+    "toy for dog",
+    "pet toy",
+    "canine toy",
+    "dog plaything"
+  ],
+  "donut": [
+    "doughnut",
+    "donut pastry",
+    "glazed donut",
+    "donuts",
+    "ring pastry"
+  ],
+  "drawing": [
+    "sketch",
+    "hand-drawn",
+    "illustration",
+    "artwork",
+    "drawn artwork",
+    "pencil drawing",
+    "charcoal drawing"
+  ],
+  "dusk": [
+    "twilight",
+    "sunset",
+    "early evening",
+    "golden hour",
+    "gloaming"
+  ],
+  "egg": [
+    "eggs",
+    "chicken egg",
+    "poached egg"
+  ],
+  "egg white": [
+    "white of egg",
+    "albumen",
+    "egg whites"
+  ],
+  "egg yolk": [
+    "yolk",
+    "yellow of egg",
+    "egg yolks"
+  ],
+  "eggs": [
+    "egg",
+    "chicken eggs",
+    "poached eggs",
+    "scrambled eggs"
+  ],
+  "evening": [
+    "dusk",
+    "twilight",
+    "night",
+    "eventide",
+    "sunset time",
+    "evening time"
+  ],
+  "eyewear": [
+    "glasses",
+    "spectacles",
+    "goggles",
+    "sunglasses",
+    "eyeglasses",
+    "shades"
+  ],
+  "fashion accessory": [
+    "accessory",
+    "clothing accessory",
+    "wearable accessory",
+    "fashion item"
+  ],
+  "fast food": [
+    "quick food",
+    "takeout",
+    "quick service",
+    "fast casual"
+  ],
+  "fence": [
+    "fencing",
+    "barrier",
+    "railing",
+    "enclosure",
+    "picket fence",
+    "wooden fence"
+  ],
+  "festive": [
+    "celebratory",
+    "festive mood",
+    "holiday",
+    "merry",
+    "joyful",
+    "festive atmosphere"
+  ],
+  "field": [
+    "meadow",
+    "grassland",
+    "open field",
+    "pasture",
+    "farmland",
+    "open area"
+  ],
+  "fish": [
+    "fishes",
+    "seafood",
+    "aquatic animal",
+    "fish dish"
+  ],
+  "floor": [
+    "flooring",
+    "ground",
+    "wooden floor",
+    "tile floor",
+    "surface"
+  ],
+  "floor mat": [
+    "mat",
+    "floor rug",
+    "rug",
+    "doormat",
+    "area rug",
+    "placement mat"
+  ],
+  "flower": [
+    "flowers",
+    "bloom",
+    "blossom",
+    "floral",
+    "flowering plant",
+    "flora"
+  ],
+  "food": [
+    "cuisine",
+    "edible",
+    "meal",
+    "dish",
+    "foodstuff",
+    "eats"
+  ],
+  "footwear": [
+    "shoes",
+    "shoe",
+    "footwear item",
+    "boot",
+    "sneaker",
+    "sandal"
+  ],
+  "fork": [
+    "dining fork",
+    "table fork",
+    "eating utensil",
+    "utensil"
+  ],
+  "fried egg": [
+    "sunny side up",
+    "fried eggs",
+    "egg fried"
+  ],
+  "frozen dessert": [
+    "ice cream",
+    "frozen treat",
+    "gelato",
+    "sorbet",
+    "popsicle",
+    "frozen confection"
+  ],
+  "frying pan": [
+    "skillet",
+    "frying skillet",
+    "pan",
+    "cooking pan",
+    "non-stick pan"
+  ],
+  "furniture": [
+    "furnishings",
+    "piece of furniture",
+    "chair",
+    "table",
+    "household furniture"
+  ],
+  "furry": [
+    "fluffy",
+    "fuzzy",
+    "hairy",
+    "shaggy",
+    "furry texture"
+  ],
+  "garden": [
+    "yard",
+    "garden area",
+    "green space",
+    "botanical garden",
+    "outdoor garden",
+    "landscaped area"
+  ],
+  "garnish": [
+    "food garnish",
+    "topping",
+    "herb garnish",
+    "garnished",
+    "edible garnish"
+  ],
+  "gelato": [
+    "ice cream",
+    "frozen dessert",
+    "Italian ice cream",
+    "frozen gelato"
+  ],
+  "giant": [
+    "very large",
+    "oversized",
+    "huge",
+    "massive",
+    "large",
+    "large scale"
+  ],
+  "girl": [
+    "young female",
+    "female child",
+    "daughter",
+    "lass",
+    "young woman"
+  ],
+  "glasses": [
+    "eyeglasses",
+    "spectacles",
+    "eyewear",
+    "specs"
+  ],
+  "gluten": [],
+  "grass": [
+    "lawn",
+    "turf",
+    "vegetation",
+    "herbage",
+    "grassland"
+  ],
+  "grassy": [
+    "grass-covered",
+    "grass-like",
+    "verdant",
+    "lawn-like"
+  ],
+  "grilled cheese": [
+    "grilled cheese sandwich",
+    "toasted cheese sandwich",
+    "melted cheese sandwich"
+  ],
+  "ground": [
+    "soil",
+    "earth",
+    "floor",
+    "surface",
+    "terrain"
+  ],
+  "groundcover": [
+    "ground cover",
+    "low vegetation",
+    "carpet of vegetation"
+  ],
+  "group": [
+    "gathering",
+    "assembly",
+    "collection",
+    "crowd",
+    "cluster"
+  ],
+  "gym": [
+    "gymnasium",
+    "fitness center",
+    "fitness facility",
+    "health club",
+    "workout facility"
+  ],
+  "handwriting": [
+    "handwritten text",
+    "script",
+    "penmanship",
+    "hand-written"
+  ],
+  "hat": [
+    "headwear",
+    "cap",
+    "headpiece",
+    "bonnet",
+    "brim"
+  ],
+  "hiking": [
+    "walking",
+    "trekking",
+    "trail walking",
+    "backpacking"
+  ],
+  "holding": [
+    "grasping",
+    "carrying",
+    "clutching",
+    "gripping"
+  ],
+  "home appliance": [
+    "appliance",
+    "household appliance",
+    "domestic appliance",
+    "kitchen appliance"
+  ],
+  "horizon": [
+    "skyline",
+    "horizon line",
+    "distant landscape",
+    "vanishing point"
+  ],
+  "house": [
+    "home",
+    "residence",
+    "dwelling",
+    "residential building",
+    "household"
+  ],
+  "human face": [
+    "face",
+    "facial",
+    "person's face"
+  ],
+  "ice cream": [
+    "ice-cream",
+    "frozen dessert",
+    "gelato"
+  ],
+  "indoor": [
+    "interior",
+    "inside",
+    "indoors",
+    "interior space"
+  ],
+  "ingredient": [
+    "component",
+    "item",
+    "element"
+  ],
+  "ink": [
+    "pen ink",
+    "written ink",
+    "ink substance"
+  ],
+  "jeans": [
+    "denim",
+    "denim pants",
+    "denim jeans",
+    "blue jeans"
+  ],
+  "kitchen utensil": [
+    "utensil",
+    "cooking utensil",
+    "kitchen tool"
+  ],
+  "kitchen utensils": [
+    "utensils",
+    "cooking utensils",
+    "kitchen tools"
+  ],
+  "kitchenware": [
+    "kitchen items",
+    "cookware",
+    "kitchen equipment",
+    "cooking equipment"
+  ],
+  "land vehicle": [
+    "vehicle",
+    "car",
+    "automobile",
+    "ground vehicle"
+  ],
+  "landmark": [
+    "notable structure",
+    "iconic location",
+    "recognizable site",
+    "monument"
+  ],
+  "landscape": [
+    "scenery",
+    "terrain",
+    "natural landscape",
+    "outdoor scene",
+    "vista"
+  ],
+  "large": [
+    "big",
+    "sizeable",
+    "large-sized",
+    "oversized"
+  ],
+  "lawn": [
+    "grass lawn",
+    "grassy area",
+    "turf",
+    "grassland"
+  ],
+  "laying": [
+    "lying down",
+    "reclining",
+    "resting"
+  ],
+  "leaf": [
+    "leaves",
+    "foliage",
+    "leafy"
+  ],
+  "leaf vegetable": [
+    "leafy green",
+    "leafy vegetable",
+    "green vegetable",
+    "salad green"
+  ],
+  "leash": [
+    "lead",
+    "tether",
+    "collar leash"
+  ],
+  "lettuce": [
+    "leafy lettuce",
+    "lettuce leaf",
+    "greens"
+  ],
+  "lick": [
+    "licking",
+    "tongue"
+  ],
+  "lights": [
+    "lighting",
+    "light source",
+    "illumination",
+    "light fixture"
+  ],
+  "lying": [
+    "lying down",
+    "reclining",
+    "laying down",
+    "resting"
+  ],
+  "maltese terrier": [
+    "maltese",
+    "terrier",
+    "small dog breed"
+  ],
+  "mammal": [
+    "animal",
+    "mammalian"
+  ],
+  "man": [
+    "male",
+    "adult male",
+    "gentleman",
+    "male person"
+  ],
+  "math": [
+    "mathematics",
+    "mathematical"
+  ],
+  "meal": [
+    "food",
+    "dish",
+    "course",
+    "repast"
+  ],
+  "meat": [
+    "protein",
+    "meat product",
+    "flesh"
+  ],
+  "melt sandwich": [
+    "melted sandwich",
+    "grilled sandwich",
+    "hot sandwich"
+  ],
+  "mesh": [
+    "mesh fabric",
+    "mesh material",
+    "net",
+    "webbing",
+    "lattice"
+  ],
+  "mirror": [
+    "looking glass",
+    "reflective surface",
+    "mirrored surface"
+  ],
+  "monument": [
+    "statue",
+    "memorial",
+    "landmark",
+    "structure"
+  ],
+  "mountain": [
+    "mount",
+    "peak",
+    "summit",
+    "mountainous terrain",
+    "alpine"
+  ],
+  "mountain range": [
+    "mountains",
+    "mountain chain",
+    "ridge system",
+    "alpine range",
+    "peak range",
+    "mountainous terrain"
+  ],
+  "muffin": [
+    "muffins",
+    "cupcake",
+    "baked good",
+    "cake"
+  ],
+  "nap": [
+    "napping",
+    "sleeping",
+    "rest",
+    "dozing",
+    "catnap"
+  ],
+  "nature": [
+    "natural",
+    "wilderness",
+    "landscape",
+    "outdoor scenery",
+    "natural environment"
+  ],
+  "night": [
+    "nighttime",
+    "dark",
+    "evening",
+    "nocturnal",
+    "nightfall"
+  ],
+  "ocean": [
+    "sea",
+    "seawater",
+    "open water",
+    "marine",
+    "ocean water"
+  ],
+  "open": [
+    "opened",
+    "opening",
+    "unsealed",
+    "unlocked",
+    "ajar"
+  ],
+  "orange": [
+    "oranges",
+    "orange-colored",
+    "orange fruit",
+    "citrus"
+  ],
+  "origami": [
+    "paper folding",
+    "folded paper art",
+    "paper craft"
+  ],
+  "origami paper": [
+    "folded paper",
+    "paper folding material",
+    "craft paper"
+  ],
+  "outdoor": [
+    "outdoors",
+    "outside",
+    "exterior",
+    "al fresco",
+    "open air"
+  ],
+  "painting": [
+    "painted",
+    "artwork",
+    "canvas",
+    "oil painting",
+    "acrylic"
+  ],
+  "pan": [
+    "pans",
+    "cooking pan",
+    "skillet",
+    "frying pan"
+  ],
+  "pan frying": [
+    "pan-fried",
+    "frying",
+    "saut\u00e9ing",
+    "cooking in a pan"
+  ],
+  "paper": [
+    "papers",
+    "sheet",
+    "document",
+    "cardboard"
+  ],
+  "park": [
+    "parks",
+    "public garden",
+    "green space",
+    "parkland"
+  ],
+  "parrot": [
+    "parrots",
+    "macaw",
+    "bird",
+    "tropical bird"
+  ],
+  "pastry": [
+    "pastries",
+    "baked pastry",
+    "dessert pastry",
+    "baked good"
+  ],
+  "people": [],
+  "person": [],
+  "pet": [
+    "pets",
+    "domestic animal",
+    "companion animal"
+  ],
+  "pet supply": [
+    "pet supplies",
+    "pet product",
+    "pet accessories"
+  ],
+  "pillow": [
+    "pillows",
+    "cushion",
+    "pillow cushion",
+    "headrest"
+  ],
+  "plant": [
+    "plants",
+    "vegetation",
+    "flora",
+    "potted plant",
+    "houseplant"
+  ],
+  "plate": [
+    "plates",
+    "dinner plate",
+    "dish",
+    "platter"
+  ],
+  "platter": [
+    "platters",
+    "serving plate",
+    "serving dish",
+    "tray"
+  ],
+  "pond": [
+    "ponds",
+    "small lake",
+    "water feature"
+  ],
+  "poodle crossbreed": [
+    "poodle mix",
+    "doodle",
+    "poodle hybrid",
+    "mixed breed poodle"
+  ],
+  "posing": [
+    "posed",
+    "posing for photo",
+    "positioning"
+  ],
+  "puppy": [
+    "puppies",
+    "young dog",
+    "dog puppy"
+  ],
+  "rack": [
+    "racks",
+    "shelving",
+    "shelf",
+    "stand"
+  ],
+  "ramen": [
+    "ramen noodles",
+    "noodle soup",
+    "Japanese noodles"
+  ],
+  "red": [
+    "red-colored",
+    "reddish",
+    "crimson",
+    "scarlet"
+  ],
+  "red sky at morning": [
+    "red morning sky",
+    "red dawn",
+    "morning sky"
+  ],
+  "reef": [
+    "reefs",
+    "coral reef",
+    "underwater reef"
+  ],
+  "refrigerator": [
+    "fridge",
+    "refrigerator appliance",
+    "cooler",
+    "ice box"
+  ],
+  "residential area": [
+    "residential neighborhood",
+    "housing",
+    "residential district",
+    "neighborhood"
+  ],
+  "restaurant": [
+    "dining establishment",
+    "eatery",
+    "cafe",
+    "food establishment"
+  ],
+  "retail": [
+    "retail store",
+    "shopping",
+    "retail environment",
+    "store"
+  ],
+  "ridge": [
+    "ridges",
+    "mountain ridge",
+    "hilltop",
+    "crest"
+  ],
+  "rock": [
+    "rocks",
+    "stone",
+    "boulder",
+    "rocky"
+  ],
+  "rug": [
+    "rugs",
+    "carpet",
+    "floor covering",
+    "mat"
+  ],
+  "sale": [
+    "on sale",
+    "discount",
+    "for sale",
+    "selling"
+  ],
+  "sand": [
+    "sandy",
+    "sandy beach",
+    "beach sand",
+    "granular"
+  ],
+  "sandwich": [
+    "sandwiches",
+    "sub",
+    "hoagie",
+    "bread sandwich"
+  ],
+  "screenshot": [
+    "screen capture",
+    "digital screenshot",
+    "screen shot"
+  ],
+  "sculpture": [
+    "sculptures",
+    "statue",
+    "sculptural art",
+    "carved artwork"
+  ],
+  "sea": [
+    "ocean",
+    "seawater",
+    "marine water",
+    "saltwater"
+  ],
+  "seascape": [
+    "coastal landscape",
+    "ocean view",
+    "seaside view",
+    "water landscape"
+  ],
+  "seating": [
+    "seat",
+    "chairs",
+    "seating area",
+    "sitting"
+  ],
+  "shelf": [
+    "shelves",
+    "shelving",
+    "bookshelf",
+    "cabinet shelf"
+  ],
+  "shih-poo": [
+    "shih poo",
+    "shih-poo dog",
+    "shih poo mix",
+    "shih-poo cross"
+  ],
+  "shirt": [
+    "top",
+    "garment",
+    "clothing",
+    "blouse"
+  ],
+  "shoal": [
+    "school of fish",
+    "fish school",
+    "school",
+    "group of fish"
+  ],
+  "shop": [
+    "store",
+    "retail store",
+    "shop front",
+    "boutique"
+  ],
+  "shopping cart": [
+    "cart",
+    "shopping trolley",
+    "trolley",
+    "basket"
+  ],
+  "shore": [
+    "beach",
+    "coastline",
+    "waterfront",
+    "coast",
+    "sandy shore",
+    "waterside"
+  ],
+  "sidewalk": [
+    "pavement",
+    "pedestrian path",
+    "walkway",
+    "footpath",
+    "pathway"
+  ],
+  "silverware": [
+    "cutlery",
+    "utensils",
+    "flatware",
+    "silverware utensils"
+  ],
+  "sink": [
+    "basin",
+    "wash basin",
+    "kitchen sink",
+    "bathroom sink"
+  ],
+  "sitting": [
+    "seated",
+    "sit",
+    "sitting down"
+  ],
+  "sky": [
+    "blue sky",
+    "skyline",
+    "overhead",
+    "atmosphere"
+  ],
+  "sleep": [
+    "sleeping",
+    "asleep",
+    "resting"
+  ],
+  "sleeping": [
+    "sleep",
+    "asleep",
+    "resting",
+    "napping"
+  ],
+  "smile": [
+    "smiling",
+    "grin",
+    "happy expression"
+  ],
+  "snack": [
+    "food",
+    "treat",
+    "light snack",
+    "snacks"
+  ],
+  "snow": [
+    "snowy",
+    "snowfield",
+    "snow covered"
+  ],
+  "sofa": [
+    "couch",
+    "settee",
+    "divan",
+    "sofa couch"
+  ],
+  "standing": [
+    "stand",
+    "upright",
+    "standing up"
+  ],
+  "statue": [
+    "sculpture",
+    "monument",
+    "figurine",
+    "carved figure"
+  ],
+  "steak": [
+    "beef steak",
+    "meat",
+    "grilled steak"
+  ],
+  "step": [
+    "stairs",
+    "stair",
+    "steps"
+  ],
+  "stone": [
+    "rock",
+    "stone rock",
+    "stone surface"
+  ],
+  "store": [
+    "shop",
+    "retail store",
+    "storefront",
+    "shop store"
+  ],
+  "strawberries": [
+    "strawberry",
+    "berries",
+    "red berries"
+  ],
+  "street": [
+    "road",
+    "street road",
+    "avenue",
+    "roadway"
+  ],
+  "striped": [
+    "stripes",
+    "striped pattern",
+    "lined"
+  ],
+  "stuffed": [
+    "filled",
+    "packed"
+  ],
+  "stuffed animal": [
+    "plush toy",
+    "toy animal",
+    "plush animal",
+    "soft toy"
+  ],
+  "submarine sandwich": [
+    "sub sandwich",
+    "submarine",
+    "sub",
+    "hoagie"
+  ],
+  "subshrub": [
+    "low shrub",
+    "shrub"
+  ],
+  "suburb": [
+    "suburban",
+    "suburbs",
+    "suburban area"
+  ],
+  "summit": [
+    "peak",
+    "mountain top",
+    "hilltop",
+    "mountain peak",
+    "top"
+  ],
+  "sun": [
+    "sunlight",
+    "sunshine",
+    "solar"
+  ],
+  "sun hat": [
+    "hat",
+    "wide brimmed hat",
+    "straw hat"
+  ],
+  "sunny": [
+    "sun",
+    "sunlit",
+    "bright",
+    "sunshine"
+  ],
+  "sunrise": [
+    "dawn",
+    "morning",
+    "daybreak"
+  ],
+  "sunset": [
+    "dusk",
+    "evening",
+    "twilight",
+    "sundown"
+  ],
+  "surprised": [
+    "surprised expression",
+    "shock",
+    "astonished"
+  ],
+  "sweetness": [
+    "sweet",
+    "sugary"
+  ],
+  "t-shirt": [
+    "tee",
+    "t shirt",
+    "shirt",
+    "t-shirt shirt"
+  ],
+  "table": [
+    "desk",
+    "furniture table"
+  ],
+  "tableware": [
+    "dishes",
+    "dinnerware",
+    "place setting",
+    "tableware dishes"
+  ],
+  "takeout": [
+    "takeaway",
+    "takeout food",
+    "food delivery"
+  ],
+  "teddy bear": [
+    "teddy",
+    "stuffed bear",
+    "plush bear",
+    "bear"
+  ],
+  "teenage puppy love": [],
+  "terrier": [
+    "terrier dog",
+    "dog"
+  ],
+  "texas toast": [
+    "toast",
+    "thick cut toast"
+  ],
+  "text": [
+    "writing",
+    "words",
+    "letters",
+    "written text"
+  ],
+  "tire": [
+    "wheel",
+    "tyre",
+    "car tire",
+    "rubber tire"
+  ],
+  "toast": [
+    "toasted bread",
+    "bread toast",
+    "browned bread"
+  ],
+  "tongue": [
+    "lingual",
+    "oral tongue"
+  ],
+  "towel": [
+    "bath towel",
+    "cloth towel",
+    "terry cloth"
+  ],
+  "tower": [
+    "tall structure",
+    "high tower",
+    "tower structure",
+    "skyscraper"
+  ],
+  "toy dog": [
+    "small dog",
+    "toy breed",
+    "lap dog",
+    "miniature dog"
+  ],
+  "tree": [
+    "trees",
+    "woody plant",
+    "vegetation",
+    "foliage"
+  ],
+  "trousers": [
+    "pants",
+    "slacks",
+    "bottoms",
+    "legwear"
+  ],
+  "umbrella": [
+    "parasol",
+    "rain umbrella",
+    "brolly"
+  ],
+  "vegetable": [
+    "vegetables",
+    "produce",
+    "veggie",
+    "greens"
+  ],
+  "vehicle": [
+    "vehicles",
+    "transportation",
+    "automobile",
+    "conveyance",
+    "motor vehicle"
+  ],
+  "walkway": [
+    "pathway",
+    "sidewalk",
+    "footpath",
+    "pedestrian path",
+    "passage"
+  ],
+  "wall": [
+    "walls",
+    "interior wall",
+    "exterior wall",
+    "partition"
+  ],
+  "water": [
+    "body of water",
+    "aquatic",
+    "liquid water",
+    "waters"
+  ],
+  "wave": [
+    "waves",
+    "ocean wave",
+    "water wave"
+  ],
+  "wearing": [
+    "dressed in",
+    "attired",
+    "clothed",
+    "garbed"
+  ],
+  "wheat gluten": [
+    "gluten",
+    "vital wheat gluten",
+    "seitan"
+  ],
+  "wheel": [
+    "wheels",
+    "tire",
+    "circular wheel"
+  ],
+  "white": [
+    "white color",
+    "pale",
+    "off-white",
+    "cream"
+  ],
+  "whiteboard": [
+    "white board",
+    "dry erase board",
+    "marker board"
+  ],
+  "window": [
+    "windows",
+    "glass window",
+    "pane"
+  ],
+  "wine glass": [
+    "wineglass",
+    "wine goblet",
+    "glass of wine"
+  ],
+  "woman": [
+    "women",
+    "female",
+    "lady",
+    "adult woman"
+  ],
+  "wooden": [
+    "wood",
+    "made of wood",
+    "timber"
+  ],
+  "yellow": [
+    "yellow color",
+    "golden yellow",
+    "bright yellow"
+  ],
+  "yorkipoo": [
+    "Yorkie Poo",
+    "Yorkshire Terrier Poodle mix",
+    "toy breed",
+    "small dog"
+  ]
+}

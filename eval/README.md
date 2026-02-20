@@ -157,6 +157,29 @@ Results: `eval/results/hybrid_analysis.json`
 
 Requires `alt_tagging_results.json` and `tagging_baseline.json` from previous phases.
 
+### Hyperparameter Sweep (Phase 4)
+
+```bash
+# Default grid (100 combos, ~4 hours)
+python run_sweep.py
+
+# Targeted grid (~36 combos, ~4 hours)
+python run_sweep.py --k 10 15 20 30 --min-score 0.3 0.4 0.5 --rel-cutoff 0.5 0.65 0.75
+
+# Quick grid (~27 combos)
+python run_sweep.py --quick
+
+# Dry run (preview grid without calling API)
+python run_sweep.py --dry-run
+
+# Resume from checkpoint after interruption
+python run_sweep.py --resume
+```
+
+Results: `eval/results/tuning_results.json`
+
+Searches over `k`, `minScore`, and `relativeCutoff` by sending per-request `searchParams` overrides to the chat Lambda. Saves a checkpoint after each combo for resume support.
+
 ### What each harness measures
 
 | Harness | Metrics | Description |
@@ -165,6 +188,7 @@ Requires `alt_tagging_results.json` and `tagging_baseline.json` from previous ph
 | `run_tagging_benchmark.py` | Tag P/R/F1, per-category, threshold analysis | Azure CV tag quality |
 | `run_alt_tagging.py` | Tag P/R/F1 per provider (strict + fuzzy) | Cross-provider comparison |
 | `run_hybrid_analysis.py` | 7 strategies evaluated by F1 | Optimal tag configuration |
+| `run_sweep.py` | Photo Display Accuracy across param grid | Hyperparameter optimization |
 
 ## File Summary
 
@@ -176,6 +200,7 @@ eval/
 ├── run_tagging_benchmark.py        # Phase 3a: Azure CV tag quality benchmark
 ├── run_alt_tagging.py              # Phase 3b: Rekognition + Claude Haiku comparison
 ├── run_hybrid_analysis.py          # Phase 3c: Hybrid strategy evaluation
+├── run_sweep.py                    # Phase 4: Hyperparameter grid search
 ├── datasets/
 │   ├── photo_catalog.json          # Full photo metadata (generated)
 │   ├── photo_paths.json            # PhotoId -> file path mapping (generated)
@@ -186,7 +211,8 @@ eval/
 │   ├── baseline.json               # RAG baseline results
 │   ├── tagging_baseline.json       # Azure CV tag quality results
 │   ├── alt_tagging_results.json    # Cross-provider comparison results
-│   └── hybrid_analysis.json        # Hybrid strategy results
+│   ├── hybrid_analysis.json        # Hybrid strategy results
+│   └── tuning_results.json        # Hyperparameter sweep results
 └── tools/
     ├── serve.mjs                   # Local proxy server for labelers
     ├── tagging-labeler.html        # Visual tagging label tool

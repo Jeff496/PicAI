@@ -184,6 +184,10 @@ export class ChatStack extends cdk.Stack {
         EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
         LLM_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
         OTEL_EXPORTER_OTLP_ENDPOINT: 'http://44.208.136.228:6006',
+        // Search tuning defaults — optimized via Phase 4 sweep (F1: 0.646 → 0.697)
+        MIN_SEARCH_SCORE: '0.3',
+        RELATIVE_SCORE_CUTOFF: '0.5',
+        SEARCH_K: '30',
       },
       logGroup: chatLogGroup,
       bundling: {

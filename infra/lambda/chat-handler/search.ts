@@ -128,35 +128,42 @@ async function signedRequest(
   });
 }
 
-// Minimum absolute score (cosinesimil: 0.5 = orthogonal/no correlation)
-const MIN_SCORE = parseFloat(process.env.MIN_SEARCH_SCORE || '0.5');
-// Drop results scoring below this fraction of the top result's score
-const RELATIVE_SCORE_CUTOFF = parseFloat(process.env.RELATIVE_SCORE_CUTOFF || '0.75');
+// Default thresholds — overridable via env vars and per-request searchParams
+const DEFAULT_MIN_SCORE = parseFloat(process.env.MIN_SEARCH_SCORE || '0.5');
+const DEFAULT_RELATIVE_CUTOFF = parseFloat(process.env.RELATIVE_SCORE_CUTOFF || '0.75');
+const DEFAULT_K = parseInt(process.env.SEARCH_K || '10', 10);
 
 /**
- * Search for photos similar to a query using k-NN vector search.
- * Embeds the query text, then performs k-NN on OpenSearch.
- * Filters results by absolute and relative score thresholds
- * so only genuinely relevant photos are returned.
- *
- * @param query - Natural language query from user
- * @param userId - Filter results to this user's photos
- * @param groupIds - Optional group IDs to also include group photos
- * @param k - Number of candidates to fetch from OpenSearch (default 10)
- * @returns Array of matched photos with similarity scores, filtered by relevance
+ * Optional per-request search parameter overrides for hyperparameter tuning.
+ * If omitted, falls back to env vars then hardcoded defaults.
  */
+export interface SearchParams {
+  k?: number;
+  minScore?: number;
+  relativeCutoff?: number;
+}
+
 export interface SearchTiming {
   embedMs: number;
   searchMs: number;
   totalMs: number;
 }
 
+/**
+ * Search for photos similar to a query using k-NN vector search.
+ * Embeds the query text, then performs k-NN on OpenSearch.
+ * Filters results by absolute and relative score thresholds
+ * so only genuinely relevant photos are returned.
+ */
 export async function searchPhotos(
   query: string,
   userId: string,
   groupIds?: string[],
-  k: number = 10
+  searchParams?: SearchParams
 ): Promise<{ results: PhotoMatch[]; timing: SearchTiming }> {
+  const k = searchParams?.k ?? DEFAULT_K;
+  const minScore = searchParams?.minScore ?? DEFAULT_MIN_SCORE;
+  const relativeCutoff = searchParams?.relativeCutoff ?? DEFAULT_RELATIVE_CUTOFF;
   const t0 = Date.now();
 
   // Step 1: Embed the query
@@ -224,14 +231,14 @@ export async function searchPhotos(
 
   // Step 3: Filter by score thresholds
   const topScore = allResults[0].score;
-  const relativeThreshold = topScore * RELATIVE_SCORE_CUTOFF;
-  const threshold = Math.max(MIN_SCORE, relativeThreshold);
+  const relativeThreshold = topScore * relativeCutoff;
+  const threshold = Math.max(minScore, relativeThreshold);
 
   const filtered = allResults.filter((r) => r.score >= threshold);
 
   console.log(
     `Score filtering: top=${topScore.toFixed(3)}, threshold=${threshold.toFixed(3)} ` +
-    `(abs=${MIN_SCORE}, rel=${relativeThreshold.toFixed(3)}), ` +
+    `(abs=${minScore}, rel=${relativeThreshold.toFixed(3)}, k=${k}), ` +
     `${allResults.length} candidates → ${filtered.length} passed`
   );
   for (const r of allResults) {
