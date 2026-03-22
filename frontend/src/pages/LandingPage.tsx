@@ -141,7 +141,7 @@ export function LandingPage() {
               {/* Large hero photo */}
               <div className="relative h-[220px] overflow-hidden bg-[#d4cec4] sm:h-[280px] dark:bg-[#2a2824]">
                 <img
-                  src="https://picsum.photos/id/1015/800/600"
+                  src="/hero-mountains.jpg"
                   alt="River winding through mountains"
                   className="h-full w-full object-cover"
                   loading="eager"
@@ -151,7 +151,7 @@ export function LandingPage() {
               <div className="grid grid-cols-2 gap-1.5">
                 <div className="relative h-[140px] overflow-hidden bg-[#d4cec4] sm:h-[180px] dark:bg-[#2a2824]">
                   <img
-                    src="https://picsum.photos/id/1018/600/400"
+                    src="/hero-forest.jpg"
                     alt="Foggy forest landscape"
                     className="h-full w-full object-cover"
                     loading="eager"
@@ -159,7 +159,7 @@ export function LandingPage() {
                 </div>
                 <div className="relative h-[140px] overflow-hidden bg-[#d4cec4] sm:h-[180px] dark:bg-[#2a2824]">
                   <img
-                    src="https://picsum.photos/id/1039/600/400"
+                    src="/hero-bridge.jpg"
                     alt="Bridge over autumn creek"
                     className="h-full w-full object-cover"
                     loading="eager"
