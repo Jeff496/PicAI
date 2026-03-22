@@ -19,6 +19,10 @@ storage/
 *.png
 *.heic
 
+# Allow frontend public assets
+!frontend/public/*.jpg
+!frontend/public/*.png
+
 # Logs
 logs/
 *.log
