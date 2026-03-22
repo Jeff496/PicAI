@@ -1,5 +1,4 @@
 import * as cdk from 'aws-cdk-lib';
-import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -14,31 +13,17 @@ export class ChatStack extends cdk.Stack {
     super(scope, id, props);
 
     // ─────────────────────────────────────────────
-    // OpenSearch Domain (vector store for RAG)
+    // Supabase pgvector configuration (external service)
+    // Table and indexes are managed via Supabase SQL editor.
+    // Lambda functions connect using SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY env vars.
     // ─────────────────────────────────────────────
-    const openSearchDomain = new opensearch.Domain(this, 'PhotoVectorStore', {
-      domainName: 'picai-vectors',
-      version: opensearch.EngineVersion.OPENSEARCH_2_17,
-      capacity: {
-        dataNodeInstanceType: 't3.small.search',
-        dataNodes: 1,
-        multiAzWithStandbyEnabled: false,
-      },
-      ebs: {
-        volumeSize: 10, // GB - plenty for embeddings
-        volumeType: cdk.aws_ec2.EbsDeviceVolumeType.GP3,
-      },
-      nodeToNodeEncryption: true,
-      encryptionAtRest: { enabled: true },
-      enforceHttps: true,
-      // IAM-based access only (no fine-grained access control master user)
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      logging: {
-        slowSearchLogEnabled: false,
-        slowIndexLogEnabled: false,
-        appLogEnabled: false,
-      },
-    });
+    const supabaseUrl = process.env.SUPABASE_URL || this.node.tryGetContext('supabaseUrl');
+    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || this.node.tryGetContext('supabaseServiceRoleKey');
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      throw new Error(
+        'Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars before deploying.'
+      );
+    }
 
     // ─────────────────────────────────────────────
     // DynamoDB Table (chat history)
@@ -110,22 +95,6 @@ export class ChatStack extends cdk.Stack {
       resources: ['*'],
     }));
 
-    // OpenSearch permissions
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'es:ESHttpGet',
-        'es:ESHttpPost',
-        'es:ESHttpPut',
-        'es:ESHttpDelete',
-        'es:ESHttpHead',
-      ],
-      resources: [
-        openSearchDomain.domainArn,
-        `${openSearchDomain.domainArn}/*`,
-      ],
-    }));
-
     // DynamoDB permissions
     chatHistoryTable.grantReadWriteData(lambdaRole);
 
@@ -147,8 +116,8 @@ export class ChatStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: {
-        OPENSEARCH_ENDPOINT: openSearchDomain.domainEndpoint,
-        OPENSEARCH_INDEX: 'photo-vectors',
+        SUPABASE_URL: supabaseUrl,
+        SUPABASE_SERVICE_ROLE_KEY: supabaseServiceRoleKey,
         EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       },
       logGroup: ingestLogGroup,
@@ -156,7 +125,7 @@ export class ChatStack extends cdk.Stack {
         minify: true,
         sourceMap: true,
         target: 'node22',
-        externalModules: [], // Bundle all deps (AWS SDK needed for Bedrock + SigV4)
+        externalModules: [], // Bundle all deps (AWS SDK needed for Bedrock)
       },
     });
 
@@ -178,8 +147,8 @@ export class ChatStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(60), // LLM calls can be slow
       memorySize: 512,
       environment: {
-        OPENSEARCH_ENDPOINT: openSearchDomain.domainEndpoint,
-        OPENSEARCH_INDEX: 'photo-vectors',
+        SUPABASE_URL: supabaseUrl,
+        SUPABASE_SERVICE_ROLE_KEY: supabaseServiceRoleKey,
         CHAT_HISTORY_TABLE: chatHistoryTable.tableName,
         EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
         LLM_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
@@ -194,7 +163,7 @@ export class ChatStack extends cdk.Stack {
         minify: true,
         sourceMap: true,
         target: 'node22',
-        externalModules: [], // Bundle all deps (AWS SDK needed for Bedrock + SigV4)
+        externalModules: [], // Bundle all deps (AWS SDK needed for Bedrock)
       },
     });
 
@@ -239,26 +208,11 @@ export class ChatStack extends cdk.Stack {
     }));
 
     // ─────────────────────────────────────────────
-    // OpenSearch access policy (allow Lambda role)
-    // ─────────────────────────────────────────────
-    openSearchDomain.addAccessPolicies(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      principals: [new iam.ArnPrincipal(lambdaRole.roleArn)],
-      actions: ['es:ESHttp*'],
-      resources: [`${openSearchDomain.domainArn}/*`],
-    }));
-
-    // ─────────────────────────────────────────────
     // Outputs
     // ─────────────────────────────────────────────
     new cdk.CfnOutput(this, 'ApiGatewayUrl', {
       value: api.url,
       description: 'Chat API Gateway URL',
-    });
-
-    new cdk.CfnOutput(this, 'OpenSearchEndpoint', {
-      value: openSearchDomain.domainEndpoint,
-      description: 'OpenSearch domain endpoint',
     });
 
     new cdk.CfnOutput(this, 'ChatHistoryTableName', {

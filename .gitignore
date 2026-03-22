@@ -50,6 +50,7 @@ infra/dist/
 infra/cdk.out/
 infra/*.js
 infra/*.d.ts
+infra/.env.cdk
 
 # PKI
 backend/pki/ca/ca.key

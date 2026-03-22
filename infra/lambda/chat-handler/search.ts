@@ -1,22 +1,10 @@
-import { tracer } from './tracing';
+import { tracer } from './tracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-import { defaultProvider } from '@aws-sdk/credential-provider-node';
-import { SignatureV4 } from '@smithy/signature-v4';
-import { Sha256 } from '@aws-crypto/sha256-js';
-import { HttpRequest } from '@smithy/protocol-http';
+import { supabase } from '../shared/supabase.js';
 
 const bedrockClient = new BedrockRuntimeClient({ region: 'us-east-1' });
 const EMBEDDING_MODEL_ID = process.env.EMBEDDING_MODEL_ID || 'amazon.titan-embed-text-v2:0';
-const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT || '';
-const INDEX_NAME = process.env.OPENSEARCH_INDEX || 'photo-vectors';
-
-const signer = new SignatureV4({
-  service: 'es',
-  region: 'us-east-1',
-  credentials: defaultProvider(),
-  sha256: Sha256,
-});
 
 export interface PhotoMatch {
   photoId: string;
@@ -69,65 +57,6 @@ async function embedQuery(text: string): Promise<number[]> {
   });
 }
 
-/**
- * Send a signed request to OpenSearch.
- */
-async function signedRequest(
-  method: string,
-  path: string,
-  body?: string
-): Promise<{ statusCode: number; body: string }> {
-  return tracer.startActiveSpan('chat.search.opensearch', async (span) => {
-    try {
-      span.setAttributes({
-        'opensearch.method': method,
-        'opensearch.path': path,
-        'opensearch.index': INDEX_NAME,
-      });
-
-      const url = new URL(`https://${OPENSEARCH_ENDPOINT}${path}`);
-
-      const request = new HttpRequest({
-        method,
-        hostname: url.hostname,
-        path: url.pathname,
-        headers: {
-          host: url.hostname,
-          'Content-Type': 'application/json',
-        },
-        body,
-      });
-
-      const signedReq = await signer.sign(request);
-
-      const response = await fetch(`https://${url.hostname}${url.pathname}`, {
-        method: signedReq.method,
-        headers: signedReq.headers as Record<string, string>,
-        body: signedReq.body,
-      });
-
-      const responseBody = await response.text();
-      span.setAttribute('opensearch.status_code', response.status);
-
-      if (response.status === 200) {
-        const parsed = JSON.parse(responseBody);
-        const hits = parsed.hits?.hits || [];
-        span.setAttributes({
-          'opensearch.candidate_count': hits.length,
-          'opensearch.top_score': hits.length > 0 ? hits[0]._score : 0,
-        });
-      }
-
-      return { statusCode: response.status, body: responseBody };
-    } catch (err) {
-      span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : 'opensearch failed' });
-      throw err;
-    } finally {
-      span.end();
-    }
-  });
-}
-
 // Default thresholds — overridable via env vars and per-request searchParams
 const DEFAULT_MIN_SCORE = parseFloat(process.env.MIN_SEARCH_SCORE || '0.5');
 const DEFAULT_RELATIVE_CUTOFF = parseFloat(process.env.RELATIVE_SCORE_CUTOFF || '0.75');
@@ -150,8 +79,8 @@ export interface SearchTiming {
 }
 
 /**
- * Search for photos similar to a query using k-NN vector search.
- * Embeds the query text, then performs k-NN on OpenSearch.
+ * Search for photos similar to a query using pgvector cosine similarity.
+ * Embeds the query text, then calls the search_photos RPC on Supabase.
  * Filters results by absolute and relative score thresholds
  * so only genuinely relevant photos are returned.
  */
@@ -170,60 +99,61 @@ export async function searchPhotos(
   const queryVector = await embedQuery(query);
   const embedMs = Date.now() - t0;
 
-  // Step 2: k-NN search with user + group filter
-  // Include photos owned by the user OR belonging to any of their groups
+  // Step 2: Vector similarity search via Supabase RPC
   const t1 = Date.now();
 
-  const filterClauses: object[] = [{ term: { userId } }];
-  if (groupIds && groupIds.length > 0) {
-    filterClauses.push({ terms: { groupId: groupIds } });
-  }
+  const allResults: PhotoMatch[] = await tracer.startActiveSpan('chat.search.pgvector', async (span) => {
+    try {
+      span.setAttributes({
+        'pgvector.k': k,
+        'pgvector.user_id': userId,
+        'pgvector.group_count': groupIds?.length ?? 0,
+      });
 
-  const filter =
-    filterClauses.length === 1
-      ? filterClauses[0]
-      : { bool: { should: filterClauses, minimum_should_match: 1 } };
+      const { data, error } = await supabase.rpc('search_photos', {
+        query_embedding: JSON.stringify(queryVector),
+        match_user_id: userId,
+        match_group_ids: groupIds ?? [],
+        match_count: k,
+      });
 
-  const searchBody = {
-    size: k,
-    query: {
-      bool: {
-        must: {
-          knn: {
-            vector: {
-              vector: queryVector,
-              k,
-            },
-          },
-        },
-        filter,
-      },
-    },
-    _source: {
-      excludes: ['vector'], // Don't return the large vector field
-    },
-  };
+      if (error) {
+        throw new Error(`Supabase search failed: ${error.message}`);
+      }
 
-  const result = await signedRequest(
-    'POST',
-    `/${INDEX_NAME}/_search`,
-    JSON.stringify(searchBody)
-  );
+      const results: PhotoMatch[] = (data || []).map((row: Record<string, unknown>) => ({
+        photoId: row.photo_id as string,
+        userId: row.user_id as string,
+        groupId: row.group_id as string | undefined,
+        filename: row.filename as string | undefined,
+        originalName: row.original_name as string | undefined,
+        tags: row.tags as string | undefined,
+        people: row.people as string | undefined,
+        groupName: row.group_name as string | undefined,
+        takenAt: row.taken_at as string | undefined,
+        uploadedAt: row.uploaded_at as string | undefined,
+        embeddingText: row.embedding_text as string,
+        // Transform raw cosine similarity to match OpenSearch's nmslib cosinesimil scoring:
+        // OpenSearch score = 1 / (1 + cosine_distance) = 1 / (2 - cosine_similarity)
+        // This preserves compatibility with the tuned minScore/relativeCutoff thresholds.
+        score: 1 / (2 - (row.similarity as number)),
+      }));
+
+      span.setAttributes({
+        'pgvector.candidate_count': results.length,
+        'pgvector.top_score': results.length > 0 ? results[0].score : 0,
+      });
+
+      return results;
+    } catch (err) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : 'pgvector search failed' });
+      throw err;
+    } finally {
+      span.end();
+    }
+  });
 
   const searchMs = Date.now() - t1;
-
-  if (result.statusCode !== 200) {
-    console.error('OpenSearch search failed:', result.body);
-    return { results: [], timing: { embedMs, searchMs, totalMs: Date.now() - t0 } };
-  }
-
-  const parsed = JSON.parse(result.body);
-  const hits = parsed.hits?.hits || [];
-
-  const allResults: PhotoMatch[] = hits.map((hit: { _source: Record<string, string>; _score: number }) => ({
-    ...hit._source,
-    score: hit._score,
-  }));
 
   const timing: SearchTiming = { embedMs, searchMs, totalMs: Date.now() - t0 };
 
