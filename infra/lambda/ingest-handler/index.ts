@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { generateEmbedding, buildPhotoText } from './embeddings';
-import { ensureIndex, indexPhoto, deletePhoto } from './opensearch';
+import { generateEmbedding, buildPhotoText } from './embeddings.js';
+import { ensureIndex, indexPhoto, deletePhoto } from './supabase-store.js';
 
 let indexReady = false;
 
@@ -49,7 +49,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const { vector, inputTextTokenCount } = await generateEmbedding(embeddingText);
     console.log(`Generated embedding: ${vector.length} dimensions, ${inputTextTokenCount} tokens`);
 
-    // Index to OpenSearch
+    // Index to Supabase pgvector
     await indexPhoto({
       photoId,
       userId,
