@@ -35,6 +35,8 @@ jobs:
         env:
           VITE_API_URL: https://api.piclyai.net/api
           VITE_CHAT_API_URL: https://eh874zrdv2.execute-api.us-east-1.amazonaws.com/v1
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
