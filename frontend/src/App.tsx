@@ -25,34 +25,41 @@ function App() {
     applyTheme(theme);
   }, [theme]);
 
-  // Listen for Supabase auth state changes (login, logout, token refresh)
+  // Restore Supabase session on page load and listen for auth changes
   useEffect(() => {
-    // Subscribe to auth changes — fires INITIAL_SESSION immediately on setup,
-    // then TOKEN_REFRESHED, SIGNED_IN, SIGNED_OUT as they occur
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // 1. Restore session from Supabase storage (reads localStorage — near-instant).
+    //    Resolve isLoading BEFORE calling the backend so the redirect to /photos
+    //    fires immediately, matching the old Zustand-persist behavior.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       useAuthStore.getState().setSession(session);
+      useAuthStore.getState().setLoading(false);
+
+      // Populate user profile in the background (don't block the redirect)
       if (session) {
         try {
           const user = await authService.getMe();
           useAuthStore.getState().setUser(user);
         } catch {
-          // Backend unreachable — session is still valid,
-          // user record will be auto-created on next successful API call
+          // Backend unreachable — auth state is still valid based on Supabase session
+        }
+      }
+    });
+
+    // 2. Listen for ongoing auth changes (login, logout, token refresh)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      useAuthStore.getState().setSession(session);
+
+      if (session) {
+        try {
+          const user = await authService.getMe();
+          useAuthStore.getState().setUser(user);
+        } catch {
+          // Backend unreachable — session remains valid
         }
       } else {
         useAuthStore.getState().setUser(null);
-      }
-      useAuthStore.getState().setLoading(false);
-    });
-
-    // Safety fallback: if onAuthStateChange hasn't resolved loading by the time
-    // getSession completes, resolve it here to prevent infinite loading state
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (useAuthStore.getState().isLoading) {
-        useAuthStore.getState().setSession(session);
-        useAuthStore.getState().setLoading(false);
       }
     });
 
