@@ -253,6 +253,7 @@ export const photosService = {
   /**
    * Bulk upload files in size-based batches.
    * Frontend chunks to stay under Cloudflare 100MB body limit.
+   * Sends up to CONCURRENCY batches in parallel to overlap network transfer time.
    */
   async bulkUpload(
     files: File[],
@@ -260,34 +261,19 @@ export const photosService = {
     signal?: AbortSignal,
     onProgress?: BulkUploadProgressCallback
   ): Promise<BulkUploadResult> {
+    const CONCURRENCY = 3;
     const batches = calculateBatches(files);
     const allUploaded: BulkUploadPhoto[] = [];
     const allFailed: BulkUploadFailedFile[] = [];
+    let batchesCompleted = 0;
 
-    for (let i = 0; i < batches.length; i++) {
-      if (signal?.aborted) {
-        return {
-          uploaded: allUploaded,
-          failed: allFailed,
-          totalFiles: files.length,
-          cancelled: true,
-        };
-      }
+    const sendBatch = async (batch: File[], batchIndex: number): Promise<void> => {
+      if (signal?.aborted) return;
 
-      onProgress?.({
-        totalFiles: files.length,
-        completedFiles: allUploaded.length,
-        failedFiles: allFailed.length,
-        currentBatch: i + 1,
-        totalBatches: batches.length,
-        status: 'uploading',
-      });
-
-      const batch = batches[i]!;
       const formData = new FormData();
       batch.forEach((file) => formData.append('photos', file));
       if (groupId) formData.append('groupId', groupId);
-      formData.append('batchIndex', String(i));
+      formData.append('batchIndex', String(batchIndex));
       formData.append('totalBatches', String(batches.length));
 
       try {
@@ -299,16 +285,7 @@ export const photosService = {
         allUploaded.push(...data.photos);
         allFailed.push(...data.failed);
       } catch (err) {
-        // If abort, return partial results
-        if (signal?.aborted) {
-          return {
-            uploaded: allUploaded,
-            failed: allFailed,
-            totalFiles: files.length,
-            cancelled: true,
-          };
-        }
-        // Mark entire batch as failed
+        if (signal?.aborted) return;
         for (const file of batch) {
           allFailed.push({
             originalName: file.name,
@@ -317,6 +294,31 @@ export const photosService = {
           });
         }
       }
+
+      batchesCompleted++;
+      onProgress?.({
+        totalFiles: files.length,
+        completedFiles: allUploaded.length,
+        failedFiles: allFailed.length,
+        currentBatch: batchesCompleted,
+        totalBatches: batches.length,
+        status: 'uploading',
+      });
+    };
+
+    // Process batches with concurrency limit
+    for (let start = 0; start < batches.length; start += CONCURRENCY) {
+      if (signal?.aborted) {
+        return {
+          uploaded: allUploaded,
+          failed: allFailed,
+          totalFiles: files.length,
+          cancelled: true,
+        };
+      }
+
+      const chunk = batches.slice(start, start + CONCURRENCY);
+      await Promise.all(chunk.map((batch, j) => sendBatch(batch, start + j)));
     }
 
     onProgress?.({
