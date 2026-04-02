@@ -35,11 +35,7 @@ api.interceptors.response.use(
       | (typeof error.config & { _retried?: boolean })
       | undefined;
 
-    if (
-      error.response?.status === 401 &&
-      originalRequest &&
-      !originalRequest._retried
-    ) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retried) {
       originalRequest._retried = true;
 
       // Attempt to refresh the Supabase session (access token may have expired)
