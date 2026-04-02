@@ -1,6 +1,8 @@
 // src/services/api.ts
-// Axios instance with Supabase auth token injection
-// Token refresh is handled automatically by the Supabase JS client
+// Axios instance with Supabase auth token injection.
+// The request interceptor reads the access token from the Zustand store
+// (synchronous) rather than calling supabase.auth.getSession() (async),
+// avoiding navigator.locks contention that causes production auth stalls.
 
 import axios, { type AxiosError } from 'axios';
 import type { ApiError } from '@/types/api';
@@ -16,11 +18,14 @@ const api = axios.create({
   timeout: 30000,
 });
 
-// Request interceptor — inject Supabase access token
-api.interceptors.request.use(async (config) => {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+// Request interceptor — inject access token from Zustand store.
+// Reading from the store is synchronous and avoids calling getSession(),
+// which acquires navigator.locks and can stall/deadlock on production
+// page refresh (the root cause of the post-refresh auth failure).
+// The store stays fresh via onAuthStateChange in App.tsx (handles
+// INITIAL_SESSION, TOKEN_REFRESHED, SIGNED_IN, SIGNED_OUT, etc.).
+api.interceptors.request.use((config) => {
+  const session = useAuthStore.getState().session;
   if (session?.access_token && config.headers) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
   }
@@ -42,6 +47,8 @@ api.interceptors.response.use(
       const { data, error: refreshError } = await supabase.auth.refreshSession();
 
       if (data.session && !refreshError) {
+        // Update the store so subsequent requests use the fresh token
+        useAuthStore.getState().setSession(data.session);
         // Retry the original request with the fresh token
         originalRequest.headers.Authorization = `Bearer ${data.session.access_token}`;
         return api(originalRequest);

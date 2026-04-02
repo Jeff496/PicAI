@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/config/supabase';
+import { useAuthStore } from '@/stores/authStore';
 import { photoKeys } from './usePhotos';
 import { faceKeys } from './useFaces';
 
@@ -101,11 +101,8 @@ export function useBulkProgress() {
       const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
       try {
-        // Get current access token from Supabase session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const token = session?.access_token;
+        // Read access token from Zustand store (synchronous, avoids lock contention)
+        const token = useAuthStore.getState().session?.access_token;
 
         const response = await fetch(`${baseUrl}${endpoint}`, {
           method: 'POST',
