@@ -26,10 +26,10 @@ function App() {
   }, [theme]);
 
   // Restore Supabase session on page load and listen for auth changes.
-  // In Supabase JS v2.39+, both getSession() and onAuthStateChange wait
-  // for internal init (which may include a token refresh network call).
-  // If that hangs, neither fires. A safety timeout guarantees isLoading
-  // resolves so the user is never stuck on a spinner.
+  // onAuthStateChange is the single source of truth — it fires for
+  // INITIAL_SESSION (page load), TOKEN_REFRESHED, SIGNED_IN, SIGNED_OUT,
+  // etc. The Supabase client is configured with a no-op lock (see
+  // config/supabase.ts) to avoid navigator.locks stalls on production.
   useEffect(() => {
     let loadingResolved = false;
 
@@ -40,9 +40,8 @@ function App() {
       }
     };
 
-    // 1. onAuthStateChange fires for every auth event (INITIAL_SESSION,
-    //    TOKEN_REFRESHED, SIGNED_IN, SIGNED_OUT, etc.). Always update the
-    //    session so token refreshes and sign-outs propagate to the store.
+    // onAuthStateChange fires for every auth event. Always update the
+    // session so token refreshes and sign-outs propagate to the store.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -61,15 +60,8 @@ function App() {
       }
     });
 
-    // 2. getSession() fallback — may resolve before onAuthStateChange.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      useAuthStore.getState().setSession(session);
-      resolveLoadingOnce();
-    });
-
-    // 3. Safety timeout — if Supabase init hangs (token refresh stall,
-    //    navigator.locks deadlock, etc.), resolve loading after 3s so
-    //    the user is never stuck on a spinner.
+    // Safety timeout — if Supabase init hangs (network stall, etc.),
+    // resolve loading after 3s so the user is never stuck on a spinner.
     const timeout = setTimeout(() => {
       if (useAuthStore.getState().isLoading) {
         useAuthStore.getState().setLoading(false);
