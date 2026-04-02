@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
 import { useThemeStore, applyTheme } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -24,6 +24,7 @@ const features = [
 export function LandingPage() {
   const { theme, setTheme } = useThemeStore();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
 
   const toggleTheme = () => {
     const next = theme === 'light' ? 'dark' : 'light';
@@ -32,6 +33,10 @@ export function LandingPage() {
   };
 
   const ThemeIcon = theme === 'dark' ? Moon : Sun;
+
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to="/photos" replace />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-paper text-ink dark:bg-[#111110] dark:text-[#e8e4de]">

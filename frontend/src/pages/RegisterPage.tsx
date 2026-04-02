@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
 import { Camera } from 'lucide-react';
 import { authService } from '@/services/auth';
 import { useAuthStore } from '@/stores/authStore';
@@ -8,6 +8,7 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const isLoading = useAuthStore((state) => state.isLoading);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -17,6 +18,10 @@ export function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/photos';
+
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to={from} replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
