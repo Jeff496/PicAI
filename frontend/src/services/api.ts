@@ -31,14 +31,16 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<ApiError>) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as
+      | (typeof error.config & { _retried?: boolean })
+      | undefined;
 
     if (
       error.response?.status === 401 &&
       originalRequest &&
-      !(originalRequest as any)._retried
+      !originalRequest._retried
     ) {
-      (originalRequest as any)._retried = true;
+      originalRequest._retried = true;
 
       // Attempt to refresh the Supabase session (access token may have expired)
       const { data, error: refreshError } = await supabase.auth.refreshSession();
