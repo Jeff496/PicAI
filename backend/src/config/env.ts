@@ -24,13 +24,13 @@ const envSchema = z.object({
     message: 'DATABASE_URL must be a valid PostgreSQL connection string',
   }),
 
-  // JWT Authentication
-  JWT_SECRET: z.string().min(32, {
-    message: 'JWT_SECRET must be at least 32 characters for security',
+  // Supabase Auth
+  SUPABASE_URL: z.string().url({
+    message: 'SUPABASE_URL must be a valid Supabase project URL',
   }),
-  JWT_EXPIRATION: z.string().default('7d'), // Legacy: for single token generation
-  ACCESS_TOKEN_EXPIRATION: z.string().default('15m'), // Short-lived access tokens
-  REFRESH_TOKEN_EXPIRATION: z.string().default('7d'), // Long-lived refresh tokens
+  SUPABASE_SECRET_KEY: z.string().min(1, {
+    message: 'SUPABASE_SECRET_KEY is required (service_role key from Supabase dashboard)',
+  }),
 
   // Azure Computer Vision API
   AZURE_VISION_KEY: z.string().min(32, {
