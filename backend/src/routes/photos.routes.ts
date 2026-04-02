@@ -8,7 +8,7 @@ import * as photosController from '../controllers/photos.controller.js';
 import * as aiController from '../controllers/ai.controller.js';
 import * as facesController from '../controllers/faces.controller.js';
 import { authenticateJWT } from '../middleware/auth.middleware.js';
-import { uploadMiddleware } from '../middleware/upload.middleware.js';
+import { uploadMiddleware, bulkUploadMiddleware } from '../middleware/upload.middleware.js';
 import {
   validateQuery,
   validateParams,
@@ -39,6 +39,7 @@ const createLimiter = (max: number, context: string) =>
 
 // Rate limiters for different operations
 const uploadLimiter = createLimiter(20, 'upload'); // 20 uploads/15min (each can have 50 files)
+const bulkUploadLimiter = createLimiter(200, 'bulk upload'); // 200/15min for chunked bulk uploads
 const faceDetectionLimiter = createLimiter(50, 'face detection'); // 50/15min (protects AWS free tier)
 const tagLimiter = createLimiter(100, 'tag'); // 100 tags/15min
 
@@ -134,6 +135,47 @@ router.get('/', authenticateJWT, validateQuery(getPhotosQuerySchema), photosCont
 // ============================================
 // Bulk Operations (must come before /:id routes)
 // ============================================
+
+/**
+ * POST /photos/bulk-upload
+ *
+ * Bulk upload photos without AI tagging or face detection.
+ * Designed for mass-transfer of photos. Frontend chunks files
+ * into batches to stay under Cloudflare's 100MB body limit.
+ *
+ * Headers:
+ * Authorization: Bearer <access_token>
+ * Content-Type: multipart/form-data
+ *
+ * Body (multipart/form-data):
+ * - photos: File[] (1-10 image files per request)
+ * - groupId: string (optional)
+ * - batchIndex: number (optional, for client tracking)
+ * - totalBatches: number (optional, for logging)
+ *
+ * Response (201):
+ * {
+ *   "success": true,
+ *   "message": "5 photo(s) uploaded",
+ *   "photos": [{ id, filename, originalName, uploadedAt, thumbnailUrl, status }],
+ *   "failed": [{ originalName, error, status }],
+ *   "summary": { uploaded, failed, batchIndex }
+ * }
+ *
+ * Errors:
+ * - 400 NO_FILES: No files in request
+ * - 401 NO_USER: Missing/invalid auth token
+ * - 403 NOT_GROUP_MEMBER: Not a member of specified group
+ * - 429 RATE_LIMIT_EXCEEDED: Too many requests (>200/15min)
+ * - 507 INSUFFICIENT_STORAGE: Disk full
+ */
+router.post(
+  '/bulk-upload',
+  bulkUploadLimiter,
+  authenticateJWT,
+  bulkUploadMiddleware.array('photos', 10),
+  photosController.bulkUploadPhotos
+);
 
 /**
  * POST /photos/bulk-detect-faces

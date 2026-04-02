@@ -3,7 +3,7 @@
 // Handles saving originals, generating thumbnails, and streaming files
 
 import fs from 'fs/promises';
-import { createReadStream, existsSync } from 'fs';
+import { createReadStream, existsSync, statfsSync } from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import { randomUUID } from 'crypto';
@@ -296,6 +296,25 @@ class FileService {
     };
 
     return mimeToExt[mimeType] || '.jpg';
+  }
+
+  /**
+   * Check available disk space on the upload volume
+   * @param requiredBytes - Minimum free bytes needed
+   * @returns true if sufficient space, false otherwise
+   */
+  checkDiskSpace(requiredBytes: number): boolean {
+    try {
+      const stats = statfsSync(env.UPLOAD_DIR);
+      const freeBytes = stats.bfree * stats.bsize;
+      return freeBytes > requiredBytes;
+    } catch (err) {
+      logger.warn('Failed to check disk space', {
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+      // Fail open — let the write fail naturally if disk is actually full
+      return true;
+    }
   }
 
   /**

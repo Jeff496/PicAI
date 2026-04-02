@@ -514,6 +514,34 @@ export interface BulkDetectFacesResponse {
   };
 }
 
+// Bulk upload types
+export interface BulkUploadPhoto {
+  id: string;
+  filename: string;
+  originalName: string;
+  uploadedAt: string;
+  thumbnailUrl: string;
+  status: 'uploaded';
+}
+
+export interface BulkUploadFailedFile {
+  originalName: string;
+  error: string;
+  status: 'failed';
+}
+
+export interface BulkUploadBatchResponse {
+  success: true;
+  message: string;
+  photos: BulkUploadPhoto[];
+  failed: BulkUploadFailedFile[];
+  summary: {
+    uploaded: number;
+    failed: number;
+    batchIndex?: number;
+  };
+}
+
 export interface BulkDeleteResponse {
   success: true;
   message: string;

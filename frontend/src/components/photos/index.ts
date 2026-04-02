@@ -9,3 +9,4 @@ export { TagFilter } from './TagFilter';
 export { TagManagement } from './TagManagement';
 export { BulkActionBar } from './BulkActionBar';
 export { BulkProgressModal } from './BulkProgressModal';
+export { BulkUploadForm } from './BulkUploadForm';
