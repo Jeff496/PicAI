@@ -5,6 +5,7 @@
 import axios, { type AxiosError } from 'axios';
 import type { ApiError } from '@/types/api';
 import { supabase } from '@/config/supabase';
+import { useAuthStore } from '@/stores/authStore';
 import { queryClient } from '@/lib/queryClient';
 
 const api = axios.create({
@@ -26,16 +27,31 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Response interceptor — handle 401 (revoked token)
+// Response interceptor — on 401, try refreshing the session before giving up
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<ApiError>) => {
-    if (error.response?.status === 401) {
-      // Token was revoked server-side — sign out and redirect
-      await supabase.auth.signOut();
+    const originalRequest = error.config as
+      | (typeof error.config & { _retried?: boolean })
+      | undefined;
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retried) {
+      originalRequest._retried = true;
+
+      // Attempt to refresh the Supabase session (access token may have expired)
+      const { data, error: refreshError } = await supabase.auth.refreshSession();
+
+      if (data.session && !refreshError) {
+        // Retry the original request with the fresh token
+        originalRequest.headers.Authorization = `Bearer ${data.session.access_token}`;
+        return api(originalRequest);
+      }
+
+      // Refresh failed — session is truly invalid
+      useAuthStore.getState().logout();
       queryClient.clear();
-      window.location.href = '/login';
     }
+
     return Promise.reject(error);
   }
 );

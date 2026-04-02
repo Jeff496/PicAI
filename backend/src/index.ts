@@ -226,11 +226,8 @@ if (process.env.NODE_ENV !== 'test') {
     logger.info(`API Base: http://localhost:${PORT}/api`);
     logger.info('==============================================');
     logger.info('Available Routes:');
-    logger.info('  POST   /api/auth/register');
-    logger.info('  POST   /api/auth/login');
-    logger.info('  POST   /api/auth/refresh');
-    logger.info('  POST   /api/auth/logout');
     logger.info('  GET    /api/auth/me');
+    logger.info('  POST   /api/auth/logout');
     logger.info('  POST   /api/photos/upload');
     logger.info('  GET    /api/photos');
     logger.info('  GET    /api/photos/:id');

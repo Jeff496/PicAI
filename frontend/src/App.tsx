@@ -27,22 +27,8 @@ function App() {
 
   // Listen for Supabase auth state changes (login, logout, token refresh)
   useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      useAuthStore.getState().setSession(session);
-      if (session) {
-        try {
-          const user = await authService.getMe();
-          useAuthStore.getState().setUser(user);
-        } catch {
-          // Backend unreachable or token invalid — clear state
-          useAuthStore.getState().logout();
-        }
-      }
-      useAuthStore.getState().setLoading(false);
-    });
-
-    // Subscribe to auth changes
+    // Subscribe to auth changes — fires INITIAL_SESSION immediately on setup,
+    // then TOKEN_REFRESHED, SIGNED_IN, SIGNED_OUT as they occur
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -52,10 +38,21 @@ function App() {
           const user = await authService.getMe();
           useAuthStore.getState().setUser(user);
         } catch {
-          // Silent fail — user will be created on next API call via middleware
+          // Backend unreachable — session is still valid,
+          // user record will be auto-created on next successful API call
         }
       } else {
-        useAuthStore.getState().logout();
+        useAuthStore.getState().setUser(null);
+      }
+      useAuthStore.getState().setLoading(false);
+    });
+
+    // Safety fallback: if onAuthStateChange hasn't resolved loading by the time
+    // getSession completes, resolve it here to prevent infinite loading state
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (useAuthStore.getState().isLoading) {
+        useAuthStore.getState().setSession(session);
+        useAuthStore.getState().setLoading(false);
       }
     });
 
