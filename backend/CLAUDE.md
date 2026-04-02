@@ -3,7 +3,7 @@
 **Last Updated:** February 8, 2026
 **Status:** Phase 5 Complete - Groups, Invites & UI Refresh
 
-**Technology:** Node.js 24.11.1 + TypeScript 5.9.3 + Express 5.1.0 + Prisma 6.19.0
+**Technology:** Node.js 24.11.1 + TypeScript 5.9.3 + Express 5.1.0 + Prisma 6.19.0 + @supabase/supabase-js
 
 Backend-specific guidance for the PicAI Express.js API.
 
@@ -26,7 +26,8 @@ backend/
 ├── src/
 │   ├── index.ts                      # Express server entry point
 │   ├── config/
-│   │   └── env.ts                    # Environment validation with Zod
+│   │   ├── env.ts                    # Environment validation with Zod
+│   │   └── supabase.ts               # Supabase client instance
 │   ├── types/
 │   │   └── express.d.ts              # Express type extensions (req.user, req.id)
 │   ├── routes/
@@ -45,19 +46,17 @@ backend/
 │   │   ├── people.controller.ts      # Person CRUD operations
 │   │   └── groups.controller.ts      # Group, membership, invite logic
 │   ├── services/
-│   │   ├── authService.ts            # JWT with jose, bcrypt hashing
 │   │   ├── fileService.ts            # Photo storage, thumbnails, HEIC, AWS cleanup
 │   │   ├── aiService.ts              # Azure Computer Vision integration
 │   │   ├── rekognitionService.ts     # AWS Rekognition face collections
 │   │   ├── groupService.ts           # Group operations and membership
 │   │   └── emailService.ts           # SendGrid email invitations
 │   ├── middleware/
-│   │   ├── auth.middleware.ts        # JWT verification
+│   │   ├── auth.middleware.ts        # Supabase JWT verification
 │   │   ├── validate.middleware.ts    # Zod validation
 │   │   ├── error.middleware.ts       # Global error handler
 │   │   └── upload.middleware.ts      # Multer configuration for photo uploads
 │   ├── schemas/
-│   │   ├── auth.schema.ts            # Zod schemas for auth endpoints
 │   │   ├── photo.schema.ts           # Zod schemas for photo endpoints
 │   │   ├── ai.schema.ts              # Zod schemas for AI endpoints
 │   │   ├── face.schema.ts            # Zod schemas for face endpoints
@@ -85,7 +84,7 @@ backend/
 ├── logs/                             # DO NOT COMMIT
 ├── tests/
 ├── scripts/
-│   └── verify-auth.sh                # Auth verification script
+│   └── (scripts as needed)
 ├── .env                              # DO NOT COMMIT
 ├── .env.example
 ├── package.json
@@ -141,32 +140,16 @@ export const errorHandler = (
 
 ---
 
-## Authentication (Implemented)
+## Authentication (Supabase Auth)
 
-### JWT Error Types
-
-The authService exports custom error types for granular error handling:
-
-- `TokenExpiredError` - Token has expired (client should refresh)
-- `TokenInvalidError` - Token signature invalid
-- `TokenMalformedError` - Token structure invalid
-
-### Token Flow
-
-1. **Login** → Returns `accessToken` (15min) + `refreshToken` (7d)
-2. **API Requests** → Use `Authorization: Bearer <accessToken>`
-3. **Token Expired** → Call `/auth/refresh` with refresh token
-4. **Refresh Expired** → User must login again
+Authentication is handled by Supabase Auth. The frontend uses the Supabase JS client for login/register/OAuth. The backend verifies tokens via `supabase.auth.getUser(token)`.
 
 ### Auth Endpoints
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/api/auth/register` | No | Create new user |
-| POST | `/api/auth/login` | No | Login, get tokens |
-| POST | `/api/auth/refresh` | No | Refresh access token |
-| POST | `/api/auth/logout` | Yes | Logout (invalidate session) |
 | GET | `/api/auth/me` | Yes | Get current user |
+| POST | `/api/auth/logout` | Yes | Logout (invalidate session) |
 
 ---
 
@@ -535,7 +518,7 @@ npm run format        # Prettier
 
 ## Quick Reminders
 
-1. **jose for JWT** - NOT jsonwebtoken (Node.js 24 requirement)
+1. **Supabase Auth** - Tokens verified via `supabase.auth.getUser()`
 2. **`.js` in imports** - TypeScript ES modules requirement
 3. **Express 5** - No try-catch or asyncHandler needed
 4. **Prisma 6** - Use `"prisma-client"` generator

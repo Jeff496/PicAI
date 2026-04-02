@@ -47,7 +47,7 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 - Multer 2.0.2 for file uploads (critical security patches applied)
 - Sharp 0.34.5 for image processing (thumbnails)
 - **heic-convert** for HEIC→JPEG conversion (iPhone photo support)
-- **jose 6.1.2 for JWT authentication** (Node.js 24 compatible, replaces jsonwebtoken)
+- **@supabase/supabase-js for authentication** (Supabase Auth)
 - **@aws-sdk/client-rekognition** for face detection and collections
 - **@aws-sdk/credential-providers** for IAM Roles Anywhere authentication
 - Zod 4.1.12 for validation (14x faster parsing)
@@ -72,7 +72,7 @@ Frontend (React) → Cloudflare Tunnel → Backend (Express/Pi) → PostgreSQL
 ### Database Schema (PostgreSQL 18 with Prisma 6)
 
 **Primary Tables:**
-1. **users** - User accounts (id, email, password_hash, name, profile_picture_url)
+1. **users** - User accounts (id, email, name, profile_picture_url)
 2. **groups** - Photo sharing groups (id, name, description, created_by)
 3. **group_memberships** - User-group relationships (id, group_id, user_id, role)
 4. **group_invites** - Invite links with optional expiry/max uses (id, group_id, token, expires_at, max_uses, use_count, created_by)
@@ -117,7 +117,8 @@ PicAI/
 │   ├── src/
 │   │   ├── index.ts           # Entry point
 │   │   ├── config/
-│   │   │   └── env.ts         # Environment validation with Zod
+│   │   │   ├── env.ts         # Environment validation with Zod
+│   │   │   └── supabase.ts    # Supabase client config
 │   │   ├── types/
 │   │   │   └── express.d.ts   # Express type extensions (req.user, req.id)
 │   │   ├── routes/
@@ -136,7 +137,6 @@ PicAI/
 │   │   │   ├── people.controller.ts
 │   │   │   └── groups.controller.ts
 │   │   ├── services/
-│   │   │   ├── authService.ts # JWT with jose
 │   │   │   ├── fileService.ts # Photo storage, thumbnails, HEIC conversion
 │   │   │   ├── aiService.ts   # Azure Computer Vision integration
 │   │   │   ├── rekognitionService.ts # AWS Rekognition face collections
@@ -148,7 +148,6 @@ PicAI/
 │   │   │   ├── upload.middleware.ts
 │   │   │   └── error.middleware.ts
 │   │   ├── schemas/
-│   │   │   ├── auth.schema.ts # Zod schemas
 │   │   │   ├── photo.schema.ts
 │   │   │   ├── ai.schema.ts
 │   │   │   ├── face.schema.ts
@@ -309,7 +308,7 @@ PicAI/
     "code": "ERROR_CODE"
   }
   ```
-- **Authentication:** JWT in Authorization header: `Bearer <token>` (using jose)
+- **Authentication:** JWT in Authorization header: `Bearer <token>` (Supabase Auth tokens)
 
 ### Database Best Practices
 - **Always use Prisma 6 ORM** - Never write raw SQL unless absolutely necessary
@@ -331,8 +330,7 @@ PicAI/
 4. **Use parameterized queries** - Prisma handles this automatically
 5. **HTTPS only** - No unencrypted communication
 6. **Rate limiting** - Implement on all public endpoints (100 req/min per IP)
-7. **Password hashing** - Always use bcrypt 6.0.0 with salt rounds = 12
-8. **JWT with jose** - Access tokens 15min, refresh tokens 7 days (Node.js 24 compatible)
+7. **Supabase Auth** - Token management handled by Supabase Auth (access tokens auto-refreshed by client)
 
 ### File Upload Security
 - **Allowed types:** JPEG, PNG, HEIC only
@@ -552,10 +550,9 @@ FRONTEND_URL=https://your-azure-static-web-app.azurestaticapps.net
 # Database (PostgreSQL 18)
 DATABASE_URL=postgresql://picai_user:password@localhost:5432/picai
 
-# JWT (using jose for Node.js 24 compatibility)
-JWT_SECRET=your-super-secret-key-min-32-chars
-ACCESS_TOKEN_EXPIRATION=15m
-REFRESH_TOKEN_EXPIRATION=7d
+# Supabase Auth
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=your-supabase-service-role-key
 
 # Azure Computer Vision (2023-10-01 GA)
 AZURE_VISION_KEY=your-azure-key
@@ -571,9 +568,13 @@ MAX_FILE_SIZE=26214400  # 25MB in bytes
 ```bash
 # Development
 VITE_API_URL=http://localhost:3001/api
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
 
 # Production (set in Azure Static Web Apps configuration)
 VITE_API_URL=https://your-cloudflare-tunnel.com/api
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
 ```
 
 **NEVER commit .env files to git!**
@@ -588,8 +589,7 @@ VITE_API_URL=https://your-cloudflare-tunnel.com/api
 - Express 5.1.0 (finally stable!)
 - Prisma 6.19.0 (Rust-free, 90% smaller)
 - PostgreSQL 18.1 (3x faster I/O)
-- Bcrypt 6.0.0
-- **jose 6.1.2** (JWT library, Node.js 24 compatible)
+- **@supabase/supabase-js 2.x** (Supabase Auth)
 - Zod 4.1.12 (14x faster)
 - Sharp 0.34.5
 - **heic-convert** (HEIC→JPEG for iPhone photos)
@@ -623,43 +623,34 @@ VITE_API_URL=https://your-cloudflare-tunnel.com/api
 
 ## Common Patterns
 
-### JWT Authentication with jose (Node.js 24)
+### Supabase Authentication
 
 ```typescript
-// src/services/authService.ts
-import { SignJWT, jwtVerify } from 'jose';
-import bcrypt from 'bcrypt';
+// Backend: src/config/supabase.ts
+import { createClient } from '@supabase/supabase-js';
 
-class AuthService {
-  private secret: Uint8Array;
+export const supabase = createClient(
+  env.SUPABASE_URL,
+  env.SUPABASE_SECRET_KEY
+);
 
-  constructor() {
-    this.secret = new TextEncoder().encode(env.JWT_SECRET);
-  }
+// Backend: Verify token in middleware
+const { data: { user }, error } = await supabase.auth.getUser(token);
+if (error || !user) throw new Error('Unauthorized');
 
-  async generateToken(userId: string, email: string): Promise<string> {
-    return new SignJWT({ userId, email })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('7d')
-      .sign(this.secret);
-  }
+// Frontend: Sign in with email/password
+const { data, error } = await supabase.auth.signInWithPassword({
+  email,
+  password,
+});
 
-  async verifyToken(token: string): Promise<{ userId: string; email: string }> {
-    const { payload } = await jwtVerify(token, this.secret);
-    return payload as { userId: string; email: string };
-  }
+// Frontend: Sign in with OAuth (e.g., Google)
+const { data, error } = await supabase.auth.signInWithOAuth({
+  provider: 'google',
+});
 
-  async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 12);
-  }
-
-  async comparePassword(password: string, hash: string): Promise<boolean> {
-    return bcrypt.compare(password, hash);
-  }
-}
-
-export const authService = new AuthService();
+// Frontend: Get current session
+const { data: { session } } = await supabase.auth.getSession();
 ```
 
 ### Express 5 Async Error Handling
@@ -700,7 +691,8 @@ import { z } from 'zod';
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
-  JWT_SECRET: z.string().min(32),
+  SUPABASE_URL: z.string().url(),
+  SUPABASE_SECRET_KEY: z.string().min(1),
   // ... all other env vars
 });
 
@@ -723,7 +715,7 @@ export const env = envSchema.parse(process.env);
 - [ ] HTTPS enforced
 - [ ] Rate limiting enabled
 - [ ] Error logging configured
-- [ ] jose JWT authentication working
+- [ ] Supabase Auth working
 - [ ] PostgreSQL 18 async I/O enabled
 - [ ] Backup strategy in place
 
@@ -731,7 +723,7 @@ export const env = envSchema.parse(process.env);
 
 ## Important Reminders
 
-1. **jose for JWT:** Always use jose, NOT jsonwebtoken (Node.js 24 requirement)
+1. **Supabase Auth:** Authentication is handled by Supabase, not custom JWT
 2. **Prisma 6 Generator:** Use "prisma-client" not "prisma-client-js"
 3. **PostgreSQL 18:** Enable io_uring for 3x performance boost
 4. **Express 5:** No try-catch needed for async routes
@@ -749,4 +741,4 @@ export const env = envSchema.parse(process.env);
 **Last Updated:** February 8, 2026
 **Project Status:** Phase 5 Complete - Groups, Invites & UI Refresh
 **Production URL:** https://piclyai.net
-**Key Decisions:** Zustand for state (not Context), jose for JWT (Node.js 24), Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), AWS Rekognition with IAM Roles Anywhere, SendGrid for email invites, Lucide React for icons, light/dark theme support
+**Key Decisions:** Zustand for state (not Context), Supabase Auth for authentication, Prisma 6 Rust-free, heic-convert for iPhone photos, Azure Vision caption feature disabled (region restriction), AWS Rekognition with IAM Roles Anywhere, SendGrid for email invites, Lucide React for icons, light/dark theme support
