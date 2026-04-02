@@ -38,7 +38,10 @@ export const authenticateJWT = async (
   let error;
 
   try {
-    ({ data: { user: supabaseUser }, error } = await supabase.auth.getUser(token));
+    ({
+      data: { user: supabaseUser },
+      error,
+    } = await supabase.auth.getUser(token));
   } catch (e) {
     logger.error('Supabase token verification failed', {
       error: e instanceof Error ? e.message : 'Unknown error',
