@@ -10,7 +10,7 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 
 ### Key Features
 
-- **Authentication** - JWT with access + refresh tokens, login/register
+- **Authentication** - Supabase Auth with email/password and Google OAuth
 - **Photo Management** - Drag-and-drop upload with iPhone HEIC support, gallery view
 - **AI Tagging** - Automatic tagging using Azure Computer Vision (objects, scenes, text, people)
 - **Face Detection** - AWS Rekognition for face detection, tagging, and recognition
@@ -31,8 +31,7 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 - Node.js 24.11.1 with TypeScript 5.9.3
 - Express 5.1.0
 - PostgreSQL 18.1 with Prisma 6.19.0 ORM
-- jose 6.1.2 for JWT authentication (Node.js 24 compatible)
-- Bcrypt 6.0.0 for password hashing (12 salt rounds)
+- Supabase Auth (token verification via service role key)
 - Multer 2.0.2 for file uploads
 - Sharp 0.34.5 for image processing
 - heic-convert for iPhone HEIC photo support
@@ -48,6 +47,7 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 - TailwindCSS 4.1.17
 - React Router DOM 7.9.6
 - TanStack Query 5.90.9
+- Supabase JS client (auth, OAuth, session management)
 - Zustand 5.0.8 for client state (auth + theme)
 - Axios 1.13.2
 - Lucide React for icons
@@ -68,6 +68,7 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 - Azure Computer Vision API (image tagging)
 - AWS Rekognition (face detection/recognition with IAM Roles Anywhere)
 - AWS Bedrock + OpenSearch + DynamoDB (RAG chatbot)
+- Supabase Auth (authentication + Google OAuth)
 - Cloudflare Tunnel (secure connectivity)
 - PostgreSQL 18.1 (database)
 
@@ -95,6 +96,7 @@ Photos are stored locally on the Raspberry Pi. The frontend is served from Azure
 - Node.js 24.11.1 LTS (22.12+ for frontend Vite 7)
 - PostgreSQL 18.1
 - Cloudflare account (free tier)
+- Supabase account (free tier)
 - Azure account (free tier)
 - AWS account (free tier for 12 months)
 - AWS CLI configured with `picai-cdk` profile (for CDK deployments)
@@ -151,9 +153,8 @@ FRONTEND_URL=https://your-app.azurestaticapps.net
 
 DATABASE_URL=postgresql://picai_user:password@localhost:5432/picai
 
-JWT_SECRET=your-secret-key-min-32-characters
-ACCESS_TOKEN_EXPIRATION=15m
-REFRESH_TOKEN_EXPIRATION=7d
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SECRET_KEY=your-service-role-key
 
 AZURE_VISION_KEY=your-azure-key
 AZURE_VISION_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
@@ -170,9 +171,11 @@ Create `frontend/.env`:
 ```bash
 VITE_API_URL=http://localhost:3001/api
 VITE_CHAT_API_URL=https://your-api-gateway-id.execute-api.us-east-1.amazonaws.com/v1
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
 ```
 
-For production, configure both `VITE_API_URL` and `VITE_CHAT_API_URL` in Azure Static Web Apps settings. These are baked in at build time by Vite, so a rebuild/redeploy is required after changing them.
+For production, `VITE_*` vars are baked in at build time by Vite. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` as GitHub Actions secrets, and `VITE_API_URL`/`VITE_CHAT_API_URL` are hardcoded in the workflow. A rebuild/redeploy is required after changing them.
 
 ## Database Setup
 
@@ -225,9 +228,9 @@ pm2 startup
 2. Configure build settings:
    - App location: `/frontend`
    - Output location: `dist`
-3. Add environment variables in Azure configuration:
-   - `VITE_API_URL=https://api.yourdomain.com/api`
-   - `VITE_CHAT_API_URL=https://your-api-gateway-id.execute-api.us-east-1.amazonaws.com/v1`
+3. Add GitHub Actions secrets:
+   - `VITE_SUPABASE_URL` — Supabase project URL
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` — Supabase anon/publishable key
 4. Push to main branch to deploy
 
 ### AWS Infrastructure (CDK)
@@ -369,7 +372,7 @@ PicAI/
 
 ## Database Schema
 
-- **users** - User accounts and authentication
+- **users** - Local user profiles (ID matches Supabase Auth UUID)
 - **groups** - Photo sharing groups (name, description, creator)
 - **group_memberships** - User-group relationships with roles (owner/admin/member)
 - **group_invites** - Invite links with optional expiration and max-use limits
@@ -386,8 +389,8 @@ See `backend/prisma/schema.prisma` for complete schema.
 
 ## Security
 
-- JWT authentication with jose (15min access tokens, 7-day refresh tokens)
-- Password hashing with bcrypt (12 salt rounds)
+- Supabase Auth (email/password + Google OAuth, automatic token refresh)
+- Server-side token verification via `supabase.auth.getUser()` (catches revoked tokens)
 - Input validation using Zod schemas on all endpoints
 - File upload type and size validation (JPEG, PNG, HEIC only, 25MB max)
 - HTTPS enforced via Cloudflare Tunnel
@@ -411,6 +414,7 @@ All services use free tiers:
 | AWS API Gateway | Free tier | $0 |
 | AWS DynamoDB | Free tier | $0 |
 | AWS Bedrock (Claude + Titan) | Pay-per-token | ~$1 |
+| Supabase Auth | Free | $0 |
 | Cloudflare Tunnel | Free | $0 |
 | SendGrid | Free | $0 |
 | Raspberry Pi | Self-hosted | ~$5 (electricity) |
