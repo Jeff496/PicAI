@@ -10,10 +10,12 @@ export function AuthCallbackPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Handle both SIGNED_IN (normal flow) and INITIAL_SESSION (session already
+    // established before listener registered — can happen in Supabase JS v2.39+)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
+      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
         navigate('/photos', { replace: true });
       }
     });
