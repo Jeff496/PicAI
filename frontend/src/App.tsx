@@ -25,31 +25,18 @@ function App() {
     applyTheme(theme);
   }, [theme]);
 
-  // Restore Supabase session on page load and listen for auth changes
+  // Restore Supabase session on page load and listen for auth changes.
+  // Both paths resolve isLoading BEFORE calling getMe() so the UI never
+  // blocks on a backend network request — whichever fires first wins.
   useEffect(() => {
-    // 1. Restore session from Supabase storage (reads localStorage — near-instant).
-    //    Resolve isLoading BEFORE calling the backend so the redirect to /photos
-    //    fires immediately, matching the old Zustand-persist behavior.
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      useAuthStore.getState().setSession(session);
-      useAuthStore.getState().setLoading(false);
-
-      // Populate user profile in the background (don't block the redirect)
-      if (session) {
-        try {
-          const user = await authService.getMe();
-          useAuthStore.getState().setUser(user);
-        } catch {
-          // Backend unreachable — auth state is still valid based on Supabase session
-        }
-      }
-    });
-
-    // 2. Listen for ongoing auth changes (login, logout, token refresh)
+    // 1. onAuthStateChange fires INITIAL_SESSION once init completes.
+    //    In Supabase JS v2.39+ this is the most reliable way to get the
+    //    initial session (getSession() can hang waiting for the same init).
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       useAuthStore.getState().setSession(session);
+      useAuthStore.getState().setLoading(false);
 
       if (session) {
         try {
@@ -60,6 +47,15 @@ function App() {
         }
       } else {
         useAuthStore.getState().setUser(null);
+      }
+    });
+
+    // 2. Fallback: if onAuthStateChange hasn't resolved loading by the time
+    //    getSession completes, resolve it here.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (useAuthStore.getState().isLoading) {
+        useAuthStore.getState().setSession(session);
+        useAuthStore.getState().setLoading(false);
       }
     });
 
