@@ -1,11 +1,18 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Pencil, Upload, Link as LinkIcon, Mail, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Upload, HardDrive, Link as LinkIcon, Mail, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useGroup, useUpdateGroup, useDeleteGroup, useLeaveGroup } from '@/hooks/useGroups';
 import { usePhotos } from '@/hooks/usePhotos';
 import { usePhotoSelection } from '@/hooks/usePhotoSelection';
-import { PhotoGrid, PhotoViewer, UploadForm, TagFilter, BulkActionBar } from '@/components/photos';
+import {
+  PhotoGrid,
+  PhotoViewer,
+  UploadForm,
+  BulkUploadForm,
+  TagFilter,
+  BulkActionBar,
+} from '@/components/photos';
 import { GroupMemberList, InviteLinkModal, EmailInviteModal } from '@/components/groups';
 import { AppLayout } from '@/components/layout/AppLayout';
 import type { Photo, PhotoListItem } from '@/types/api';
@@ -18,7 +25,7 @@ export function GroupDetailPage() {
   const user = useAuthStore((state) => state.user);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('photos');
-  const [showUpload, setShowUpload] = useState(false);
+  const [uploadMode, setUploadMode] = useState<'standard' | 'bulk' | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | PhotoListItem | null>(null);
   const [tagFilter, setTagFilter] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -62,7 +69,7 @@ export function GroupDetailPage() {
   const selectedPhotoIdsArray = Array.from(selectedPhotoIds);
 
   const handleUploadComplete = () => {
-    setShowUpload(false);
+    setUploadMode(null);
     refetchPhotos();
   };
 
@@ -162,7 +169,18 @@ export function GroupDetailPage() {
             Select
           </button>
           <button
-            onClick={() => setShowUpload(!showUpload)}
+            onClick={() => setUploadMode(uploadMode === 'bulk' ? null : 'bulk')}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+              uploadMode === 'bulk'
+                ? 'border-accent bg-accent/10 text-accent'
+                : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5'
+            }`}
+          >
+            <HardDrive className="h-4 w-4" />
+            Bulk
+          </button>
+          <button
+            onClick={() => setUploadMode(uploadMode === 'standard' ? null : 'standard')}
             className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
           >
             <Upload className="h-4 w-4" />
@@ -293,20 +311,24 @@ export function GroupDetailPage() {
         {/* Photos tab */}
         {activeTab === 'photos' && (
           <>
-            {showUpload && !isSelectionMode && (
+            {uploadMode && !isSelectionMode && (
               <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 dark:border-white/5 dark:bg-white/[0.02]">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                    Upload Photos to {group.name}
+                    {uploadMode === 'bulk' ? 'Bulk Upload' : 'Upload Photos'} to {group.name}
                   </h3>
                   <button
-                    onClick={() => setShowUpload(false)}
+                    onClick={() => setUploadMode(null)}
                     className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <UploadForm groupId={groupId} onUploadComplete={handleUploadComplete} />
+                {uploadMode === 'bulk' ? (
+                  <BulkUploadForm groupId={groupId} onUploadComplete={handleUploadComplete} />
+                ) : (
+                  <UploadForm groupId={groupId} onUploadComplete={handleUploadComplete} />
+                )}
               </div>
             )}
 
@@ -370,7 +392,7 @@ export function GroupDetailPage() {
                   Upload photos to share them with the group.
                 </p>
                 <button
-                  onClick={() => setShowUpload(true)}
+                  onClick={() => setUploadMode('standard')}
                   className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
                 >
                   Upload Photos

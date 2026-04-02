@@ -209,6 +209,157 @@ export const uploadPhotos = async (req: Request, res: Response): Promise<void> =
 };
 
 /**
+ * Bulk upload photos (no AI tagging, no face detection, no RAG ingest)
+ *
+ * POST /photos/bulk-upload
+ * Headers: Authorization: Bearer <token>
+ * Body: multipart/form-data with 'photos' field (1-10 files)
+ * Optional body fields: groupId, batchIndex, totalBatches
+ *
+ * Response (201):
+ * {
+ *   "success": true,
+ *   "message": "5 photo(s) uploaded",
+ *   "photos": [{ id, filename, originalName, uploadedAt, thumbnailUrl, status }],
+ *   "failed": [{ originalName, error, status }],
+ *   "summary": { uploaded, failed, batchIndex }
+ * }
+ */
+export const bulkUploadPhotos = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+      code: 'NO_USER',
+    });
+    return;
+  }
+
+  const files = req.files as Express.Multer.File[];
+  if (!files || files.length === 0) {
+    res.status(400).json({
+      success: false,
+      error: 'No files provided',
+      code: 'NO_FILES',
+    });
+    return;
+  }
+
+  const { groupId, batchIndex, totalBatches } = req.body;
+
+  // Verify group membership if groupId provided
+  if (groupId) {
+    const membership = await prisma.groupMembership.findFirst({
+      where: { groupId, userId: req.user.id },
+    });
+
+    if (!membership) {
+      res.status(403).json({
+        success: false,
+        error: 'Not a member of this group',
+        code: 'NOT_GROUP_MEMBER',
+      });
+      return;
+    }
+  }
+
+  // Check disk space — estimate 2x file sizes for originals + thumbnails
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+  if (!fileService.checkDiskSpace(totalBytes * 2)) {
+    res.status(507).json({
+      success: false,
+      error: 'Insufficient storage space on server',
+      code: 'INSUFFICIENT_STORAGE',
+    });
+    return;
+  }
+
+  logger.info('Bulk upload started', {
+    userId: req.user.id,
+    fileCount: files.length,
+    totalBytes,
+    batchIndex: batchIndex ?? null,
+    totalBatches: totalBatches ?? null,
+    groupId: groupId ?? null,
+  });
+
+  // Process files — collect results per file
+  const savedFiles: SavePhotoResult[] = [];
+  const uploadedPhotos: Array<{
+    id: string;
+    filename: string;
+    originalName: string;
+    uploadedAt: Date;
+  }> = [];
+  const failed: Array<{ originalName: string; error: string; status: string }> = [];
+
+  for (const file of files) {
+    try {
+      const result = await fileService.savePhoto(file.buffer, file.originalname, file.mimetype);
+      savedFiles.push(result);
+
+      const photo = await prisma.photo.create({
+        data: {
+          userId: req.user.id,
+          groupId: groupId || null,
+          filename: result.metadata.filename,
+          originalName: file.originalname,
+          filePath: result.originalPath,
+          thumbnailPath: result.thumbnailPath,
+          mimeType: result.metadata.mimeType,
+          fileSize: result.metadata.fileSize,
+          width: result.metadata.width,
+          height: result.metadata.height,
+        },
+      });
+
+      uploadedPhotos.push({
+        id: photo.id,
+        filename: photo.filename,
+        originalName: photo.originalName,
+        uploadedAt: photo.uploadedAt,
+      });
+    } catch (err) {
+      logger.error('Bulk upload file failed', {
+        originalName: file.originalname,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+      failed.push({
+        originalName: file.originalname,
+        error: err instanceof Error ? err.message : 'Processing failed',
+        status: 'failed',
+      });
+    }
+  }
+
+  logger.info('Bulk upload complete', {
+    userId: req.user.id,
+    uploaded: uploadedPhotos.length,
+    failed: failed.length,
+    batchIndex: batchIndex ?? null,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: `${uploadedPhotos.length} photo(s) uploaded`,
+    photos: uploadedPhotos.map((photo) => ({
+      id: photo.id,
+      filename: photo.filename,
+      originalName: photo.originalName,
+      uploadedAt: photo.uploadedAt,
+      thumbnailUrl: `/api/photos/${photo.id}/thumbnail`,
+      status: 'uploaded',
+    })),
+    failed,
+    summary: {
+      uploaded: uploadedPhotos.length,
+      failed: failed.length,
+      batchIndex: batchIndex != null ? Number(batchIndex) : undefined,
+    },
+  });
+};
+
+/**
  * List user's photos with pagination
  *
  * GET /photos

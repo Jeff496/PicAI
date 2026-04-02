@@ -11,6 +11,9 @@ import type {
   RemoveTagResponse,
   BulkAnalyzeResponse,
   BulkDeleteResponse,
+  BulkUploadBatchResponse,
+  BulkUploadPhoto,
+  BulkUploadFailedFile,
 } from '@/types/api';
 
 // Query parameters for listing photos
@@ -23,6 +26,54 @@ export interface GetPhotosParams {
 
 // Progress callback for upload
 export type UploadProgressCallback = (progress: number) => void;
+
+// Bulk upload progress callback
+export interface BulkUploadProgress {
+  totalFiles: number;
+  completedFiles: number;
+  failedFiles: number;
+  currentBatch: number;
+  totalBatches: number;
+  status: 'idle' | 'uploading' | 'complete' | 'cancelled' | 'error';
+}
+
+export type BulkUploadProgressCallback = (progress: BulkUploadProgress) => void;
+
+// Bulk upload result
+export interface BulkUploadResult {
+  uploaded: BulkUploadPhoto[];
+  failed: BulkUploadFailedFile[];
+  totalFiles: number;
+  cancelled: boolean;
+}
+
+/**
+ * Split files into batches by cumulative size, staying under Cloudflare's 100MB limit
+ */
+function calculateBatches(files: File[]): File[][] {
+  const MAX_BATCH_BYTES = 75 * 1024 * 1024; // 75MB (100MB limit with 25% margin)
+  const OVERHEAD_PER_FILE = 200 * 1024; // ~200KB multipart overhead
+
+  const batches: File[][] = [];
+  let currentBatch: File[] = [];
+  let currentBatchSize = 0;
+
+  for (const file of files) {
+    const fileTotal = file.size + OVERHEAD_PER_FILE;
+
+    if (currentBatch.length > 0 && currentBatchSize + fileTotal > MAX_BATCH_BYTES) {
+      batches.push(currentBatch);
+      currentBatch = [];
+      currentBatchSize = 0;
+    }
+
+    currentBatch.push(file);
+    currentBatchSize += fileTotal;
+  }
+
+  if (currentBatch.length > 0) batches.push(currentBatch);
+  return batches;
+}
 
 export const photosService = {
   /**
@@ -189,6 +240,91 @@ export const photosService = {
   async removeTag(photoId: string, tagId: string): Promise<RemoveTagResponse> {
     const { data } = await api.delete<RemoveTagResponse>(`/photos/${photoId}/tags/${tagId}`);
     return data;
+  },
+
+  // ============================================
+  // Bulk Upload (no AI tagging)
+  // ============================================
+
+  /**
+   * Bulk upload files in size-based batches.
+   * Frontend chunks to stay under Cloudflare 100MB body limit.
+   */
+  async bulkUpload(
+    files: File[],
+    groupId?: string,
+    signal?: AbortSignal,
+    onProgress?: BulkUploadProgressCallback
+  ): Promise<BulkUploadResult> {
+    const batches = calculateBatches(files);
+    const allUploaded: BulkUploadPhoto[] = [];
+    const allFailed: BulkUploadFailedFile[] = [];
+
+    for (let i = 0; i < batches.length; i++) {
+      if (signal?.aborted) {
+        return {
+          uploaded: allUploaded,
+          failed: allFailed,
+          totalFiles: files.length,
+          cancelled: true,
+        };
+      }
+
+      onProgress?.({
+        totalFiles: files.length,
+        completedFiles: allUploaded.length,
+        failedFiles: allFailed.length,
+        currentBatch: i + 1,
+        totalBatches: batches.length,
+        status: 'uploading',
+      });
+
+      const batch = batches[i]!;
+      const formData = new FormData();
+      batch.forEach((file) => formData.append('photos', file));
+      if (groupId) formData.append('groupId', groupId);
+      formData.append('batchIndex', String(i));
+      formData.append('totalBatches', String(batches.length));
+
+      try {
+        const { data } = await api.post<BulkUploadBatchResponse>('/photos/bulk-upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          signal,
+          timeout: 120000, // 2 min per batch (HEIC conversion can be slow)
+        });
+        allUploaded.push(...data.photos);
+        allFailed.push(...data.failed);
+      } catch (err) {
+        // If abort, return partial results
+        if (signal?.aborted) {
+          return {
+            uploaded: allUploaded,
+            failed: allFailed,
+            totalFiles: files.length,
+            cancelled: true,
+          };
+        }
+        // Mark entire batch as failed
+        for (const file of batch) {
+          allFailed.push({
+            originalName: file.name,
+            error: err instanceof Error ? err.message : 'Upload failed',
+            status: 'failed',
+          });
+        }
+      }
+    }
+
+    onProgress?.({
+      totalFiles: files.length,
+      completedFiles: allUploaded.length,
+      failedFiles: allFailed.length,
+      currentBatch: batches.length,
+      totalBatches: batches.length,
+      status: 'complete',
+    });
+
+    return { uploaded: allUploaded, failed: allFailed, totalFiles: files.length, cancelled: false };
   },
 
   // ============================================

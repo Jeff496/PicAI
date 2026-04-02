@@ -1,14 +1,23 @@
 import { useState } from 'react';
-import { Upload, CheckSquare, X, ChevronDown } from 'lucide-react';
+import { Upload, HardDrive, CheckSquare, X, ChevronDown } from 'lucide-react';
 import { usePhotos } from '@/hooks/usePhotos';
 import { usePhotoSelection } from '@/hooks/usePhotoSelection';
 import { useGroups } from '@/hooks/useGroups';
-import { UploadForm, PhotoGrid, PhotoViewer, TagFilter, BulkActionBar } from '@/components/photos';
+import {
+  UploadForm,
+  BulkUploadForm,
+  PhotoGrid,
+  PhotoViewer,
+  TagFilter,
+  BulkActionBar,
+} from '@/components/photos';
 import { AppLayout } from '@/components/layout/AppLayout';
 import type { Photo, PhotoListItem } from '@/types/api';
 
+type UploadMode = 'standard' | 'bulk' | null;
+
 export function PhotosPage() {
-  const [showUpload, setShowUpload] = useState(false);
+  const [uploadMode, setUploadMode] = useState<UploadMode>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | PhotoListItem | null>(null);
   const [tagFilter, setTagFilter] = useState('');
   const [groupFilter, setGroupFilter] = useState<string | undefined>(undefined);
@@ -43,7 +52,7 @@ export function PhotosPage() {
   const selectedPhotoIdsArray = Array.from(selectedPhotoIds);
 
   const handleUploadComplete = () => {
-    setShowUpload(false);
+    setUploadMode(null);
     refetch();
   };
 
@@ -62,7 +71,19 @@ export function PhotosPage() {
             Select
           </button>
           <button
-            onClick={() => setShowUpload(!showUpload)}
+            onClick={() => setUploadMode(uploadMode === 'bulk' ? null : 'bulk')}
+            className={`inline-flex items-center gap-1.5 border px-3 py-1.5 text-[12px] font-medium uppercase transition-colors ${
+              uploadMode === 'bulk'
+                ? 'border-ink bg-ink/5 text-ink dark:border-[#e8e4de] dark:bg-[#e8e4de]/10 dark:text-[#e8e4de]'
+                : 'border-rule text-muted hover:border-ink hover:text-ink dark:border-[#2a2824] dark:text-[#8a8478] dark:hover:border-[#e8e4de] dark:hover:text-[#e8e4de]'
+            }`}
+            style={{ letterSpacing: '0.04em' }}
+          >
+            <HardDrive className="h-3.5 w-3.5" />
+            Bulk
+          </button>
+          <button
+            onClick={() => setUploadMode(uploadMode === 'standard' ? null : 'standard')}
             className="inline-flex items-center gap-1.5 bg-ink px-3 py-1.5 text-[12px] font-semibold uppercase text-paper transition-opacity hover:opacity-80 dark:bg-[#e8e4de] dark:text-[#111110]"
             style={{ letterSpacing: '0.04em' }}
           >
@@ -95,20 +116,24 @@ export function PhotosPage() {
     <AppLayout actions={actions}>
       <div className={isSelectionMode ? 'pb-24' : ''}>
         {/* Upload form (collapsible) */}
-        {showUpload && !isSelectionMode && (
+        {uploadMode && !isSelectionMode && (
           <div className="mb-8 border border-rule p-6 dark:border-[#2a2824]">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-serif text-[18px] font-normal text-ink dark:text-[#e8e4de]">
-                Upload Photos
+                {uploadMode === 'bulk' ? 'Bulk Upload' : 'Upload Photos'}
               </h2>
               <button
-                onClick={() => setShowUpload(false)}
+                onClick={() => setUploadMode(null)}
                 className="text-subtle hover:text-ink dark:text-[#8a8478] dark:hover:text-[#e8e4de]"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <UploadForm onUploadComplete={handleUploadComplete} />
+            {uploadMode === 'bulk' ? (
+              <BulkUploadForm onUploadComplete={handleUploadComplete} />
+            ) : (
+              <UploadForm onUploadComplete={handleUploadComplete} />
+            )}
           </div>
         )}
 

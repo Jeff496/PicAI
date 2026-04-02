@@ -74,6 +74,21 @@ export const uploadMiddleware = multer({
 });
 
 /**
+ * Bulk upload middleware — lower file count per request
+ * Used with frontend-orchestrated chunking to stay under Cloudflare's 100MB body limit
+ */
+const BULK_MAX_FILES = 10;
+
+export const bulkUploadMiddleware = multer({
+  storage: multer.memoryStorage(),
+  fileFilter,
+  limits: {
+    fileSize: env.MAX_FILE_SIZE,
+    files: BULK_MAX_FILES,
+  },
+});
+
+/**
  * Export constants for use in other modules
  */
-export { ALLOWED_MIME_TYPES, ALLOWED_EXTENSIONS, MAX_FILES };
+export { ALLOWED_MIME_TYPES, ALLOWED_EXTENSIONS, MAX_FILES, BULK_MAX_FILES };
