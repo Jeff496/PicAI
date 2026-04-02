@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@/stores/authStore';
+import { supabase } from '@/config/supabase';
 import { photoKeys } from './usePhotos';
 import { faceKeys } from './useFaces';
 
@@ -80,7 +80,6 @@ export function useBulkProgress() {
   const [progress, setProgress] = useState<BulkProgressState>(initialState);
   const abortControllerRef = useRef<AbortController | null>(null);
   const queryClient = useQueryClient();
-  const accessToken = useAuthStore((state) => state.accessToken);
 
   const startOperation = useCallback(
     async (operation: BulkOperationType, photoIds: string[]): Promise<CompleteEvent['summary']> => {
@@ -102,11 +101,17 @@ export function useBulkProgress() {
       const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
       try {
+        // Get current access token from Supabase session
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
         const response = await fetch(`${baseUrl}${endpoint}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${token}`,
             Accept: 'text/event-stream',
           },
           body: JSON.stringify({ photoIds }),
@@ -217,7 +222,7 @@ export function useBulkProgress() {
         throw error;
       }
     },
-    [accessToken, queryClient]
+    [queryClient]
   );
 
   const cancel = useCallback(() => {

@@ -17,45 +17,9 @@ export interface User {
 // Auth Types
 // ============================================
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  name: string;
-  profilePictureUrl?: string | null;
-}
-
-export interface RefreshTokenRequest {
-  refreshToken: string;
-}
-
-export interface AuthResponse {
-  success: true;
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-  user: User;
-}
-
-export interface RefreshResponse {
-  success: true;
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-}
-
 export interface MeResponse {
   success: true;
   user: User;
-}
-
-export interface LogoutResponse {
-  success: true;
-  message: string;
 }
 
 // ============================================
@@ -374,15 +338,9 @@ export interface ApiError {
 // Common error codes from backend
 export type ErrorCode =
   | 'VALIDATION_ERROR'
-  | 'INVALID_CREDENTIALS'
-  | 'USER_EXISTS'
-  | 'USER_NOT_FOUND'
   | 'NO_TOKEN'
-  | 'TOKEN_EXPIRED'
   | 'INVALID_TOKEN'
-  | 'REFRESH_TOKEN_EXPIRED'
-  | 'INVALID_REFRESH_TOKEN'
-  | 'MISSING_TOKEN'
+  | 'USER_NOT_FOUND'
   | 'RATE_LIMIT_EXCEEDED'
   | 'NOT_FOUND'
   | 'FORBIDDEN'

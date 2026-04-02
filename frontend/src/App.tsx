@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useThemeStore, applyTheme } from '@/stores/themeStore';
+import { useAuthStore } from '@/stores/authStore';
+import { supabase } from '@/config/supabase';
+import { authService } from '@/services/auth';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
+import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { PhotosPage } from '@/pages/PhotosPage';
 import { PeoplePage } from '@/pages/PeoplePage';
 import { PersonPhotosPage } from '@/pages/PersonPhotosPage';
@@ -21,6 +25,43 @@ function App() {
     applyTheme(theme);
   }, [theme]);
 
+  // Listen for Supabase auth state changes (login, logout, token refresh)
+  useEffect(() => {
+    // Check initial session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      useAuthStore.getState().setSession(session);
+      if (session) {
+        try {
+          const user = await authService.getMe();
+          useAuthStore.getState().setUser(user);
+        } catch {
+          // Backend unreachable or token invalid — clear state
+          useAuthStore.getState().logout();
+        }
+      }
+      useAuthStore.getState().setLoading(false);
+    });
+
+    // Subscribe to auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      useAuthStore.getState().setSession(session);
+      if (session) {
+        try {
+          const user = await authService.getMe();
+          useAuthStore.getState().setUser(user);
+        } catch {
+          // Silent fail — user will be created on next API call via middleware
+        }
+      } else {
+        useAuthStore.getState().logout();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -30,6 +71,7 @@ function App() {
         {/* Auth */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
         {/* Protected routes */}
         <Route

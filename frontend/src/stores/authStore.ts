@@ -1,89 +1,51 @@
 // src/stores/authStore.ts
-// Zustand store for authentication state with localStorage persistence
-// Handles user session, tokens, and auth actions
+// Zustand store for authentication state
+// Supabase JS client manages token persistence internally;
+// this store tracks the local user profile and auth status
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { User } from '@/types/api';
-import { initializeTokenAccessors } from '@/services/api';
+import type { Session } from '@supabase/supabase-js';
 
 interface AuthState {
-  // State
   user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  isLoading: boolean;
+  session: Session | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 interface AuthActions {
-  // Actions
-  setAuth: (user: User, accessToken: string, refreshToken: string) => void;
-  setUser: (user: User) => void;
-  setTokens: (accessToken: string, refreshToken: string) => void;
+  setSession: (session: Session | null) => void;
+  setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
   logout: () => void;
 }
 
 const initialState: AuthState = {
   user: null,
-  accessToken: null,
-  refreshToken: null,
-  isLoading: false,
+  session: null,
   isAuthenticated: false,
+  isLoading: true, // Start loading until initial session check completes
 };
 
-export const useAuthStore = create<AuthState & AuthActions>()(
-  persist(
-    (set) => ({
-      // Initial state
-      ...initialState,
+export const useAuthStore = create<AuthState & AuthActions>()((set) => ({
+  ...initialState,
 
-      // Set full auth state after login/register
-      setAuth: (user, accessToken, refreshToken) =>
-        set({
-          user,
-          accessToken,
-          refreshToken,
-          isAuthenticated: true,
-          isLoading: false,
-        }),
-
-      // Update user profile
-      setUser: (user) => set({ user }),
-
-      // Update tokens (after refresh)
-      setTokens: (accessToken, refreshToken) =>
-        set({
-          accessToken,
-          refreshToken,
-        }),
-
-      // Set loading state
-      setLoading: (isLoading) => set({ isLoading }),
-
-      // Clear all auth state
-      logout: () => set(initialState),
+  setSession: (session) =>
+    set({
+      session,
+      isAuthenticated: !!session,
     }),
-    {
-      name: 'picai-auth', // localStorage key
-      partialize: (state) => ({
-        // Only persist these fields (not isLoading)
-        user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
-        isAuthenticated: state.isAuthenticated,
-      }),
-    }
-  )
-);
 
-// Initialize token accessors for api.ts to avoid circular dependency
-// This runs after the store is created
-initializeTokenAccessors({
-  getAccessToken: () => useAuthStore.getState().accessToken,
-  getRefreshToken: () => useAuthStore.getState().refreshToken,
-  setTokens: (accessToken, refreshToken) =>
-    useAuthStore.getState().setTokens(accessToken, refreshToken),
-  logout: () => useAuthStore.getState().logout(),
-});
+  setUser: (user) => set({ user }),
+
+  setLoading: (isLoading) => set({ isLoading }),
+
+  logout: () =>
+    set({
+      user: null,
+      session: null,
+      isAuthenticated: false,
+      isLoading: false,
+    }),
+}));

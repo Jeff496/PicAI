@@ -1,133 +1,78 @@
 // src/services/auth.ts
-// Authentication API service
-// Handles login, register, refresh, logout, and user profile
+// Authentication service using Supabase Auth
+// Handles login, register, OAuth, logout, and session management
 
-import api from './api';
+import { supabase } from '@/config/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { queryClient } from '@/lib/queryClient';
-import type {
-  LoginRequest,
-  RegisterRequest,
-  AuthResponse,
-  RefreshResponse,
-  MeResponse,
-  LogoutResponse,
-  User,
-} from '@/types/api';
+import type { User } from '@/types/api';
+import api from './api';
+import type { MeResponse } from '@/types/api';
 
 export const authService = {
   /**
-   * Login with email and password
-   * Stores tokens and user in Zustand store
+   * Login with email and password via Supabase
    */
-  async login(credentials: LoginRequest): Promise<User> {
-    useAuthStore.getState().setLoading(true);
-
-    try {
-      const { data } = await api.post<AuthResponse>('/auth/login', credentials);
-      const { user, accessToken, refreshToken } = data;
-
-      // Store in Zustand (automatically persisted to localStorage)
-      useAuthStore.getState().setAuth(user, accessToken, refreshToken);
-
-      return user;
-    } catch (error) {
-      useAuthStore.getState().setLoading(false);
-      throw error;
-    }
-  },
-
-  /**
-   * Register a new user account
-   * Automatically logs in after successful registration
-   */
-  async register(userData: RegisterRequest): Promise<User> {
-    useAuthStore.getState().setLoading(true);
-
-    try {
-      const { data } = await api.post<AuthResponse>('/auth/register', userData);
-      const { user, accessToken, refreshToken } = data;
-
-      // Store in Zustand (automatically persisted to localStorage)
-      useAuthStore.getState().setAuth(user, accessToken, refreshToken);
-
-      return user;
-    } catch (error) {
-      useAuthStore.getState().setLoading(false);
-      throw error;
-    }
-  },
-
-  /**
-   * Refresh access token using refresh token
-   * Called automatically by axios interceptor on 401
-   */
-  async refresh(): Promise<RefreshResponse> {
-    const refreshToken = useAuthStore.getState().refreshToken;
-
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    const { data } = await api.post<RefreshResponse>('/auth/refresh', {
-      refreshToken,
-    });
-
-    // Update tokens in store
-    useAuthStore.getState().setTokens(data.accessToken, data.refreshToken);
-
+  async login(email: string, password: string) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
     return data;
   },
 
   /**
-   * Logout user
-   * Clears local state and optionally notifies server
+   * Register a new user via Supabase
+   * Stores name in user_metadata for auto-create in backend middleware
    */
-  async logout(): Promise<void> {
-    try {
-      // Notify server (optional, JWT is stateless)
-      await api.post<LogoutResponse>('/auth/logout');
-    } catch {
-      // Ignore errors - we're logging out anyway
-    } finally {
-      // Always clear local state and query cache
-      useAuthStore.getState().logout();
-      queryClient.clear();
-    }
+  async register(email: string, password: string, name: string) {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    });
+    if (error) throw error;
+    return data;
   },
 
   /**
-   * Get current user profile
-   * Useful for validating stored session on app load
+   * Sign in with Google OAuth
+   * Redirects to Google, then back to /auth/callback
+   */
+  async loginWithGoogle() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Logout — clears Supabase session, Zustand store, and query cache
+   */
+  async logout() {
+    await supabase.auth.signOut();
+    useAuthStore.getState().logout();
+    queryClient.clear();
+  },
+
+  /**
+   * Fetch the local user profile from backend (/auth/me)
+   * The backend middleware auto-creates the local user record if needed
    */
   async getMe(): Promise<User> {
     const { data } = await api.get<MeResponse>('/auth/me');
-    const { user } = data;
-
-    // Update user in store (in case it changed)
-    useAuthStore.getState().setUser(user);
-
-    return user;
+    return data.user;
   },
 
   /**
-   * Check if user is authenticated
-   * Validates stored tokens by calling /auth/me
+   * Get the current Supabase session (for token access)
    */
-  async validateSession(): Promise<boolean> {
-    const { accessToken, isAuthenticated } = useAuthStore.getState();
-
-    if (!accessToken || !isAuthenticated) {
-      return false;
-    }
-
-    try {
-      await authService.getMe();
-      return true;
-    } catch {
-      // Token invalid or expired, clear state
-      useAuthStore.getState().logout();
-      return false;
-    }
+  async getSession() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session;
   },
 };
