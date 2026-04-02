@@ -26,17 +26,26 @@ function App() {
   }, [theme]);
 
   // Restore Supabase session on page load and listen for auth changes.
-  // Both paths resolve isLoading BEFORE calling getMe() so the UI never
-  // blocks on a backend network request — whichever fires first wins.
+  // In Supabase JS v2.39+, both getSession() and onAuthStateChange wait
+  // for internal init (which may include a token refresh network call).
+  // If that hangs, neither fires. A safety timeout guarantees isLoading
+  // resolves so the user is never stuck on a spinner.
   useEffect(() => {
-    // 1. onAuthStateChange fires INITIAL_SESSION once init completes.
-    //    In Supabase JS v2.39+ this is the most reliable way to get the
-    //    initial session (getSession() can hang waiting for the same init).
+    let loadingResolved = false;
+
+    const resolveLoading = (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+      if (!loadingResolved) {
+        loadingResolved = true;
+        useAuthStore.getState().setSession(session);
+        useAuthStore.getState().setLoading(false);
+      }
+    };
+
+    // 1. onAuthStateChange fires INITIAL_SESSION once Supabase init completes.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      useAuthStore.getState().setSession(session);
-      useAuthStore.getState().setLoading(false);
+      resolveLoading(session);
 
       if (session) {
         try {
@@ -50,16 +59,24 @@ function App() {
       }
     });
 
-    // 2. Fallback: if onAuthStateChange hasn't resolved loading by the time
-    //    getSession completes, resolve it here.
+    // 2. getSession() fallback — may resolve before onAuthStateChange.
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (useAuthStore.getState().isLoading) {
-        useAuthStore.getState().setSession(session);
-        useAuthStore.getState().setLoading(false);
-      }
+      resolveLoading(session);
     });
 
-    return () => subscription.unsubscribe();
+    // 3. Safety timeout — if Supabase init hangs (token refresh stall,
+    //    navigator.locks deadlock, etc.), resolve loading after 3s so
+    //    the user is never stuck on a spinner.
+    const timeout = setTimeout(() => {
+      if (useAuthStore.getState().isLoading) {
+        useAuthStore.getState().setLoading(false);
+      }
+    }, 3000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   return (
