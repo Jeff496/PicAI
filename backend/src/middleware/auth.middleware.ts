@@ -5,6 +5,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { supabase } from '../config/supabase.js';
 import prisma from '../prisma/client.js';
+import logger from '../utils/logger.js';
 
 /**
  * Authentication middleware for Supabase JWT verification
@@ -12,9 +13,8 @@ import prisma from '../prisma/client.js';
  * Workflow:
  * 1. Extracts Bearer token from Authorization header
  * 2. Verifies token via supabase.auth.getUser() (network call, catches revoked tokens)
- * 3. Looks up local user in database by Supabase user ID
- * 4. Auto-creates local user record if not found (first OAuth login)
- * 5. Attaches user object to req.user
+ * 3. Looks up or auto-creates local user record by Supabase user ID
+ * 4. Attaches user object to req.user
  */
 export const authenticateJWT = async (
   req: Request,
@@ -34,10 +34,23 @@ export const authenticateJWT = async (
 
   const token = authHeader.substring(7);
 
-  const {
-    data: { user: supabaseUser },
-    error,
-  } = await supabase.auth.getUser(token);
+  let supabaseUser;
+  let error;
+
+  try {
+    ({ data: { user: supabaseUser }, error } = await supabase.auth.getUser(token));
+  } catch (e) {
+    logger.error('Supabase token verification failed', {
+      error: e instanceof Error ? e.message : 'Unknown error',
+      requestId: req.id,
+    });
+    res.status(503).json({
+      success: false,
+      error: 'Authentication service temporarily unavailable',
+      code: 'AUTH_SERVICE_UNAVAILABLE',
+    });
+    return;
+  }
 
   if (error || !supabaseUser) {
     res.status(401).json({
@@ -48,19 +61,17 @@ export const authenticateJWT = async (
     return;
   }
 
-  // Look up local user by Supabase ID
-  let user = await prisma.user.findUnique({ where: { id: supabaseUser.id } });
-
-  if (!user) {
-    // Auto-create local user on first authenticated request (e.g. first OAuth login)
-    user = await prisma.user.create({
-      data: {
-        id: supabaseUser.id,
-        email: supabaseUser.email!,
-        name: supabaseUser.user_metadata?.name || supabaseUser.email!.split('@')[0],
-      },
-    });
-  }
+  // Upsert local user — handles first OAuth login and avoids race conditions
+  // when concurrent requests arrive for a new user
+  const user = await prisma.user.upsert({
+    where: { id: supabaseUser.id },
+    update: {},
+    create: {
+      id: supabaseUser.id,
+      email: supabaseUser.email!,
+      name: supabaseUser.user_metadata?.name || supabaseUser.email!.split('@')[0],
+    },
+  });
 
   req.user = user;
   next();
