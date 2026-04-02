@@ -392,7 +392,7 @@ export function GroupDetailPage() {
                   Upload photos to share them with the group.
                 </p>
                 <button
-                  onClick={() => setShowUpload(true)}
+                  onClick={() => setUploadMode('standard')}
                   className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
                 >
                   Upload Photos
