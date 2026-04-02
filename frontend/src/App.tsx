@@ -33,19 +33,21 @@ function App() {
   useEffect(() => {
     let loadingResolved = false;
 
-    const resolveLoading = (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+    const resolveLoadingOnce = () => {
       if (!loadingResolved) {
         loadingResolved = true;
-        useAuthStore.getState().setSession(session);
         useAuthStore.getState().setLoading(false);
       }
     };
 
-    // 1. onAuthStateChange fires INITIAL_SESSION once Supabase init completes.
+    // 1. onAuthStateChange fires for every auth event (INITIAL_SESSION,
+    //    TOKEN_REFRESHED, SIGNED_IN, SIGNED_OUT, etc.). Always update the
+    //    session so token refreshes and sign-outs propagate to the store.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      resolveLoading(session);
+      useAuthStore.getState().setSession(session);
+      resolveLoadingOnce();
 
       if (session) {
         try {
@@ -61,7 +63,8 @@ function App() {
 
     // 2. getSession() fallback — may resolve before onAuthStateChange.
     supabase.auth.getSession().then(({ data: { session } }) => {
-      resolveLoading(session);
+      useAuthStore.getState().setSession(session);
+      resolveLoadingOnce();
     });
 
     // 3. Safety timeout — if Supabase init hangs (token refresh stall,
