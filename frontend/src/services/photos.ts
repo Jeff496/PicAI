@@ -52,6 +52,7 @@ export interface BulkUploadResult {
  */
 function calculateBatches(files: File[]): File[][] {
   const MAX_BATCH_BYTES = 75 * 1024 * 1024; // 75MB (100MB limit with 25% margin)
+  const MAX_BATCH_FILES = 10; // Backend multer limit
   const OVERHEAD_PER_FILE = 200 * 1024; // ~200KB multipart overhead
 
   const batches: File[][] = [];
@@ -61,7 +62,7 @@ function calculateBatches(files: File[]): File[][] {
   for (const file of files) {
     const fileTotal = file.size + OVERHEAD_PER_FILE;
 
-    if (currentBatch.length > 0 && currentBatchSize + fileTotal > MAX_BATCH_BYTES) {
+    if (currentBatch.length > 0 && (currentBatchSize + fileTotal > MAX_BATCH_BYTES || currentBatch.length >= MAX_BATCH_FILES)) {
       batches.push(currentBatch);
       currentBatch = [];
       currentBatchSize = 0;
