@@ -62,7 +62,10 @@ function calculateBatches(files: File[]): File[][] {
   for (const file of files) {
     const fileTotal = file.size + OVERHEAD_PER_FILE;
 
-    if (currentBatch.length > 0 && (currentBatchSize + fileTotal > MAX_BATCH_BYTES || currentBatch.length >= MAX_BATCH_FILES)) {
+    if (
+      currentBatch.length > 0 &&
+      (currentBatchSize + fileTotal > MAX_BATCH_BYTES || currentBatch.length >= MAX_BATCH_FILES)
+    ) {
       batches.push(currentBatch);
       currentBatch = [];
       currentBatchSize = 0;
