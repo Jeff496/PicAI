@@ -1,27 +1,27 @@
 # PicAI
 
-Privacy-focused photo management platform with AI-powered organization and automatic album generation.
+Privacy-focused photo management platform with AI-powered organization and natural language search.
 
 **Production:** https://piclyai.net
 
 ## Overview
 
-PicAI is a web application that helps you organize and share photos using AI. Photos are stored locally on your Raspberry Pi for privacy, while Azure Computer Vision automatically tags and categorizes them. AWS Rekognition provides face detection and recognition for people-based organization. A RAG-powered chatbot lets you search and ask questions about your photo library using natural language. The system creates smart albums based on time periods or content, and allows group photo sharing.
+PicAI is a web application that helps you organize and share photos using AI. Photos are stored locally on your Raspberry Pi for privacy, while Azure Computer Vision automatically tags and categorizes them. AWS Rekognition provides face detection and recognition for people-based organization. A RAG-powered chatbot backed by Supabase pgvector and Amazon Bedrock lets you search and ask questions about your photo library using natural language. Groups enable collaborative photo sharing with role-based access.
 
 ### Key Features
 
 - **Authentication** - Supabase Auth with email/password and Google OAuth
 - **Photo Management** - Drag-and-drop upload with iPhone HEIC support, gallery view
-- **AI Tagging** - Automatic tagging using Azure Computer Vision (objects, scenes, text, people)
+- **Bulk Upload** - High-volume photo transfer (100s/1000s) with concurrent batch uploads, chunked to respect Cloudflare's 100MB proxy limit — no AI processing, for fast import/backup
+- **AI Tagging** - Automatic tagging using Azure Computer Vision (objects, scenes, text)
 - **Face Detection** - AWS Rekognition for face detection, tagging, and recognition
 - **People** - Tag faces to organize photos by person, people browser
 - **Tag Management** - Add, remove, and filter photos by tags
 - **Bulk Operations** - Bulk analyze, detect faces, and delete with real-time SSE progress
 - **Groups** - Create groups, invite members (link or email), role-based access (owner/admin/member)
 - **Group Photos** - Upload photos to groups, group-scoped viewing and operations
-- **AI Chatbot** - RAG-powered chatbot to search and ask questions about your photos in natural language
-- **Smart Upload** - Two-phase upload with real-time SSE progress for AI tagging
-- **Landing Page** - Public landing page with feature showcase
+- **AI Chatbot** - RAG-powered chatbot to search and ask questions about your photos in natural language (Bedrock Claude + pgvector)
+- **Landing Page** - Editorial-style public landing page with feature showcase
 - **Theme** - Light/dark mode with persistent preference
 - **Privacy-first** - Photos stored locally on Raspberry Pi, not in the cloud
 
@@ -58,7 +58,7 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 - AWS Lambda (chat handler + ingest handler)
 - Amazon Bedrock - Claude Haiku 4.5 (LLM responses)
 - Amazon Bedrock - Titan Embeddings V2 (text vectorization)
-- Amazon OpenSearch (k-NN vector search)
+- Supabase pgvector (vector similarity search)
 - Amazon DynamoDB (chat session history)
 - Amazon API Gateway (REST API)
 
@@ -67,28 +67,32 @@ PicAI is a web application that helps you organize and share photos using AI. Ph
 - Azure Static Web Apps (frontend hosting)
 - Azure Computer Vision API (image tagging)
 - AWS Rekognition (face detection/recognition with IAM Roles Anywhere)
-- AWS Bedrock + OpenSearch + DynamoDB (RAG chatbot)
-- Supabase Auth (authentication + Google OAuth)
+- Supabase (pgvector for RAG search + Auth with Google OAuth)
+- AWS Bedrock + DynamoDB (RAG chatbot LLM + session history)
 - Cloudflare Tunnel (secure connectivity)
 - PostgreSQL 18.1 (database)
 
 ## Architecture
 
 ```
-React Frontend (Azure) → Cloudflare Tunnel → Express API (Pi) → PostgreSQL
-                    │                               ↓
-                    │                    Azure Computer Vision (tags)
-                    │                               ↓
-                    │                    AWS Rekognition (faces)
+React Frontend (Azure SWA) → Cloudflare Tunnel → Express API (Pi) → PostgreSQL
+                    │                                   ↓
+                    │                        Azure Computer Vision (tags)
+                    │                                   ↓
+                    │                        AWS Rekognition (faces)
+                    │                                   ↓
+                    │                        ingestService → API Gateway → Lambda (ingest)
+                    │                                                        ↓
+                    │                                              Bedrock Titan (embed)
+                    │                                                        ↓
+                    │                                              Supabase pgvector (store)
                     │
                     └──→ API Gateway → Lambda (chat-handler) → Bedrock Claude (LLM)
-                                                             → OpenSearch (vector search)
+                                                             → Supabase pgvector (search)
                                                              → DynamoDB (chat history)
-                         API Gateway → Lambda (ingest-handler) → Bedrock Titan (embeddings)
-                                                               → OpenSearch (store vectors)
 ```
 
-Photos are stored locally on the Raspberry Pi. The frontend is served from Azure's CDN for fast global access. Cloudflare Tunnel provides secure HTTPS connectivity without exposing the Pi directly to the internet. The RAG chatbot runs entirely on AWS serverless infrastructure for low-latency chat without round-tripping through the Pi.
+Photos are stored locally on the Raspberry Pi. The frontend is served from Azure's CDN for fast global access. Cloudflare Tunnel provides secure HTTPS connectivity without exposing the Pi directly to the internet. When photos are uploaded or analyzed, the backend fires a webhook to the ingest Lambda, which generates Titan embeddings and stores them in Supabase pgvector. The RAG chatbot queries pgvector for relevant photos, then uses Bedrock Claude to generate responses grounded in your photo library.
 
 ## Prerequisites
 
@@ -244,7 +248,7 @@ npm install
 # Preview changes
 npx cdk diff --profile picai-cdk
 
-# Deploy stack (OpenSearch, Lambda, API Gateway, DynamoDB)
+# Deploy stack (Lambda, API Gateway, DynamoDB)
 npx cdk deploy --profile picai-cdk
 
 # Type-check CDK + Lambda code
@@ -335,7 +339,7 @@ PicAI/
 │   │   ├── utils/             # Utilities
 │   │   └── prisma/            # Prisma client
 │   ├── prisma/                # Database schema & migrations
-│   ├── scripts/               # Utility scripts (backfill-ingest.ts)
+│   ├── scripts/               # Utility scripts (backfill-ingest.ts, export scripts)
 │   ├── pki/                   # PKI certificates for AWS (gitignored keys)
 │   ├── storage/               # Photo storage (gitignored)
 │   ├── tests/
@@ -344,13 +348,13 @@ PicAI/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── layout/        # AppLayout, ProtectedRoute
-│   │   │   ├── photos/        # Photo grid, viewer, upload, bulk ops
+│   │   │   ├── photos/        # Photo grid, viewer, upload, bulk upload, bulk ops
 │   │   │   ├── faces/         # Face overlay, tagging popup
 │   │   │   ├── people/        # Person cards and grid
 │   │   │   └── groups/        # Group cards, member list, invite modals
 │   │   ├── pages/             # Landing, Login, Register, Photos, People, Groups, Chat, Invite
 │   │   ├── stores/            # Zustand stores (auth, theme)
-│   │   ├── hooks/             # Custom hooks (photos, faces, groups, chat, bulk progress)
+│   │   ├── hooks/             # Custom hooks (photos, faces, groups, chat, bulk progress/upload)
 │   │   ├── services/          # API services (auth, photos, faces, groups, chat)
 │   │   ├── utils/             # Utility functions
 │   │   └── types/             # TypeScript interfaces
@@ -360,10 +364,18 @@ PicAI/
 │   ├── bin/                   # CDK app entry point
 │   ├── lib/                   # Stack definitions (ChatStack)
 │   ├── lambda/
-│   │   ├── chat-handler/      # RAG chat Lambda (Bedrock Claude + OpenSearch + DynamoDB)
-│   │   └── ingest-handler/    # Photo ingestion Lambda (Titan Embeddings + OpenSearch)
+│   │   ├── chat-handler/      # RAG chat Lambda (Bedrock Claude + pgvector + DynamoDB)
+│   │   └── ingest-handler/    # Photo ingestion Lambda (Titan Embeddings + pgvector)
 │   ├── cdk.json
 │   └── package.json
+├── eval/                      # AI evaluation benchmarks & hyperparameter sweeps
+│   ├── datasets/              # Golden datasets and ground truth
+│   ├── results/               # Benchmark results
+│   ├── tools/                 # Utility scripts
+│   ├── run_baseline.py        # RAG retrieval baseline (P/R/F1)
+│   ├── run_sweep.py           # Hyperparameter grid search
+│   ├── run_tagging_benchmark.py
+│   └── run_alt_tagging.py
 ├── docs/
 ├── CLAUDE.md
 ├── PRD.md
@@ -409,12 +421,11 @@ All services use free tiers:
 | Azure Computer Vision | F0 | $0 |
 | Azure Static Web Apps | Free | $0 |
 | AWS Rekognition | Free (12 mo) | $0 |
-| AWS OpenSearch | Free (12 mo) | $0 |
+| Supabase (pgvector + Auth) | Free | $0 |
 | AWS Lambda | Free tier | $0 |
 | AWS API Gateway | Free tier | $0 |
 | AWS DynamoDB | Free tier | $0 |
 | AWS Bedrock (Claude + Titan) | Pay-per-token | ~$1 |
-| Supabase Auth | Free | $0 |
 | Cloudflare Tunnel | Free | $0 |
 | SendGrid | Free | $0 |
 | Raspberry Pi | Self-hosted | ~$5 (electricity) |
@@ -423,10 +434,10 @@ All services use free tiers:
 **Service Limits:**
 - Azure Computer Vision: 5,000 calls/month, 20/minute
 - AWS Rekognition: 5,000 DetectFaces/month, 1,000 IndexFaces/month (first 12 months)
-- AWS OpenSearch: t3.small.search free for 12 months
 - AWS Lambda: 1M requests/month free
 - AWS API Gateway: 1M calls/month free
 - AWS DynamoDB: 25GB free
+- Supabase: 500MB database, 50K monthly active users (free tier)
 - Azure Static Web Apps: 100GB bandwidth/month
 - SendGrid: 100 emails/day (free tier)
 
@@ -485,11 +496,3 @@ chmod -R 755 backend/storage/
 3. Commit changes using conventional commits (`feat:`, `fix:`, etc.)
 4. Push to branch (`git push origin feature/name`)
 5. Open a Pull Request
-
-## License
-
-MIT License - see LICENSE file for details.
-
----
-
-Built with TypeScript, React, and Express
